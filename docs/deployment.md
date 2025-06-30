@@ -4,7 +4,7 @@
 1. Copy example config files:
    ```sh
    cp config/.env.example config/.env
-   cp config/openapi.example.json config/openapi.json
+   cp config/openapi.json config/openapi.json
    ```
 2. Install dependencies:
    ```sh
