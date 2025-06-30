@@ -131,6 +131,25 @@ docker-compose up --build
 - Logs and errors are output to the console and `server_test.log`
 - For advanced usage or debugging, see `test_mcp_server.py` and `scripts/`
 
+## Testing Docker Container Health
+To test the Docker container and verify it starts correctly, you can use the built-in healthcheck endpoint. This is useful for CI/CD or local validation.
+
+### Example: Run container, check health, then exit
+```sh
+docker-compose up --build &
+CONTAINER_ID=$(docker ps -qf "name=fastmcp-server")
+# Wait for healthcheck to pass (adjust timeout as needed)
+docker inspect --format='{{json .State.Health.Status}}' $CONTAINER_ID
+# Or poll until healthy:
+while [[ $(docker inspect --format='{{json .State.Health.Status}}' $CONTAINER_ID) != '"healthy"' ]]; do sleep 1; done
+# Optionally, test the endpoint directly:
+curl http://localhost:8080/healthz
+# Stop the container after test:
+docker-compose down
+```
+
+The `/healthz` endpoint returns 200 OK if the server is healthy. You can script this in CI to ensure the container is ready before running further tests or deployments.
+
 ---
 
 For more details, see the `docs/` directory.
