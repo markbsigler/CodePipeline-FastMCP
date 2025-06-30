@@ -1,0 +1,1262 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "BMC Compuware ISPW REST API",
+    "description": "REST API for BMC Compuware ISPW (Interactive Source Program Workbench) - a source code management, release automation, and deployment automation tool for mainframe DevOps. The API is hosted in Compuware Enterprise Services (CES) and uses token-based authentication.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "BMC Compuware Support",
+      "url": "https://www.bmc.com/support/"
+    },
+    "license": {
+      "name": "BMC Software License"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://ispw.api.compuware.com",
+      "description": "Production ISPW API Server"
+    },
+    {
+      "url": "https://{cesHost}:{cesPort}",
+      "description": "Custom CES Server",
+      "variables": {
+        "cesHost": {
+          "default": "localhost",
+          "description": "CES Host"
+        },
+        "cesPort": {
+          "default": "2020",
+          "description": "CES Port"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "PersonalAccessToken": []
+    }
+  ],
+  "paths": {
+    "/ispw/{srid}/assignments": {
+      "get": {
+        "tags": ["Assignments"],
+        "summary": "Get assignments",
+        "description": "Retrieve assignments for a specific SRID (System Resource Identifier)",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["DEV", "INT", "ACC", "PRD"]
+            },
+            "description": "Assignment level"
+          },
+          {
+            "name": "assignmentId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Assignment ID filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Assignments"],
+        "summary": "Create assignment",
+        "description": "Create a new assignment",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssignmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Assignment created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Assignment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/assignments/{assignmentId}": {
+      "get": {
+        "tags": ["Assignments"],
+        "summary": "Get assignment details",
+        "description": "Retrieve details for a specific assignment",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Assignment identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Assignment"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/assignments/{assignmentId}/tasks": {
+      "get": {
+        "tags": ["Tasks"],
+        "summary": "Get assignment tasks",
+        "description": "Retrieve tasks for a specific assignment",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Assignment identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/assignments/{assignmentId}/generate": {
+      "post": {
+        "tags": ["Operations"],
+        "summary": "Generate assignment",
+        "description": "Generate code for an assignment",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Assignment identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generate operation initiated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/assignments/{assignmentId}/promote": {
+      "post": {
+        "tags": ["Operations"],
+        "summary": "Promote assignment",
+        "description": "Promote assignment to next level",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Assignment identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Promote operation initiated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/assignments/{assignmentId}/deploy": {
+      "post": {
+        "tags": ["Operations"],
+        "summary": "Deploy assignment",
+        "description": "Deploy assignment to target environment",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Assignment identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deploy operation initiated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/releases": {
+      "get": {
+        "tags": ["Releases"],
+        "summary": "Get releases",
+        "description": "Retrieve releases for a specific SRID",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "releaseId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Release ID filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Releases"],
+        "summary": "Create release",
+        "description": "Create a new release",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReleaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Release created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Release"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/releases/{releaseId}": {
+      "get": {
+        "tags": ["Releases"],
+        "summary": "Get release details",
+        "description": "Retrieve details for a specific release",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Release identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Release"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/releases/{releaseId}/deploy": {
+      "post": {
+        "tags": ["Operations"],
+        "summary": "Deploy release",
+        "description": "Deploy a release",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Release identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployReleaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deploy operation initiated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/sets": {
+      "get": {
+        "tags": ["Sets"],
+        "summary": "Get sets",
+        "description": "Retrieve sets for a specific SRID",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "setId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Set ID filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/sets/{setId}/deploy": {
+      "post": {
+        "tags": ["Operations"],
+        "summary": "Deploy set",
+        "description": "Deploy a set",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "setId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Set identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploySetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deploy operation initiated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/packages": {
+      "get": {
+        "tags": ["Packages"],
+        "summary": "Get packages",
+        "description": "Retrieve packages for a specific SRID",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "packageId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Package ID filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/ispw/{srid}/packages/{packageId}": {
+      "get": {
+        "tags": ["Packages"],
+        "summary": "Get package details",
+        "description": "Retrieve details for a specific package",
+        "parameters": [
+          {
+            "name": "srid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "System Resource Identifier"
+          },
+          {
+            "name": "packageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Package identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Package"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "PersonalAccessToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Personal Access Token for CES authentication. Include the token in the Authorization header as 'Bearer {token}'"
+      }
+    },
+    "schemas": {
+      "Assignment": {
+        "type": "object",
+        "properties": {
+          "assignmentId": {
+            "type": "string",
+            "description": "Assignment identifier"
+          },
+          "description": {
+            "type": "string",
+            "description": "Assignment description"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Assignment owner"
+          },
+          "stream": {
+            "type": "string",
+            "description": "Stream name"
+          },
+          "application": {
+            "type": "string",
+            "description": "Application name"
+          },
+          "level": {
+            "type": "string",
+            "enum": ["DEV", "INT", "ACC", "PRD"],
+            "description": "Assignment level"
+          },
+          "status": {
+            "type": "string",
+            "description": "Assignment status"
+          },
+          "createdDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation date"
+          },
+          "modifiedDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last modified date"
+          }
+        }
+      },
+      "CreateAssignmentRequest": {
+        "type": "object",
+        "required": ["assignmentId", "stream", "application"],
+        "properties": {
+          "assignmentId": {
+            "type": "string",
+            "description": "Assignment identifier"
+          },
+          "description": {
+            "type": "string",
+            "description": "Assignment description"
+          },
+          "stream": {
+            "type": "string",
+            "description": "Stream name"
+          },
+          "application": {
+            "type": "string",
+            "description": "Application name"
+          },
+          "defaultPath": {
+            "type": "string",
+            "description": "Default path for the assignment"
+          }
+        }
+      },
+      "AssignmentListResponse": {
+        "type": "object",
+        "properties": {
+          "assignments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Assignment"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "Total number of assignments"
+          }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Task identifier"
+          },
+          "moduleName": {
+            "type": "string",
+            "description": "Module name"
+          },
+          "moduleType": {
+            "type": "string",
+            "description": "Module type (e.g., COBOL, JCL, COPY)"
+          },
+          "level": {
+            "type": "string",
+            "description": "Task level"
+          },
+          "status": {
+            "type": "string",
+            "description": "Task status"
+          },
+          "userId": {
+            "type": "string",
+            "description": "User ID associated with the task"
+          }
+        }
+      },
+      "TaskListResponse": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "Total number of tasks"
+          }
+        }
+      },
+      "Release": {
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "description": "Release identifier"
+          },
+          "description": {
+            "type": "string",
+            "description": "Release description"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Release owner"
+          },
+          "stream": {
+            "type": "string",
+            "description": "Stream name"
+          },
+          "application": {
+            "type": "string",
+            "description": "Application name"
+          },
+          "status": {
+            "type": "string",
+            "description": "Release status"
+          },
+          "createdDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation date"
+          }
+        }
+      },
+      "CreateReleaseRequest": {
+        "type": "object",
+        "required": ["releaseId", "stream", "application"],
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "description": "Release identifier"
+          },
+          "description": {
+            "type": "string",
+            "description": "Release description"
+          },
+          "stream": {
+            "type": "string",
+            "description": "Stream name"
+          },
+          "application": {
+            "type": "string",
+            "description": "Application name"
+          }
+        }
+      },
+      "ReleaseListResponse": {
+        "type": "object",
+        "properties": {
+          "releases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Release"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "Total number of releases"
+          }
+        }
+      },
+      "Set": {
+        "type": "object",
+        "properties": {
+          "setId": {
+            "type": "string",
+            "description": "Set identifier"
+          },
+          "description": {
+            "type": "string",
+            "description": "Set description"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Set owner"
+          },
+          "application": {
+            "type": "string",
+            "description": "Application name"
+          },
+          "status": {
+            "type": "string",
+            "description": "Set status"
+          }
+        }
+      },
+      "SetListResponse": {
+        "type": "object",
+        "properties": {
+          "sets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Set"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "Total number of sets"
+          }
+        }
+      },
+      "Package": {
+        "type": "object",
+        "properties": {
+          "packageId": {
+            "type": "string",
+            "description": "Package identifier"
+          },
+          "description": {
+            "type": "string",
+            "description": "Package description"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Package owner"
+          },
+          "application": {
+            "type": "string",
+            "description": "Application name"
+          },
+          "status": {
+            "type": "string",
+            "description": "Package status"
+          },
+          "createdDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation date"
+          }
+        }
+      },
+      "PackageListResponse": {
+        "type": "object",
+        "properties": {
+          "packages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Package"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "Total number of packages"
+          }
+        }
+      },
+      "GenerateRequest": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "Target level for generation"
+          },
+          "runtimeConfiguration": {
+            "type": "string",
+            "description": "Runtime configuration"
+          }
+        }
+      },
+      "PromoteRequest": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "Target level for promotion"
+          },
+          "changeType": {
+            "type": "string",
+            "enum": ["S", "I", "E"],
+            "description": "Change type (S=Standard, I=Incidental, E=Emergency)"
+          },
+          "executionStatus": {
+            "type": "string",
+            "description": "Execution status"
+          }
+        }
+      },
+      "DeployRequest": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "Target level for deployment"
+          },
+          "deployImplementationTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Scheduled deployment time"
+          },
+          "deployActive": {
+            "type": "boolean",
+            "description": "Deploy to active libraries"
+          }
+        }
+      },
+      "DeployReleaseRequest": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "Target level for deployment"
+          },
+          "deployImplementationTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Scheduled deployment time"
+          },
+          "deployActive": {
+            "type": "boolean",
+            "description": "Deploy to active libraries"
+          }
+        }
+      },
+      "DeploySetRequest": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "Target level for deployment"
+          },
+          "deployImplementationTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Scheduled deployment time"
+          },
+          "deployActive": {
+            "type": "boolean",
+            "description": "Deploy to active libraries"
+          }
+        }
+      },
+      "OperationResponse": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "description": "Operation identifier"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["STARTED", "IN_PROGRESS", "COMPLETED", "FAILED"],
+            "description": "Operation status"
+          },
+          "message": {
+            "type": "string",
+            "description": "Operation message"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to check operation status"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Operation start time"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Error code"
+              },
+              "message": {
+                "type": "string",
+                "description": "Error message"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Additional error details"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequestError": {
+        "description": "Bad Request - Invalid input parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "Unauthorized - Invalid or missing authentication token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found - Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Assignments",
+      "description": "Operations related to ISPW assignments - containers for related development work"
+    },
+    {
+      "name": "Tasks",
+      "description": "Operations related to ISPW tasks - individual work items within assignments"
+    },
+    {
+      "name": "Releases",
+      "description": "Operations related to ISPW releases - collections of assignments for coordinated deployment"
+    },
+    {
+      "name": "Sets",
+      "description": "Operations related to ISPW sets - collections of components for deployment"
+    },
+    {
+      "name": "Packages",
+      "description": "Operations related to ISPW packages - deployment units"
+    },
+    {
+      "name": "Operations",
+      "description": "ISPW operations like generate, promote, and deploy"
+    }
+  ]
+}
