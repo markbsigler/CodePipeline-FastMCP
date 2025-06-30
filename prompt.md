@@ -8,7 +8,8 @@ Generate a production-ready Python FastMCP server project with the following bes
 - Enforce PEP8, type annotations, and include linting/formatting tools (`black`, `flake8`, `isort`).
 - Provide a multi-stage `Dockerfile` and `docker-compose.yml` with a healthcheck endpoint.
 
-## API and Security
+## API, Transport, and Security
+- Implement Streamable HTTP as the MCP transport (supporting chunked/streamed responses for tool calls).
 - Implement Bearer token authentication and CORS/security headers.
 - Include a `config/openapi.json` file and document how to add endpoints/tools.
 - Add a `/healthz` endpoint for health checks.
@@ -35,7 +36,8 @@ Generate a production-ready Python FastMCP server project with the following bes
 - Provide example OpenAPI spec in `config/openapi.json`.
 - Document how to test the Docker container health and exit after verification.
 - Include example API calls (curl, Python `httpx`).
+- Document and provide examples for streamable HTTP responses (e.g., using `yield`, `StreamingResponse`, or chunked transfer encoding).
 
 ---
 
-**Follow best practices for Python web APIs and containerized deployment.**
+**Follow best practices for Python web APIs and containerized deployment. Ensure all MCP tool calls support streamable HTTP responses.**
