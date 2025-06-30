@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start FastMCP Server",
+      "type": "shell",
+      "command": "npm run dev",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Docker Image",
+      "type": "shell",
+      "command": "docker-compose build",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Docker Compose",
+      "type": "shell",
+      "command": "docker-compose up --build",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}
