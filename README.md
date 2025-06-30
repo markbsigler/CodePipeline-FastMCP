@@ -1,6 +1,9 @@
 # FastMCP OpenAPI Server
 
-A production-ready FastMCP server implementation generated from an OpenAPI/Swagger specification. This server supports real-time streamable HTTP, Bearer token authentication, OpenAPI-based tool generation, and is optimized for Docker deployment.
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/your/repo/actions)
+
+A production-ready FastMCP server implementation generated from an OpenAPI/Swagger specification. This server is written in Python, uses the latest FastMCP (2.x), supports real-time streamable HTTP, Bearer token authentication, OpenAPI-based tool generation, and is optimized for Docker deployment.
 
 ## Features
 - Auto-generates MCP tools from OpenAPI/Swagger specs
@@ -9,68 +12,88 @@ A production-ready FastMCP server implementation generated from an OpenAPI/Swagg
 - Multi-stage Docker build for production
 - Health checks, logging, and monitoring
 - Comprehensive error handling
+- Automated tests with pytest
 
-## Architecture
+## How it Works
+FastMCP reads your OpenAPI 3.x spec from `config/openapi.json` and auto-generates MCP tools for each operationId. When a request is made to a tool, FastMCP routes it to the corresponding OpenAPI endpoint. If no backend is implemented, a 404 is returned by default. To use your own API, replace `config/openapi.json` with your actual OpenAPI spec file.
 
-### System Overview
-```mermaid
-flowchart TD
-    Client-->|HTTP/WebSocket|FastMCP[FastMCP Server]
-    FastMCP-->|OpenAPI Tools|Tools[Generated MCP Tools]
-    FastMCP-->|Auth|Auth[Authentication Middleware]
-    FastMCP-->|Config|Config[OpenAPI & Env Config]
-    FastMCP-->|Docker|Docker[Dockerized Deployment]
+## OpenAPI Spec Requirements
+- Place your OpenAPI 3.x spec in `config/openapi.json` (replacing the example if needed).
+- Each operation must have a unique `operationId`.
+- Only HTTP methods and paths defined in the spec are exposed as tools.
+- Example minimal spec:
+
+```json
+{
+  "openapi": "3.0.0",
+  "info": { "title": "Demo API", "version": "1.0" },
+  "paths": {
+    "/hello": {
+      "get": {
+        "summary": "Say hello",
+        "operationId": "hello_world",
+        "responses": { "200": { "description": "A greeting." } }
+      }
+    }
+  }
+}
 ```
 
-### Authentication Flow
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
-    participant Auth
-    Client->>Server: Request with Bearer Token
-    Server->>Auth: Validate Token
-    Auth-->>Server: Valid/Invalid
-    Server-->>Client: Response/Error
-```
+## Adding a Real Backend
+To implement real logic, add backend handlers in your FastMCP server for each endpoint. See the FastMCP documentation or the `main.py` comments for guidance. Be sure to replace `config/openapi.json` with your actual OpenAPI spec to expose your own API operations as tools.
 
-### Request/Response Flow
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
-    participant Tools
-    Client->>Server: API Request
-    Server->>Tools: Route to MCP Tool
-    Tools-->>Server: Response
-    Server-->>Client: API Response
-```
+## Environment Variables
+- `PORT`: Port to run the server (default: 8080)
+- `API_BASE_URL`: Base URL for HTTP client (default: http://localhost:8080)
+- `MCP_SERVER_URL`: URL for test client (default: http://127.0.0.1:8080/mcp/)
+- Auth and other variables can be set in `.env`
 
-### Docker Deployment
-```mermaid
-flowchart TD
-    Dev[Developer]-->|docker-compose up|Docker[Docker Compose]
-    Docker-->|Builds|Image[Multi-stage Docker Image]
-    Image-->|Runs|Server[FastMCP Server]
-    Server-->|Health|Health[Health Checks]
+## Troubleshooting
+- **404 on tool calls:** No backend is implemented for the endpoint. Add a handler in your server.
+- **Tool not found:** Check your OpenAPI spec for correct `operationId` and path.
+- **Dependency issues:** Ensure you are using Python 3.11+ and have installed all requirements.
+
+## Contributing
+- Fork the repo and create a feature branch.
+- Follow PEP8 and existing code style.
+- Add or update tests for new features.
+- Open a pull request with a clear description.
+
+## Example API Calls
+```sh
+curl -H "Authorization: Bearer <token>" http://localhost:8080/mcp/get_users
+```
+Or in Python:
+```python
+import httpx
+resp = httpx.get("http://localhost:8080/mcp/get_users", headers={"Authorization": "Bearer <token>"})
+print(resp.json())
 ```
 
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+
+- Python 3.11+
 - Docker (for containerized deployment)
 
 ### Setup
 ```sh
-cp config/.env.example config/.env
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt  # or pip install .
 cp config/openapi.example.json config/openapi.json
-npm install
 ```
 
 ### Run Locally
 ```sh
-npm run dev
+python main.py
+```
+
+### Run Automated Tests
+```sh
+./scripts/test.sh
+# or manually:
+pytest
 ```
 
 ### Run with Docker
@@ -79,8 +102,9 @@ docker-compose up --build
 ```
 
 ## Configuration
-- See `config/.env.example` for environment variables
+- See `config/openapi.json` for OpenAPI spec example
 - Place your OpenAPI spec in `config/openapi.json`
+- Environment variables can be set in `.env` (see Dockerfile and scripts for usage)
 
 ## Deployment
 - See `docs/deployment.md` for full deployment guide
@@ -96,9 +120,16 @@ docker-compose up --build
 
 ## Example Usage
 - Load OpenAPI spec: `config/openapi.json`
-- Configure tokens: `config/.env`
-- Start server: `npm run dev` or Docker
+- Configure tokens: `.env` or environment variables
+- Start server: `python main.py` or Docker
 - Make authenticated API calls with Bearer token
+
+## Testing & Troubleshooting
+- The server exposes tools based on your OpenAPI spec, but without a backend implementation, tool calls will return HTTP 404 Not Found by default.
+- The test suite expects and validates this behavior.
+- Run `./scripts/test.sh` to start the server, run tests, and shut down
+- Logs and errors are output to the console and `server_test.log`
+- For advanced usage or debugging, see `test_mcp_server.py` and `scripts/`
 
 ---
 
