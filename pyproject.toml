@@ -1,0 +1,16 @@
+[project]
+name = "fastmcp_openapi_server"
+version = "0.1.0"
+description = "Production-ready FastMCP server implementation using Python, based on OpenAPI."
+authors = ["Your Name <you@example.com>"]
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp",
+    "uvicorn",
+    "pydantic",
+    "python-dotenv",
+    "fastapi"
+]
+
+[tool.uv]
+# Optional: uv tool config
