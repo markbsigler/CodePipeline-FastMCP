@@ -112,11 +112,28 @@ print(resp.json())
 
 ### Local Development Setup
 
+#### Automated Setup (Recommended)
+
 ```bash
 # Clone the repository
 git clone https://github.com/markbsigler/CodePipeline-FastMCP.git
 cd CodePipeline-FastMCP
 
+# Run comprehensive setup script
+./scripts/setup.sh
+```
+
+The setup script will:
+- ✅ Verify Python 3.9+ requirement
+- ✅ Create and configure virtual environment
+- ✅ Install all dependencies from requirements.txt
+- ✅ Copy configuration templates
+- ✅ Install pre-commit hooks
+- ✅ Verify installation integrity
+
+#### Manual Setup
+
+```bash
 # Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
@@ -127,6 +144,9 @@ pip install -r requirements.txt
 # Configure environment (copy and edit)
 cp config/.env.example config/.env
 # Edit config/.env with your BMC AMI DevX Code Pipeline settings
+
+# Install pre-commit hooks (optional)
+pre-commit install
 ```
 
 ### Run FastMCP Server
@@ -158,12 +178,100 @@ docker run -p 8080:8080 -e FASTMCP_SERVER_AUTH=NONE fastmcp-code-pipeline
 
 ### Testing the Server
 
+#### Automated Testing (Recommended)
+
+```bash
+# Run comprehensive test suite
+./scripts/test.sh
+```
+
+The test script provides:
+- ✅ **Automated Server Management**: Starts server, waits for health check, runs tests, cleanup
+- ✅ **Multi-tier Testing**: Unit tests, integration tests, coverage analysis
+- ✅ **Virtual Environment Detection**: Automatically uses .venv/bin/python if available
+- ✅ **Comprehensive Reporting**: Detailed test results and coverage metrics
+- ✅ **Error Diagnostics**: Server logs on test failures
+
+#### Manual Testing
+
 ```bash
 # Check server health
 curl http://localhost:8080/health
 
-# List available MCP tools (requires MCP client)
-# Tools are auto-generated from config/openapi.json
+# Test MCP capabilities endpoint
+curl -X POST http://localhost:8080/mcp/capabilities
+
+# Run specific test categories
+pytest test_mcp_server.py::TestServerConfiguration -v  # Unit tests
+pytest test_mcp_server.py::TestMCPServer -v           # Integration tests
+pytest test_mcp_server.py --cov=main --cov-report=html # Coverage tests
+```
+
+## Development Scripts
+
+The project includes comprehensive automation scripts in the `scripts/` directory:
+
+### setup.sh - Development Environment Setup
+```bash
+./scripts/setup.sh
+```
+
+**Features:**
+- 🐍 **Python Environment**: Creates virtual environment, installs dependencies
+- ⚙️ **Configuration**: Sets up .env files and OpenAPI specifications
+- 🔧 **Development Tools**: Installs pre-commit hooks, creates directories
+- ✅ **Verification**: Tests imports and dependency availability
+- 📋 **Guidance**: Provides next steps and available commands
+
+### test.sh - Comprehensive Testing
+```bash
+./scripts/test.sh
+```
+
+**Features:**
+- 🚀 **Server Management**: Background server startup with health checks
+- 🧪 **Multi-tier Testing**: Unit, integration, and coverage tests
+- 📊 **Detailed Reporting**: Test results summary and coverage metrics
+- 🛡️ **Error Handling**: Automatic cleanup and diagnostic logging
+- ⏱️ **Timeout Protection**: Prevents hanging on server startup failures
+
+### deploy.sh - Production Deployment
+```bash
+./scripts/deploy.sh [compose|docker]
+```
+
+**Features:**
+- 🐳 **Deployment Modes**: Docker Compose (recommended) or plain Docker
+- 💾 **Backup & Rollback**: Automatic image backup with rollback on failure
+- 🏥 **Health Monitoring**: Comprehensive health checks with timeout
+- 🧹 **Cleanup**: Automatic cleanup of old backup images
+- 📋 **Management**: Complete deployment verification and status reporting
+
+### NPM-Style Development Commands
+
+The project provides familiar npm-style commands via `package.json`:
+
+```bash
+# Development workflow
+npm run dev              # Start development server
+npm run test             # Run test suite
+npm run test:coverage    # Run tests with coverage reporting
+npm run test:watch       # Run tests in watch mode
+
+# Code quality
+npm run lint:fix         # Auto-fix code formatting (autoflake + isort + black)
+npm run format           # Format code with black
+npm run style:check      # Check code style without changes
+npm run pre-commit:run   # Run all pre-commit hooks
+
+# Docker operations
+npm run docker:build     # Build Docker image
+npm run docker:up        # Start with docker-compose
+npm run docker:down      # Stop docker containers
+
+# Utilities
+npm run clean            # Clean build artifacts and cache
+npm run health           # Check server health endpoint
 ```
 
 ## MCP Tools Available
