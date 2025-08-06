@@ -1,5 +1,82 @@
-node_modules
-npm-debug.log
-dist
-.env
+# Version control
+.git
+.gitignore
+
+# Documentation
+README.md
+PROMPT.md
+UPDATE_SUMMARY.md
+docs/
+*.md
+
+# Development and testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+test_mcp_server.py
+debug.py
+server_test.log
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+
+# Logs
+*.log
+logs/
+
+# Node.js (development tooling)
+node_modules/
+npm-debug.log
+package-lock.json
+
+# Environment files (use Docker ENV instead)
+.env
+.env.*
+config/.env
+
+# Development scripts
+scripts/
+
+# Coverage and test reports
+htmlcov/
+.coverage
+
+# Git hooks and pre-commit
+.pre-commit-config.yaml
+.git/
+
+# Images and assets (unless needed for app)
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Temporary files
+*.tmp
+*.temp
+commits.txt
+image.png
