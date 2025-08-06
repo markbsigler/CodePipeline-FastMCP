@@ -6,7 +6,7 @@ set -e
 
 # Configuration
 SERVER_LOG=server_test.log
-SERVER_PORT=8080
+SERVER_PORT=${PORT:-8000}  # Use PORT env var or default to 8000 (matches main.py default)
 SERVER_HOST=127.0.0.1
 HEALTH_ENDPOINT="http://${SERVER_HOST}:${SERVER_PORT}/health"
 STARTUP_TIMEOUT=30

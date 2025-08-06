@@ -6,7 +6,9 @@ import httpx
 import pytest
 
 # Configuration
-MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8080")
+# Use PORT environment variable to match the server configuration
+SERVER_PORT = os.getenv("PORT", "8000")  # Default to 8000 to match main.py default
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", f"http://127.0.0.1:{SERVER_PORT}")
 HEALTH_URL = f"{MCP_SERVER_URL}/health"
 MCP_CAPABILITIES_URL = f"{MCP_SERVER_URL}/mcp/capabilities"
 MCP_TOOLS_LIST_URL = f"{MCP_SERVER_URL}/mcp/tools/list"
