@@ -1,33 +1,36 @@
 {
-  "name": "fastmcp-openapi-server",
-  "version": "1.0.0",
-  "description": "Production-ready FastMCP server generated from OpenAPI/Swagger spec.",
-  "main": "src/server.js",
+  "name": "fastmcp-code-pipeline-server",
+  "version": "2.2.0",
+  "description": "FastMCP 2.x server for BMC AMI DevX Code Pipeline with Streamable HTTP transport and JWT authentication",
+  "keywords": ["fastmcp", "mcp", "bmc", "ami", "devx", "code-pipeline", "mainframe", "devops", "streamable-http", "jwt"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bmc-software/fastmcp-code-pipeline-server.git"
+  },
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "lint": "eslint .",
-    "test": "jest"
+    "dev": "python main.py",
+    "start": "python main.py",
+    "test": "python -m pytest",
+    "test:coverage": "pytest --cov=. --cov-report=html --cov-report=term",
+    "test:watch": "pytest -f",
+    "lint": "python -m flake8 *.py",
+    "lint:fix": "python -m autoflake --remove-all-unused-imports --remove-unused-variables --in-place *.py && python -m isort *.py && python -m black *.py",
+    "format": "python -m black *.py",
+    "format:check": "python -m black --check *.py",
+    "imports:fix": "python -m autoflake --remove-all-unused-imports --remove-unused-variables --in-place *.py",
+    "imports:check": "python -m autoflake --check --remove-all-unused-imports --remove-unused-variables *.py",
+    "style:fix": "python -m isort *.py && python -m black *.py",
+    "style:check": "python -m isort --check-only *.py && python -m black --check *.py",
+    "pre-commit:install": "pre-commit install",
+    "pre-commit:run": "pre-commit run --all-files",
+    "clean": "rm -rf __pycache__ .pytest_cache .coverage htmlcov *.pyc",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down",
+    "health": "curl -f http://localhost:8080/health || exit 1"
   },
-  "dependencies": {
-    "@fastmcp/core": "file:../fastmcp-core",
-    "@fastmcp/http": "file:../fastmcp-http",
-    "@fastmcp/tools": "file:../fastmcp-tools",
-    "ajv": "^8.17.1",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "helmet": "^7.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.0",
-    "openapi-types": "^12.0.2",
-    "swagger-parser": "^10.0.2"
-  },
-  "devDependencies": {
-    "eslint": "^8.57.0",
-    "jest": "^30.0.0",
-    "nodemon": "^3.1.0"
-  },
-  "author": "",
-  "license": "MIT"
+  "engines": {
+    "python": ">=3.9.0"
+  }
 }
