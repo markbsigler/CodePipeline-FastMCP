@@ -1,0 +1,25 @@
+{
+  "client_id": "${OAUTH_CLIENT_ID}",
+  "client_secret": "${OAUTH_CLIENT_SECRET}",
+  "authorization_endpoint": "https://auth.bmc.com/oauth2/authorize",
+  "token_endpoint": "https://auth.bmc.com/oauth2/token",
+  "introspection_endpoint": "https://auth.bmc.com/oauth2/introspect",
+  "revocation_endpoint": "https://auth.bmc.com/oauth2/revoke",
+  "redirect_uri": "http://localhost:8080/oauth/callback",
+  "scope": [
+    "code-pipeline.read",
+    "code-pipeline.write",
+    "assignments.manage",
+    "releases.manage"
+  ],
+  "response_type": "code",
+  "grant_type": "authorization_code",
+  "code_challenge_method": "S256",
+  "token_endpoint_auth_method": "client_secret_basic",
+  "pkce_required": true,
+  "refresh_token_rotation": true,
+  "access_token_lifetime": 3600,
+  "refresh_token_lifetime": 86400,
+  "issuer": "https://auth.bmc.com",
+  "jwks_uri": "https://auth.bmc.com/.well-known/jwks.json"
+}

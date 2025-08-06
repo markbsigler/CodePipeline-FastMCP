@@ -1,0 +1,14 @@
+4fc4de4 refactor: Align with FastMCP 2.x standards and best practices
+e212cf7 feat: refactor project to support WebSocket transport and OAuth 2.1 authentication
+5021e7f feat: align prompt.md with project objectives and update to BMC AMI DevX Code Pipeline
+7340df0 update pkg
+a90a9ff update OpenAPI to use CodePipeline json spec
+35faba3 docs: clarify Streamable HTTP as required MCP transport in project prompt
+4afc19a chore: update project prompt to markdown with best practices for FastMCP Python server
+621d29c docs: add Mermaid diagrams for auth, OpenAPI flow, and container architecture
+d664f6e docs: add Docker healthcheck and exit instructions to README
+1956225 docs: clarify OpenAPI spec replacement and backend implementation instructions
+a92ffe3 feat: scaffold FastMCP OpenAPI server with automatic tool/resource generation and route mapping
+8269bb2 The prompt text that was used to scaffold this project
+d1ad5c2 Initial FastMCP OpenAPI server scaffold with config, scripts, and docs
+51efe6b Initial commit

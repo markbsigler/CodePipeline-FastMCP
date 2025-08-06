@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  fastmcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: fastmcp-code-pipeline-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"  # FastMCP Streamable HTTP
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - LOG_LEVEL=INFO
+      - API_BASE_URL=https://devx.bmc.com/code-pipeline/api/v1
+      # FastMCP Authentication (configure based on your setup)
+      - FASTMCP_SERVER_AUTH=${FASTMCP_SERVER_AUTH:-NONE}
+      - FASTMCP_SERVER_AUTH_JWT_JWKS_URI=${FASTMCP_SERVER_AUTH_JWT_JWKS_URI}
+      - FASTMCP_SERVER_AUTH_JWT_ISSUER=${FASTMCP_SERVER_AUTH_JWT_ISSUER}
+      - FASTMCP_SERVER_AUTH_JWT_AUDIENCE=${FASTMCP_SERVER_AUTH_JWT_AUDIENCE}
+      # BMC AMI DevX Code Pipeline specific
+      - BMC_AMI_DEVX_ENVIRONMENT=${BMC_AMI_DEVX_ENVIRONMENT:-production}
+      - BMC_AMI_DEVX_TIMEOUT=${BMC_AMI_DEVX_TIMEOUT:-30}
+    volumes:
+      - ./config:/app/config:ro
+    networks:
+      - fastmcp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fastmcp.rule=Host(`fastmcp.local`)"
+      - "traefik.http.services.fastmcp.loadbalancer.server.port=8080"
+
+networks:
+  fastmcp-network:
+    driver: bridge
+
+# Optional: For development with hot reload
+# Uncomment the development service for local development
+# development:
+#   build:
+#     context: .
+#     dockerfile: Dockerfile
+#     target: builder
+#   container_name: fastmcp-dev
+#   volumes:
+#     - .:/app
+#     - /app/__pycache__
+#   ports:
+#     - "8080:8080"
+#   environment:
+#     - FASTMCP_SERVER_AUTH=NONE
+#     - LOG_LEVEL=DEBUG
+#   command: ["python", "-u", "main.py"]
+#   networks:
+#     - fastmcp-network

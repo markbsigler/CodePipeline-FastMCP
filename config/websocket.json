@@ -1,0 +1,60 @@
+{
+  "host": "0.0.0.0",
+  "port": 8081,
+  "path": "/ws",
+  "ping_interval": 20,
+  "ping_timeout": 10,
+  "close_timeout": 10,
+  "max_size": 1048576,
+  "max_queue": 32,
+  "compression": "deflate",
+  "heartbeat_interval": 30,
+  "reconnect": {
+    "enabled": true,
+    "max_attempts": 5,
+    "initial_delay": 1,
+    "max_delay": 30,
+    "backoff_factor": 2,
+    "jitter": true
+  },
+  "connection_limits": {
+    "max_connections": 100,
+    "max_connections_per_ip": 10,
+    "rate_limit": {
+      "messages_per_minute": 60,
+      "burst_limit": 10
+    }
+  },
+  "message_types": {
+    "heartbeat": "ping",
+    "authentication": "auth",
+    "mcp_request": "mcp",
+    "stream_data": "stream",
+    "error": "error"
+  },
+  "streaming": {
+    "chunk_size": 4096,
+    "buffer_size": 65536,
+    "compression_threshold": 1024,
+    "progress_updates": true,
+    "progress_interval": 1.0
+  },
+  "security": {
+    "require_auth": true,
+    "validate_origin": true,
+    "allowed_origins": [
+      "http://localhost:3000",
+      "http://localhost:8080",
+      "https://*.bmc.com"
+    ],
+    "csrf_protection": true,
+    "rate_limiting": true
+  },
+  "logging": {
+    "level": "INFO",
+    "log_connections": true,
+    "log_messages": false,
+    "log_errors": true,
+    "log_performance": true
+  }
+}
