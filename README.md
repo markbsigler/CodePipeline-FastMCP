@@ -1,52 +1,84 @@
-# FastMCP OpenAPI Server
-
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/your/repo/actions)
+[![FastMCP](https://img.shields.io/badge/FastMCP-2.11.0%2B-green)](https://gofastmcp.com/)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/markbsigler/CodePipeline-FastMCP/actions)
 
-A production-ready FastMCP server implementation generated from an OpenAPI/Swagger specification. This server is written in Python, uses the latest FastMCP (2.x), supports real-time streamable HTTP, Bearer token authentication, OpenAPI-based tool generation, and is optimized for Docker deployment.
+A **FastMCP 2.x standards-compliant** Model Context Protocol (MCP) server for **BMC AMI DevX Code Pipeline** mainframe DevOps operations. This server follows official FastMCP best practices, uses built-in authentication providers, and implements Streamable HTTP transport for real-time capabilities.
 
 ## Features
-- Auto-generates MCP tools from OpenAPI/Swagger specs
-- Streamable HTTP endpoints
-- Bearer token & API key authentication
-- Multi-stage Docker build for production
-- Health checks, logging, and monitoring
-- Comprehensive error handling
-- Automated tests with pytest
+
+### FastMCP 2.x Compliance
+- ✅ **Built-in Authentication**: JWT verification using FastMCP's `JWTVerifier`
+- ✅ **Streamable HTTP Transport**: FastMCP's recommended transport protocol
+- ✅ **OpenAPI Integration**: Auto-generates MCP tools from BMC AMI DevX Code Pipeline API spec
+- ✅ **Standards Compliance**: Follows `FASTMCP_` environment variable conventions
+- ✅ **Production Ready**: Health checks, logging, and Docker deployment
+
+### BMC AMI DevX Code Pipeline Integration
+- **Assignment Management**: Create, list, update, and track mainframe assignments
+- **Release Operations**: Manage release lifecycles and promotions
+- **Source Code Management**: Handle COBOL, PL/I, and other mainframe source code
+- **Real-time Updates**: Streaming build and deployment status via FastMCP
+- **Mainframe DevOps**: Complete CI/CD pipeline integration
 
 ## How it Works
-FastMCP reads your OpenAPI 3.x spec from `config/openapi.json` and auto-generates MCP tools for each operationId. When a request is made to a tool, FastMCP routes it to the corresponding OpenAPI endpoint. If no backend is implemented, a 404 is returned by default. To use your own API, replace `config/openapi.json` with your actual OpenAPI spec file.
 
-## OpenAPI Spec Requirements
-- Place your OpenAPI 3.x spec in `config/openapi.json` (replacing the example if needed).
-- Each operation must have a unique `operationId`.
-- Only HTTP methods and paths defined in the spec are exposed as tools.
-- Example minimal spec:
+FastMCP reads the BMC AMI DevX Code Pipeline OpenAPI 3.x specification from `config/openapi.json` and auto-generates MCP tools for each operation. The server uses FastMCP's built-in Streamable HTTP transport to provide real-time capabilities and JWT authentication for enterprise security.
 
-```json
-{
-  "openapi": "3.0.0",
-  "info": { "title": "Demo API", "version": "1.0" },
-  "paths": {
-    "/hello": {
-      "get": {
-        "summary": "Say hello",
-        "operationId": "hello_world",
-        "responses": { "200": { "description": "A greeting." } }
-      }
-    }
-  }
-}
+```mermaid
+flowchart TD
+    A[AI Assistant] -->|MCP Protocol| B[FastMCP Server]
+    B -->|JWT Auth| C[BMC AMI DevX API]
+    B -->|OpenAPI Spec| D[Auto-generated Tools]
+    C -->|Mainframe Operations| E[COBOL/PL1 Source]
+    C -->|Release Management| F[Deployment Pipeline]
+    C -->|Assignment Tracking| G[DevOps Workflow]
 ```
 
-## Adding a Real Backend
-To implement real logic, add backend handlers in your FastMCP server for each endpoint. See the FastMCP documentation or the `main.py` comments for guidance. Be sure to replace `config/openapi.json` with your actual OpenAPI spec to expose your own API operations as tools.
+## BMC AMI DevX Code Pipeline OpenAPI Specification
 
-## Environment Variables
-- `PORT`: Port to run the server (default: 8080)
-- `API_BASE_URL`: Base URL for HTTP client (default: http://localhost:8080)
-- `MCP_SERVER_URL`: URL for test client (default: http://127.0.0.1:8080/mcp/)
-- Auth and other variables can be set in `.env`
+The server uses the BMC AMI DevX Code Pipeline OpenAPI 3.x specification located in `config/openapi.json`. This spec defines mainframe DevOps operations including:
+
+- **Assignment Operations**: Create, list, update assignments for mainframe development
+- **Release Management**: Manage release lifecycles, promotions, and deployments
+- **Source Code Operations**: Handle COBOL, PL/I, JCL, and other mainframe source files
+- **Build Operations**: Trigger and monitor mainframe compilation and builds
+- **Deployment Operations**: Deploy applications to mainframe environments
+
+### OpenAPI Requirements
+
+- Each operation must have a unique `operationId`
+- Operations are auto-mapped to MCP tools (e.g., `createAssignment` → `create_assignment`)
+- Authentication headers are handled automatically by FastMCP's JWT verifier
+- Real-time operations use FastMCP's Streamable HTTP for progress updates
+
+## Environment Configuration
+
+The server follows FastMCP 2.x environment variable standards with the `FASTMCP_` prefix:
+
+### FastMCP Authentication (Production)
+```bash
+# JWT Authentication (recommended)
+FASTMCP_SERVER_AUTH=JWT
+FASTMCP_SERVER_AUTH_JWT_JWKS_URI=https://auth.bmc.com/.well-known/jwks.json
+FASTMCP_SERVER_AUTH_JWT_ISSUER=https://auth.bmc.com/
+FASTMCP_SERVER_AUTH_JWT_AUDIENCE=bmc-ami-devx-code-pipeline
+```
+
+### Server Configuration
+```bash
+HOST=127.0.0.1
+PORT=8080
+LOG_LEVEL=INFO
+API_BASE_URL=https://devx.bmc.com/code-pipeline/api/v1
+```
+
+### BMC AMI DevX Code Pipeline Specific
+```bash
+BMC_AMI_DEVX_ENVIRONMENT=production
+BMC_AMI_DEVX_TIMEOUT=30
+BMC_AMI_DEVX_RETRY_ATTEMPTS=3
+BMC_AMI_DEVX_MAX_CONCURRENT_REQUESTS=10
+```
 
 ## Troubleshooting
 - **404 on tool calls:** No backend is implemented for the endpoint. Add a handler in your server.
@@ -73,128 +105,203 @@ print(resp.json())
 ## Quick Start
 
 ### Prerequisites
+
 - Python 3.11+
 - Docker (for containerized deployment)
+- BMC AMI DevX Code Pipeline access (for production use)
 
-### Setup
-```sh
+### Local Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/markbsigler/CodePipeline-FastMCP.git
+cd CodePipeline-FastMCP
+
+# Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt  # or pip install .
-cp config/openapi.example.json config/openapi.json
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment (copy and edit)
+cp config/.env.example config/.env
+# Edit config/.env with your BMC AMI DevX Code Pipeline settings
 ```
 
-### Run Locally
-```sh
+### Run FastMCP Server
+
+```bash
+# Development mode (no authentication)
+FASTMCP_SERVER_AUTH=NONE python main.py
+
+# Production mode (with JWT authentication)
 python main.py
 ```
 
-### Run Automated Tests
-```sh
-./scripts/test.sh
-# or manually:
-pytest
-```
+The server will start on `http://localhost:8080` with the following endpoints:
 
-### Run with Docker
-```sh
+- **MCP Endpoint**: `http://localhost:8080/mcp/` (Streamable HTTP transport)
+- **Health Check**: `http://localhost:8080/health`
+- **Available Tools**: Auto-generated from BMC AMI DevX Code Pipeline OpenAPI spec
+
+### Docker Deployment
+
+```bash
+# Build and run with Docker Compose
 docker-compose up --build
+
+# Or build Docker image manually
+docker build -t fastmcp-code-pipeline .
+docker run -p 8080:8080 -e FASTMCP_SERVER_AUTH=NONE fastmcp-code-pipeline
 ```
 
-## Configuration
-- See `config/openapi.json` for OpenAPI spec example
-- Place your OpenAPI spec in `config/openapi.json`
-- Environment variables can be set in `.env` (see Dockerfile and scripts for usage)
+### Testing the Server
 
-## Deployment
-- See `docs/deployment.md` for full deployment guide
+```bash
+# Check server health
+curl http://localhost:8080/health
 
-## API Documentation
-- See `docs/api-reference.md` for auto-generated API docs
-
-## Security
-- Bearer token validation
-- API key management
-- CORS & security headers
-- Audit logging
-
-## Example Usage
-- Load OpenAPI spec: `config/openapi.json`
-- Configure tokens: `.env` or environment variables
-- Start server: `python main.py` or Docker
-- Make authenticated API calls with Bearer token
-
-## Testing & Troubleshooting
-- The server exposes tools based on your OpenAPI spec, but without a backend implementation, tool calls will return HTTP 404 Not Found by default.
-- The test suite expects and validates this behavior.
-- Run `./scripts/test.sh` to start the server, run tests, and shut down
-- Logs and errors are output to the console and `server_test.log`
-- For advanced usage or debugging, see `test_mcp_server.py` and `scripts/`
-
-## Testing Docker Container Health
-To test the Docker container and verify it starts correctly, you can use the built-in healthcheck endpoint. This is useful for CI/CD or local validation.
-
-### Example: Run container, check health, then exit
-```sh
-docker-compose up --build &
-CONTAINER_ID=$(docker ps -qf "name=fastmcp-server")
-# Wait for healthcheck to pass (adjust timeout as needed)
-docker inspect --format='{{json .State.Health.Status}}' $CONTAINER_ID
-# Or poll until healthy:
-while [[ $(docker inspect --format='{{json .State.Health.Status}}' $CONTAINER_ID) != '"healthy"' ]]; do sleep 1; done
-# Optionally, test the endpoint directly:
-curl http://localhost:8080/healthz
-# Stop the container after test:
-docker-compose down
+# List available MCP tools (requires MCP client)
+# Tools are auto-generated from config/openapi.json
 ```
 
-The `/healthz` endpoint returns 200 OK if the server is healthy. You can script this in CI to ensure the container is ready before running further tests or deployments.
+## MCP Tools Available
 
----
+The server auto-generates MCP tools from the BMC AMI DevX Code Pipeline OpenAPI specification:
 
-For more details, see the `docs/` directory.
+### Assignment Management Tools
+- `create_assignment` - Create new mainframe development assignments
+- `list_assignments` - List user assignments with filtering
+- `get_assignment_details` - Get detailed assignment information
+- `update_assignment_status` - Update assignment progress and status
 
-## Architecture Diagrams (Mermaid)
+### Release Management Tools
+- `create_release` - Create new release for deployment
+- `promote_release` - Promote release through lifecycle stages
+- `list_releases` - List available releases with status
+- `get_release_status` - Get detailed release information
 
-### Authentication with Bearer Token
+### Source Code Management Tools
+- `list_programs` - List programs in assignment or release
+- `get_program_content` - Retrieve COBOL, PL/I, JCL source code
+- `update_program` - Update source code with version control
+- `generate_program` - AI-assisted code generation
+
+### Build and Deployment Tools
+- `trigger_build` - Start mainframe compilation and build
+- `get_build_status` - Monitor build progress in real-time
+- `deploy_application` - Deploy to mainframe environments
+- `get_deployment_status` - Track deployment progress
+
+## Security and Authentication
+
+The server implements enterprise-grade security following FastMCP 2.x standards:
+
+- **JWT Authentication**: Using FastMCP's built-in `JWTVerifier`
+- **JWKS Support**: Automatic key rotation and validation
+- **Token Introspection**: Remote token validation support
+- **Environment-based Config**: Secure configuration management
+- **HTTPS Support**: TLS termination via reverse proxy
+
+## Production Deployment
+
+For production deployment with BMC AMI DevX Code Pipeline:
+
+1. **Configure JWT Authentication**: Set up JWKS URI and issuer
+2. **Set API Base URL**: Point to your BMC AMI DevX Code Pipeline instance
+3. **Deploy with Docker**: Use provided Docker Compose configuration
+4. **Monitor Health**: Use `/health` endpoint for monitoring
+5. **Configure Logging**: Set appropriate log levels for production
+
+## Troubleshooting
+
+### Common Issues
+
+- **Authentication Errors**: Verify JWT configuration and JWKS URI accessibility
+- **Connection Issues**: Check API_BASE_URL and network connectivity to BMC AMI DevX
+- **Tool Not Found**: Verify OpenAPI spec contains required operationId
+- **Performance Issues**: Adjust timeout and retry settings for mainframe operations
+
+### Debug Mode
+
+```bash
+# Enable debug logging
+LOG_LEVEL=DEBUG python main.py
+
+# Disable authentication for testing
+FASTMCP_SERVER_AUTH=NONE python main.py
+```
+
+## Architecture Diagrams
+
+### FastMCP Authentication Flow
+
 ```mermaid
 sequenceDiagram
-    participant Client
-    participant Server
-    participant Auth
-    Client->>Server: HTTP request with Authorization: Bearer <token>
-    Server->>Auth: Validate token
-    Auth-->>Server: Token valid/invalid
-    alt valid
-        Server-->>Client: 200 OK / API response
-    else invalid
-        Server-->>Client: 401 Unauthorized
+    participant Client as AI Assistant
+    participant Server as FastMCP Server
+    participant Auth as JWT Verifier
+    participant API as BMC AMI DevX API
+
+    Client->>Server: MCP Request with JWT
+    Server->>Auth: Validate JWT Token
+    Auth->>Auth: Check JWKS & Claims
+    Auth-->>Server: Token Valid/Invalid
+    alt Token Valid
+        Server->>API: API Request with Auth
+        API-->>Server: BMC AMI DevX Response
+        Server-->>Client: MCP Tool Result
+    else Token Invalid
+        Server-->>Client: Authentication Error
     end
 ```
 
-### OpenAPI Endpoints Flow
+### BMC AMI DevX Code Pipeline Integration
+
 ```mermaid
 sequenceDiagram
-    participant Client
-    participant FastMCP_Server
-    participant Backend
-    Client->>FastMCP_Server: Call /mcp/<operationId>
-    FastMCP_Server->>FastMCP_Server: Lookup operationId in openapi.json
-    alt Backend implemented
-        FastMCP_Server->>Backend: Forward request
-        Backend-->>FastMCP_Server: Response
-        FastMCP_Server-->>Client: Response
-    else Not implemented
-        FastMCP_Server-->>Client: 404 Not Found
-    end
+    participant AI as AI Assistant
+    participant MCP as FastMCP Server
+    participant BMC as BMC AMI DevX API
+    participant Mainframe as Mainframe System
+
+    AI->>MCP: create_assignment(name, description)
+    MCP->>BMC: POST /assignments
+    BMC->>Mainframe: Create Assignment
+    Mainframe-->>BMC: Assignment Created
+    BMC-->>MCP: Assignment Details
+    MCP-->>AI: Assignment Created Successfully
+
+    AI->>MCP: get_build_status(assignmentId)
+    MCP->>BMC: GET /assignments/{id}/builds
+    BMC->>Mainframe: Check Build Status
+    Mainframe-->>BMC: Build Progress
+    BMC-->>MCP: Streaming Build Status
+    MCP-->>AI: Real-time Build Updates
 ```
 
-### Container Deployment Overview
+### Container Architecture
+
 ```mermaid
-flowchart TD
-    A[Client] -->|HTTP/API| B(FastMCP Docker Container)
-    B -->|Reads| C[openapi.json]
-    B -->|Validates| D[Bearer Token]
-    B -->|Forwards| E[Backend Handlers]
-    B -->|Logs| F[logs/]
+flowchart TB
+    subgraph "Docker Container"
+        FastMCP[FastMCP Server<br/>Python 3.11]
+        Config[config/openapi.json<br/>BMC AMI DevX Spec]
+        Health[/health endpoint]
+    end
+
+    subgraph "External Systems"
+        AI[AI Assistant<br/>MCP Client]
+        JWT[JWT Provider<br/>JWKS Endpoint]
+        BMC[BMC AMI DevX<br/>Code Pipeline API]
+        Mainframe[Mainframe<br/>COBOL/PL1/JCL]
+    end
+
+    AI -->|MCP Protocol| FastMCP
+    FastMCP -->|JWT Validation| JWT
+    FastMCP -->|API Requests| BMC
+    BMC -->|DevOps Operations| Mainframe
+    FastMCP -->|Health Check| Health
+    Config -->|OpenAPI Spec| FastMCP
 ```
