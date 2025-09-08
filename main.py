@@ -40,11 +40,16 @@ class Settings(BaseModel):
     # OpenAPI specification path
     openapi_spec_path: str = Field(default="config/openapi.json")
     
-    model_config = ConfigDict(env_file=".env")
+    model_config = ConfigDict(env_file=".env", extra="ignore")
 
 
 # Global settings instance
 settings = Settings()
+
+def get_settings() -> Settings:
+    """Get settings instance, reloading from environment if needed."""
+    # Create a new Settings instance which will pick up current environment variables
+    return Settings()
 
 
 # Input validation functions
@@ -134,35 +139,38 @@ def retry_on_failure(max_retries: int = 3, delay: float = 1.0):
     return decorator
 
 
-def create_auth_provider():
+def create_auth_provider(settings_instance: Optional[Settings] = None):
     """Create FastMCP authentication provider based on settings."""
-    if not settings.auth_enabled or not settings.auth_provider:
+    if settings_instance is None:
+        settings_instance = settings
+    
+    if not settings_instance.auth_enabled or not settings_instance.auth_provider:
         return None
     
     try:
         # Import the authentication provider dynamically
-        module_path, class_name = settings.auth_provider.rsplit('.', 1)
+        module_path, class_name = settings_instance.auth_provider.rsplit('.', 1)
         module = __import__(module_path, fromlist=[class_name])
         provider_class = getattr(module, class_name)
         
         # Configure provider based on type
-        if "JWTVerifier" in settings.auth_provider:
+        if "JWTVerifier" in settings_instance.auth_provider:
             return provider_class(
-                jwks_uri=settings.auth_jwks_uri,
-                issuer=settings.auth_issuer,
-                audience=settings.auth_audience
+                jwks_uri=settings_instance.auth_jwks_uri,
+                issuer=settings_instance.auth_issuer,
+                audience=settings_instance.auth_audience
             )
-        elif "GitHubProvider" in settings.auth_provider:
+        elif "GitHubProvider" in settings_instance.auth_provider:
             return provider_class(
                 client_id=os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_ID"),
                 client_secret=os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_SECRET"),
-                base_url=f"http://{settings.host}:{settings.port}"
+                base_url=f"http://{settings_instance.host}:{settings_instance.port}"
             )
-        elif "GoogleProvider" in settings.auth_provider:
+        elif "GoogleProvider" in settings_instance.auth_provider:
             return provider_class(
                 client_id=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID"),
                 client_secret=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET"),
-                base_url=f"http://{settings.host}:{settings.port}"
+                base_url=f"http://{settings_instance.host}:{settings_instance.port}"
             )
         else:
             # Generic provider - pass common settings
@@ -315,9 +323,8 @@ server = FastMCP(
 )
 
 
-# Assignment Management Tools
-@server.tool
-async def get_assignments(
+# Assignment Management Tools - Core Functions (for testing)
+async def _get_assignments_core(
     srid: str,
     level: Optional[str] = None,
     assignment_id: Optional[str] = None,
@@ -371,9 +378,18 @@ async def get_assignments(
             await ctx.error(error_msg)
         return json.dumps({"error": error_msg}, indent=2)
 
-
+# MCP Tool Wrapper
 @server.tool
-async def create_assignment(
+async def get_assignments(
+    srid: str,
+    level: Optional[str] = None,
+    assignment_id: Optional[str] = None,
+    ctx: Context = None
+) -> str:
+    """Get assignments for a specific SRID (System Resource Identifier)."""
+    return await _get_assignments_core(srid, level, assignment_id, ctx)
+
+async def _create_assignment_core(
     srid: str,
     assignment_id: str,
     stream: str,
@@ -415,9 +431,20 @@ async def create_assignment(
             await ctx.error(error_msg)
         return json.dumps({"error": error_msg}, indent=2)
 
-
+# MCP Tool Wrapper
 @server.tool
-async def get_assignment_details(
+async def create_assignment(
+    srid: str,
+    assignment_id: str,
+    stream: str,
+    application: str,
+    description: Optional[str] = None,
+    ctx: Context = None
+) -> str:
+    """Create a new mainframe development assignment."""
+    return await _create_assignment_core(srid, assignment_id, stream, application, description, ctx)
+
+async def _get_assignment_details_core(
     srid: str,
     assignment_id: str,
     ctx: Context = None
@@ -444,9 +471,17 @@ async def get_assignment_details(
             await ctx.error(error_msg)
         return json.dumps({"error": error_msg}, indent=2)
 
-
+# MCP Tool Wrapper
 @server.tool
-async def get_assignment_tasks(
+async def get_assignment_details(
+    srid: str,
+    assignment_id: str,
+    ctx: Context = None
+) -> str:
+    """Get detailed information for a specific assignment."""
+    return await _get_assignment_details_core(srid, assignment_id, ctx)
+
+async def _get_assignment_tasks_core(
     srid: str,
     assignment_id: str,
     ctx: Context = None
@@ -472,6 +507,16 @@ async def get_assignment_tasks(
         if ctx:
             await ctx.error(error_msg)
         return json.dumps({"error": error_msg}, indent=2)
+
+# MCP Tool Wrapper
+@server.tool
+async def get_assignment_tasks(
+    srid: str,
+    assignment_id: str,
+    ctx: Context = None
+) -> str:
+    """Get tasks for a specific assignment."""
+    return await _get_assignment_tasks_core(srid, assignment_id, ctx)
 
 
 # Release Management Tools
