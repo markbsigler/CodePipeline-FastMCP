@@ -748,6 +748,193 @@ class TestHealthChecker:
         assert "error" in health_data["details"]["bmc_api"]
 
 
+class TestErrorHandling:
+    """Test enhanced error handling functionality."""
+    
+    def test_bmc_api_error_creation(self):
+        """Test BMC API error creation."""
+        from main import BMCAPIError, BMCAPITimeoutError, BMCAPIRateLimitError
+        
+        # Test base BMC API error
+        error = BMCAPIError("Test error", status_code=500, response_data={"test": "data"})
+        assert str(error) == "Test error"
+        assert error.status_code == 500
+        assert error.response_data == {"test": "data"}
+        
+        # Test timeout error
+        timeout_error = BMCAPITimeoutError("Request timed out")
+        assert str(timeout_error) == "Request timed out"
+        
+        # Test rate limit error
+        rate_limit_error = BMCAPIRateLimitError("Rate limit exceeded", retry_after=60)
+        assert str(rate_limit_error) == "Rate limit exceeded"
+        assert rate_limit_error.retry_after == 60
+    
+    def test_mcp_validation_error_creation(self):
+        """Test MCP validation error creation."""
+        from main import MCPValidationError
+        
+        error = MCPValidationError("Invalid input", field="srid", value="INVALID")
+        assert str(error) == "Invalid input"
+        assert error.field == "srid"
+        assert error.value == "INVALID"
+    
+    def test_mcp_server_error_creation(self):
+        """Test MCP server error creation."""
+        from main import MCPServerError
+        
+        error = MCPServerError("Server error", error_code="ERR001", details={"key": "value"})
+        assert str(error) == "Server error"
+        assert error.error_code == "ERR001"
+        assert error.details == {"key": "value"}
+    
+    def test_error_handler_initialization(self):
+        """Test error handler initialization."""
+        from main import ErrorHandler, Settings, Metrics
+        
+        settings = Settings()
+        metrics = Metrics()
+        error_handler = ErrorHandler(settings, metrics)
+        
+        assert error_handler.settings == settings
+        assert error_handler.metrics == metrics
+    
+    def test_error_handler_http_error_conversion(self):
+        """Test HTTP error conversion to BMC API errors."""
+        from main import ErrorHandler, Settings, BMCAPITimeoutError, BMCAPIAuthenticationError
+        import httpx
+        
+        settings = Settings()
+        error_handler = ErrorHandler(settings)
+        
+        # Test timeout error conversion
+        timeout_error = httpx.TimeoutException("Request timed out")
+        bmc_error = error_handler.handle_http_error(timeout_error, "test_operation")
+        assert isinstance(bmc_error, BMCAPITimeoutError)
+        assert "test_operation" in str(bmc_error)
+        
+        # Test HTTP status error conversion
+        response = httpx.Response(401, request=httpx.Request("GET", "http://test.com"))
+        status_error = httpx.HTTPStatusError("Unauthorized", request=response.request, response=response)
+        bmc_error = error_handler.handle_http_error(status_error, "test_operation")
+        assert isinstance(bmc_error, BMCAPIAuthenticationError)
+        assert bmc_error.status_code == 401
+    
+    def test_error_handler_validation_error_conversion(self):
+        """Test validation error conversion."""
+        from main import ErrorHandler, Settings, MCPValidationError
+        
+        settings = Settings()
+        error_handler = ErrorHandler(settings)
+        
+        validation_error = ValueError("Invalid format")
+        mcp_error = error_handler.handle_validation_error(validation_error, "srid", "INVALID")
+        
+        assert isinstance(mcp_error, MCPValidationError)
+        assert mcp_error.field == "srid"
+        assert mcp_error.value == "INVALID"
+        assert "Invalid format" in str(mcp_error)
+    
+    def test_error_handler_general_error_conversion(self):
+        """Test general error conversion."""
+        from main import ErrorHandler, Settings, MCPServerError
+        
+        settings = Settings()
+        error_handler = ErrorHandler(settings)
+        
+        general_error = RuntimeError("Something went wrong")
+        server_error = error_handler.handle_general_error(general_error, "test_operation")
+        
+        assert isinstance(server_error, MCPServerError)
+        assert server_error.error_code == "INTERNAL_ERROR_TEST_OPERATION"
+        assert "test_operation" in server_error.details["operation"]
+        assert server_error.details["error_type"] == "RuntimeError"
+    
+    def test_error_response_creation(self):
+        """Test standardized error response creation."""
+        from main import ErrorHandler, Settings, BMCAPIError, MCPValidationError
+        
+        settings = Settings()
+        error_handler = ErrorHandler(settings)
+        
+        # Test BMC API error response
+        bmc_error = BMCAPIError("API Error", status_code=500, response_data={"test": "data"})
+        response = error_handler.create_error_response(bmc_error, "test_operation")
+        
+        assert response["error"] is True
+        assert response["operation"] == "test_operation"
+        assert response["error_type"] == "BMC_API_ERROR"
+        assert response["message"] == "API Error"
+        assert response["status_code"] == 500
+        assert response["response_data"] == {"test": "data"}
+        assert "timestamp" in response
+        
+        # Test validation error response
+        validation_error = MCPValidationError("Invalid input", field="srid", value="INVALID")
+        response = error_handler.create_error_response(validation_error, "test_operation")
+        
+        assert response["error_type"] == "VALIDATION_ERROR"
+        assert response["field"] == "srid"
+        assert response["value"] == "INVALID"
+    
+    def test_error_response_message_truncation(self):
+        """Test error message truncation."""
+        from main import ErrorHandler, Settings, BMCAPIError
+        
+        settings = Settings(max_error_message_length=50)
+        error_handler = ErrorHandler(settings)
+        
+        long_message = "This is a very long error message that should be truncated because it exceeds the maximum length"
+        bmc_error = BMCAPIError(long_message)
+        response = error_handler.create_error_response(bmc_error, "test_operation")
+        
+        assert len(response["message"]) <= 53  # 50 + "..."
+        assert response["message"].endswith("...")
+    
+    @pytest.mark.asyncio
+    async def test_error_recovery_execution(self):
+        """Test error recovery execution with retry logic."""
+        from main import ErrorHandler, Settings, BMCAPITimeoutError
+        
+        settings = Settings(error_recovery_attempts=3)
+        error_handler = ErrorHandler(settings)
+        
+        call_count = 0
+        
+        async def failing_function():
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise BMCAPITimeoutError("Temporary failure")
+            return "success"
+        
+        # Should succeed after retries
+        result = await error_handler.execute_with_recovery("test_operation", failing_function)
+        assert result == "success"
+        assert call_count == 3
+    
+    @pytest.mark.asyncio
+    async def test_error_recovery_no_retry_for_validation_errors(self):
+        """Test that validation errors are not retried."""
+        from main import ErrorHandler, Settings, MCPValidationError
+        
+        settings = Settings(error_recovery_attempts=3)
+        error_handler = ErrorHandler(settings)
+        
+        call_count = 0
+        
+        async def validation_failing_function():
+            nonlocal call_count
+            call_count += 1
+            raise MCPValidationError("Validation failed")
+        
+        # Should not retry validation errors
+        with pytest.raises(MCPValidationError):
+            await error_handler.execute_with_recovery("test_operation", validation_failing_function)
+        
+        assert call_count == 1  # Should only be called once
+
+
 class TestAuthentication:
     """Test authentication provider creation."""
     
@@ -768,30 +955,29 @@ class TestAuthentication:
         }
         
         with unittest.mock.patch.dict(os.environ, test_env):
-            with unittest.mock.patch('builtins.__import__') as mock_import:
-                # Mock the JWT provider class
-                mock_provider_class = unittest.mock.MagicMock()
-                mock_module = unittest.mock.MagicMock()
-                mock_module.JWTVerifier = mock_provider_class
-                mock_import.return_value = mock_module
-                
-                # Create test settings instance manually
-                from main import Settings
-                test_settings = Settings(
-                    auth_enabled=True,
-                    auth_provider="fastmcp.server.auth.providers.jwt.JWTVerifier",
-                    auth_jwks_uri="https://test.com/jwks.json",
-                    auth_issuer="https://test.com",
-                    auth_audience="test-audience"
-                )
-                provider = create_auth_provider(test_settings)
-                
-                # Should have called the provider with correct parameters
-                mock_provider_class.assert_called_once_with(
-                    jwks_uri="https://test.com/jwks.json",
-                    issuer="https://test.com",
-                    audience="test-audience"
-                )
+            # Mock the JWT provider class
+            mock_provider_class = unittest.mock.MagicMock()
+            mock_module = unittest.mock.MagicMock()
+            mock_module.JWTVerifier = mock_provider_class
+            mock_import = unittest.mock.MagicMock(return_value=mock_module)
+            
+            # Create test settings instance manually
+            from main import Settings
+            test_settings = Settings(
+                auth_enabled=True,
+                auth_provider="fastmcp.server.auth.providers.jwt.JWTVerifier",
+                auth_jwks_uri="https://test.com/jwks.json",
+                auth_issuer="https://test.com",
+                auth_audience="test-audience"
+            )
+            provider = create_auth_provider(test_settings, import_func=mock_import)
+            
+            # Should have called the provider with correct parameters
+            mock_provider_class.assert_called_once_with(
+                jwks_uri="https://test.com/jwks.json",
+                issuer="https://test.com",
+                audience="test-audience"
+            )
     
     def test_github_auth_provider(self):
         """Test GitHub authentication provider creation."""
@@ -803,29 +989,28 @@ class TestAuthentication:
         }
         
         with unittest.mock.patch.dict(os.environ, test_env):
-            with unittest.mock.patch('builtins.__import__') as mock_import:
-                # Mock the GitHub provider class
-                mock_provider_class = unittest.mock.MagicMock()
-                mock_module = unittest.mock.MagicMock()
-                mock_module.GitHubProvider = mock_provider_class
-                mock_import.return_value = mock_module
-                
-                # Create test settings instance manually
-                from main import Settings
-                test_settings = Settings(
-                    auth_enabled=True,
-                    auth_provider="fastmcp.server.auth.providers.github.GitHubProvider",
-                    host="0.0.0.0",
-                    port=8080
-                )
-                provider = create_auth_provider(test_settings)
-                
-                # Should have called the provider with correct parameters
-                mock_provider_class.assert_called_once_with(
-                    client_id="test-client-id",
-                    client_secret="test-client-secret",
-                    base_url="http://0.0.0.0:8080"
-                )
+            # Mock the GitHub provider class
+            mock_provider_class = unittest.mock.MagicMock()
+            mock_module = unittest.mock.MagicMock()
+            mock_module.GitHubProvider = mock_provider_class
+            mock_import = unittest.mock.MagicMock(return_value=mock_module)
+            
+            # Create test settings instance manually
+            from main import Settings
+            test_settings = Settings(
+                auth_enabled=True,
+                auth_provider="fastmcp.server.auth.providers.github.GitHubProvider",
+                host="0.0.0.0",
+                port=8080
+            )
+            provider = create_auth_provider(test_settings, import_func=mock_import)
+            
+            # Should have called the provider with correct parameters
+            mock_provider_class.assert_called_once_with(
+                client_id="test-client-id",
+                client_secret="test-client-secret",
+                base_url="http://0.0.0.0:8080"
+            )
     
     def test_auth_provider_import_error(self):
         """Test handling of import errors in auth provider creation."""
@@ -1071,10 +1256,13 @@ class TestErrorHandling:
             
             result = await _get_assignments_core("TEST123", None, None, context)
             
-            # Should return error JSON
+            # Should return enhanced error JSON
             result_data = json.loads(result)
-            assert "error" in result_data
-            assert "Unexpected error" in result_data["error"]
+            assert result_data["error"] is True
+            assert result_data["error_type"] == "SERVER_ERROR"
+            assert "Internal server error during get_assignments" in result_data["message"]
+            assert "get_assignments" in result_data["operation"]
+            assert "error_code" in result_data
             
             # Context should log error
             context.error.assert_called()

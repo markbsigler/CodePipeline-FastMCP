@@ -21,6 +21,60 @@ from pydantic import BaseModel, Field, ConfigDict, validator
 import re
 
 
+# Custom Exception Classes
+class BMCAPIError(Exception):
+    """Base exception for BMC API related errors."""
+    def __init__(self, message: str, status_code: Optional[int] = None, response_data: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.response_data = response_data or {}
+
+
+class BMCAPITimeoutError(BMCAPIError):
+    """Exception raised when BMC API requests timeout."""
+    pass
+
+
+class BMCAPIRateLimitError(BMCAPIError):
+    """Exception raised when BMC API rate limits are exceeded."""
+    def __init__(self, message: str, retry_after: Optional[int] = None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class BMCAPIAuthenticationError(BMCAPIError):
+    """Exception raised when BMC API authentication fails."""
+    pass
+
+
+class BMCAPINotFoundError(BMCAPIError):
+    """Exception raised when BMC API resources are not found."""
+    pass
+
+
+class BMCAPIValidationError(BMCAPIError):
+    """Exception raised when BMC API request validation fails."""
+    def __init__(self, message: str, validation_errors: Optional[List[str]] = None):
+        super().__init__(message)
+        self.validation_errors = validation_errors or []
+
+
+class MCPValidationError(Exception):
+    """Exception raised when MCP tool input validation fails."""
+    def __init__(self, message: str, field: Optional[str] = None, value: Optional[str] = None):
+        super().__init__(message)
+        self.field = field
+        self.value = value
+
+
+class MCPServerError(Exception):
+    """Exception raised for internal server errors."""
+    def __init__(self, message: str, error_code: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.error_code = error_code
+        self.details = details or {}
+
+
 class Settings(BaseModel):
     """Application settings with environment variable support."""
     
@@ -66,6 +120,13 @@ class Settings(BaseModel):
     cache_ttl_seconds: int = Field(default=300)  # 5 minutes
     cache_max_size: int = Field(default=1000)
     cache_cleanup_interval: int = Field(default=60)  # 1 minute
+    
+    # Error handling configuration
+    enable_detailed_errors: bool = Field(default=True)
+    log_error_details: bool = Field(default=True)
+    max_error_message_length: int = Field(default=1000)
+    enable_error_recovery: bool = Field(default=True)
+    error_recovery_attempts: int = Field(default=3)
     
     model_config = ConfigDict(env_file=".env", extra="ignore")
     
@@ -387,6 +448,184 @@ class IntelligentCache:
         }
 
 
+class ErrorHandler:
+    """Comprehensive error handling and recovery system."""
+    
+    def __init__(self, settings: Settings, metrics: Optional[Metrics] = None):
+        self.settings = settings
+        self.metrics = metrics
+    
+    def handle_http_error(self, error: httpx.HTTPError, operation: str) -> BMCAPIError:
+        """Convert HTTP errors to specific BMC API errors."""
+        if isinstance(error, httpx.TimeoutException):
+            return BMCAPITimeoutError(
+                f"BMC API request timed out during {operation}",
+                response_data={"operation": operation, "error_type": "timeout"}
+            )
+        elif isinstance(error, httpx.HTTPStatusError):
+            status_code = error.response.status_code
+            response_data = {}
+            
+            try:
+                response_data = error.response.json()
+            except:
+                response_data = {"raw_response": str(error.response.text)}
+            
+            if status_code == 401:
+                return BMCAPIAuthenticationError(
+                    f"BMC API authentication failed during {operation}",
+                    status_code=status_code,
+                    response_data=response_data
+                )
+            elif status_code == 404:
+                return BMCAPINotFoundError(
+                    f"BMC API resource not found during {operation}",
+                    status_code=status_code,
+                    response_data=response_data
+                )
+            elif status_code == 429:
+                retry_after = error.response.headers.get('Retry-After')
+                return BMCAPIRateLimitError(
+                    f"BMC API rate limit exceeded during {operation}",
+                    status_code=status_code,
+                    response_data=response_data,
+                    retry_after=int(retry_after) if retry_after else None
+                )
+            elif status_code == 422:
+                validation_errors = response_data.get('errors', [])
+                return BMCAPIValidationError(
+                    f"BMC API validation failed during {operation}",
+                    status_code=status_code,
+                    response_data=response_data,
+                    validation_errors=validation_errors
+                )
+            else:
+                return BMCAPIError(
+                    f"BMC API error during {operation}: {error.response.status_code}",
+                    status_code=status_code,
+                    response_data=response_data
+                )
+        else:
+            return BMCAPIError(
+                f"BMC API connection error during {operation}: {str(error)}",
+                response_data={"operation": operation, "error_type": "connection"}
+            )
+    
+    def handle_validation_error(self, error: ValueError, field: str, value: str) -> MCPValidationError:
+        """Convert validation errors to MCP validation errors."""
+        return MCPValidationError(
+            f"Validation failed for {field}: {str(error)}",
+            field=field,
+            value=value
+        )
+    
+    def handle_general_error(self, error: Exception, operation: str) -> MCPServerError:
+        """Convert general errors to MCP server errors."""
+        error_code = f"INTERNAL_ERROR_{operation.upper()}"
+        details = {
+            "operation": operation,
+            "error_type": type(error).__name__,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        if self.settings.log_error_details:
+            details["error_message"] = str(error)
+        
+        return MCPServerError(
+            f"Internal server error during {operation}",
+            error_code=error_code,
+            details=details
+        )
+    
+    def create_error_response(self, error: Exception, operation: str) -> Dict[str, Any]:
+        """Create standardized error response."""
+        response = {
+            "error": True,
+            "operation": operation,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        if isinstance(error, BMCAPIError):
+            response.update({
+                "error_type": "BMC_API_ERROR",
+                "message": str(error),
+                "status_code": getattr(error, 'status_code', None),
+                "response_data": getattr(error, 'response_data', {})
+            })
+            
+            if isinstance(error, BMCAPIRateLimitError):
+                response["retry_after"] = getattr(error, 'retry_after', None)
+            elif isinstance(error, BMCAPIValidationError):
+                response["validation_errors"] = getattr(error, 'validation_errors', [])
+                
+        elif isinstance(error, MCPValidationError):
+            response.update({
+                "error_type": "VALIDATION_ERROR",
+                "message": str(error),
+                "field": getattr(error, 'field', None),
+                "value": getattr(error, 'value', None)
+            })
+            
+        elif isinstance(error, MCPServerError):
+            response.update({
+                "error_type": "SERVER_ERROR",
+                "message": str(error),
+                "error_code": getattr(error, 'error_code', None),
+                "details": getattr(error, 'details', {})
+            })
+            
+        else:
+            response.update({
+                "error_type": "UNKNOWN_ERROR",
+                "message": str(error) if self.settings.enable_detailed_errors else "An unexpected error occurred"
+            })
+        
+        # Truncate message if too long
+        if len(response.get("message", "")) > self.settings.max_error_message_length:
+            response["message"] = response["message"][:self.settings.max_error_message_length] + "..."
+        
+        # Update metrics
+        if self.metrics:
+            self.metrics.failed_requests += 1
+            if hasattr(error, 'status_code') and error.status_code:
+                endpoint_key = f"{operation}_{error.status_code}"
+                self.metrics.endpoint_errors[endpoint_key] = self.metrics.endpoint_errors.get(endpoint_key, 0) + 1
+        
+        return response
+    
+    async def execute_with_recovery(self, operation: str, func, *args, **kwargs):
+        """Execute function with error recovery and retry logic."""
+        last_error = None
+        
+        for attempt in range(self.settings.error_recovery_attempts):
+            try:
+                result = await func(*args, **kwargs)
+                
+                # Update metrics on success
+                if self.metrics:
+                    self.metrics.successful_requests += 1
+                
+                return result
+                
+            except Exception as error:
+                last_error = error
+                
+                # Don't retry certain types of errors
+                if isinstance(error, (MCPValidationError, BMCAPIAuthenticationError, BMCAPINotFoundError)):
+                    break
+                
+                # Don't retry on last attempt
+                if attempt == self.settings.error_recovery_attempts - 1:
+                    break
+                
+                # Wait before retry (exponential backoff)
+                wait_time = (2 ** attempt) * 0.5
+                await asyncio.sleep(wait_time)
+        
+        # All retries failed, raise the last error
+        raise last_error
+
+
 # Global settings instance
 settings = Settings()
 
@@ -483,7 +722,7 @@ def retry_on_failure(max_retries: int = 3, delay: float = 1.0):
     return decorator
 
 
-def create_auth_provider(settings_instance: Optional[Settings] = None):
+def create_auth_provider(settings_instance: Optional[Settings] = None, import_func=None):
     """Create FastMCP authentication provider based on settings."""
     if settings_instance is None:
         settings_instance = settings
@@ -494,7 +733,8 @@ def create_auth_provider(settings_instance: Optional[Settings] = None):
     try:
         # Import the authentication provider dynamically
         module_path, class_name = settings_instance.auth_provider.rsplit('.', 1)
-        module = __import__(module_path, fromlist=[class_name])
+        import_func = import_func or __import__
+        module = import_func(module_path, fromlist=[class_name])
         provider_class = getattr(module, class_name)
         
         # Configure provider based on type
@@ -544,10 +784,11 @@ http_client = httpx.AsyncClient(
 
 
 class BMCAMIDevXClient:
-    """Client for BMC AMI DevX Code Pipeline API operations with retry logic, rate limiting, connection pooling, monitoring, and caching."""
+    """Client for BMC AMI DevX Code Pipeline API operations with retry logic, rate limiting, connection pooling, monitoring, caching, and enhanced error handling."""
     
     def __init__(self, client: httpx.AsyncClient, rate_limiter: Optional[RateLimiter] = None, 
-                 cache: Optional[IntelligentCache] = None, metrics: Optional[Metrics] = None):
+                 cache: Optional[IntelligentCache] = None, metrics: Optional[Metrics] = None,
+                 error_handler: Optional[ErrorHandler] = None):
         self.client = client
         self.max_retries = settings.api_retry_attempts
         self.retry_delay = 1.0  # seconds
@@ -557,27 +798,39 @@ class BMCAMIDevXClient:
         )
         self.cache = cache
         self.metrics = metrics
+        self.error_handler = error_handler or ErrorHandler(settings, metrics)
     
     async def _make_request(self, method: str, url: str, **kwargs) -> httpx.Response:
-        """Make an HTTP request with rate limiting, monitoring, and caching."""
+        """Make an HTTP request with rate limiting, monitoring, caching, and enhanced error handling."""
         start_time = time.time()
+        operation = f"{method} {url}"
         
-        # Wait for rate limit token
-        await self.rate_limiter.wait_for_token()
-        
-        # Make the request
-        response = await self.client.request(method, url, **kwargs)
-        
-        # Update metrics
-        if self.metrics:
-            response_time = time.time() - start_time
-            self.metrics.bmc_api_calls += 1
-            self.metrics.update_bmc_response_time(response_time)
+        try:
+            # Wait for rate limit token
+            await self.rate_limiter.wait_for_token()
             
-            if response.status_code >= 400:
-                self.metrics.bmc_api_errors += 1
-        
-        return response
+            # Make the request
+            response = await self.client.request(method, url, **kwargs)
+            
+            # Update metrics
+            if self.metrics:
+                response_time = time.time() - start_time
+                self.metrics.bmc_api_calls += 1
+                self.metrics.update_bmc_response_time(response_time)
+                
+                if response.status_code >= 400:
+                    self.metrics.bmc_api_errors += 1
+            
+            return response
+            
+        except httpx.HTTPError as error:
+            # Convert HTTP errors to specific BMC API errors
+            bmc_error = self.error_handler.handle_http_error(error, operation)
+            raise bmc_error
+        except Exception as error:
+            # Handle other types of errors
+            server_error = self.error_handler.handle_general_error(error, operation)
+            raise server_error
     
     async def _get_cached_or_fetch(self, method: str, cache_key: str, fetch_func, **kwargs) -> Any:
         """Get data from cache or fetch from API with caching."""
@@ -731,8 +984,11 @@ cache = IntelligentCache(
     default_ttl=settings.cache_ttl_seconds
 )
 
-# Initialize BMC AMI DevX client with monitoring and caching
-bmc_client = BMCAMIDevXClient(http_client, cache=cache, metrics=metrics)
+# Global error handler
+error_handler = ErrorHandler(settings, metrics)
+
+# Initialize BMC AMI DevX client with monitoring, caching, and error handling
+bmc_client = BMCAMIDevXClient(http_client, cache=cache, metrics=metrics, error_handler=error_handler)
 
 # Initialize health checker
 health_checker = HealthChecker(bmc_client, settings)
@@ -852,21 +1108,29 @@ async def _get_assignments_core(
             await ctx.info(f"Successfully retrieved {len(result.get('assignments', []))} assignments")
         
         return json.dumps(result, indent=2)
+        
     except ValueError as e:
-        error_msg = f"Validation error: {str(e)}"
+        # Handle validation errors with enhanced error handling
+        validation_error = error_handler.handle_validation_error(e, "input_validation", str(e))
+        error_response = error_handler.create_error_response(validation_error, "get_assignments")
         if ctx:
-            await ctx.error(error_msg)
-        return json.dumps({"error": error_msg}, indent=2)
-    except httpx.HTTPError as e:
-        error_msg = f"HTTP error retrieving assignments: {str(e)}"
+            await ctx.error(f"Validation error: {validation_error}")
+        return json.dumps(error_response, indent=2)
+        
+    except (BMCAPIError, MCPServerError) as e:
+        # Handle BMC API and server errors with enhanced error handling
+        error_response = error_handler.create_error_response(e, "get_assignments")
         if ctx:
-            await ctx.error(error_msg)
-        return json.dumps({"error": error_msg}, indent=2)
+            await ctx.error(f"API error: {e}")
+        return json.dumps(error_response, indent=2)
+        
     except Exception as e:
-        error_msg = f"Error retrieving assignments: {str(e)}"
+        # Handle unexpected errors with enhanced error handling
+        server_error = error_handler.handle_general_error(e, "get_assignments")
+        error_response = error_handler.create_error_response(server_error, "get_assignments")
         if ctx:
-            await ctx.error(error_msg)
-        return json.dumps({"error": error_msg}, indent=2)
+            await ctx.error(f"Unexpected error: {e}")
+        return json.dumps(error_response, indent=2)
 
 # MCP Tool Wrapper
 @server.tool
