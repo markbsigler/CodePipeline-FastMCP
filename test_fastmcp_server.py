@@ -287,6 +287,178 @@ class TestBMCClient:
         
         with pytest.raises(httpx.HTTPError, match="API Error"):
             await client.get_assignments("TEST123")
+    
+    @pytest.mark.asyncio
+    async def test_create_assignment_success(self, mock_httpx_client):
+        """Test successful create_assignment call."""
+        assignment_data = {"assignmentId": "ASSIGN-002", "stream": "STREAM1", "application": "APP1"}
+        
+        # Mock response
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"assignmentId": "ASSIGN-002", "status": "created"}
+        mock_response.raise_for_status.return_value = None
+        
+        # Create a proper async mock
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.post.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        result = await client.create_assignment("TEST123", assignment_data)
+        
+        assert "assignmentId" in result
+        assert result["assignmentId"] == "ASSIGN-002"
+        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/assignments", json=assignment_data)
+    
+    @pytest.mark.asyncio
+    async def test_get_assignment_details_success(self, mock_httpx_client):
+        """Test successful get_assignment_details call."""
+        # Mock response
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"assignmentId": "ASSIGN-001", "status": "active"}
+        mock_response.raise_for_status.return_value = None
+        
+        # Create a proper async mock
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        result = await client.get_assignment_details("TEST123", "ASSIGN-001")
+        
+        assert "assignmentId" in result
+        assert result["assignmentId"] == "ASSIGN-001"
+        mock_client_instance.get.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001")
+    
+    @pytest.mark.asyncio
+    async def test_get_assignment_tasks_success(self, mock_httpx_client):
+        """Test successful get_assignment_tasks call."""
+        # Mock response
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"tasks": [{"id": "TASK-001", "name": "Task 1"}]}
+        mock_response.raise_for_status.return_value = None
+        
+        # Create a proper async mock
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        result = await client.get_assignment_tasks("TEST123", "ASSIGN-001")
+        
+        assert "tasks" in result
+        assert len(result["tasks"]) == 1
+        assert result["tasks"][0]["id"] == "TASK-001"
+        mock_client_instance.get.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001/tasks")
+    
+    @pytest.mark.asyncio
+    async def test_generate_assignment_success(self, mock_httpx_client):
+        """Test successful generate_assignment call."""
+        generate_data = {"level": "DEV", "runtimeConfiguration": "config1"}
+        
+        # Mock response
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"generationId": "GEN-001", "status": "started"}
+        mock_response.raise_for_status.return_value = None
+        
+        # Create a proper async mock
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.post.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        result = await client.generate_assignment("TEST123", "ASSIGN-001", generate_data)
+        
+        assert "generationId" in result
+        assert result["generationId"] == "GEN-001"
+        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001/generate", json=generate_data)
+    
+    @pytest.mark.asyncio
+    async def test_promote_assignment_success(self, mock_httpx_client):
+        """Test successful promote_assignment call."""
+        promote_data = {"level": "TEST", "changeType": "minor"}
+        
+        # Mock response
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"promotionId": "PROM-001", "status": "started"}
+        mock_response.raise_for_status.return_value = None
+        
+        # Create a proper async mock
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.post.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        result = await client.promote_assignment("TEST123", "ASSIGN-001", promote_data)
+        
+        assert "promotionId" in result
+        assert result["promotionId"] == "PROM-001"
+        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001/promote", json=promote_data)
+    
+    @pytest.mark.asyncio
+    async def test_deploy_assignment_success(self, mock_httpx_client):
+        """Test successful deploy_assignment call."""
+        deploy_data = {"level": "PROD", "deployImplementationTime": "2025-01-09T10:00:00Z"}
+        
+        # Mock response
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"deploymentId": "DEP-001", "status": "started"}
+        mock_response.raise_for_status.return_value = None
+        
+        # Create a proper async mock
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.post.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        result = await client.deploy_assignment("TEST123", "ASSIGN-001", deploy_data)
+        
+        assert "deploymentId" in result
+        assert result["deploymentId"] == "DEP-001"
+        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001/deploy", json=deploy_data)
+    
+    @pytest.mark.asyncio
+    async def test_get_releases_success(self, mock_httpx_client):
+        """Test successful get_releases call."""
+        # Mock response
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"releases": [{"id": "REL-001", "name": "Release 1"}]}
+        mock_response.raise_for_status.return_value = None
+        
+        # Create a proper async mock
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        result = await client.get_releases("TEST123", "REL-001")
+        
+        assert "releases" in result
+        assert len(result["releases"]) == 1
+        assert result["releases"][0]["id"] == "REL-001"
+        mock_client_instance.get.assert_called_once_with("/ispw/TEST123/releases", params={"releaseId": "REL-001"})
+    
+    @pytest.mark.asyncio
+    async def test_create_release_success(self, mock_httpx_client):
+        """Test successful create_release call."""
+        release_data = {"releaseId": "REL-002", "stream": "STREAM1", "application": "APP1"}
+        
+        # Mock response
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"releaseId": "REL-002", "status": "created"}
+        mock_response.raise_for_status.return_value = None
+        
+        # Create a proper async mock
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.post.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        result = await client.create_release("TEST123", release_data)
+        
+        assert "releaseId" in result
+        assert result["releaseId"] == "REL-002"
+        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/releases", json=release_data)
 
 
 class TestAuthentication:
