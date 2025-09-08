@@ -13,6 +13,7 @@ from typing import Dict, Any
 
 import httpx
 import pytest
+from main import BMCAPIError
 from fastmcp import FastMCP, Context
 
 # Import the main module components
@@ -270,7 +271,8 @@ class TestBMCClient:
         
         client = BMCAMIDevXClient(mock_client_instance)
         
-        with pytest.raises(httpx.HTTPError, match="API Error"):
+        # Now expect BMCAPIError due to enhanced error handling
+        with pytest.raises(BMCAPIError, match="BMC API connection error"):
             await client.get_assignments("TEST123")
     
     @pytest.mark.asyncio
@@ -1123,10 +1125,12 @@ class TestMCPTools:
         # Call with invalid SRID
         result = await _get_assignments_core("", "DEV", None, mock_context)
         
-        # Should return error JSON
+        # Should return enhanced error JSON
         result_data = json.loads(result)
-        assert "error" in result_data
-        assert "Validation error" in result_data["error"]
+        assert result_data["error"] is True
+        assert result_data["error_type"] == "VALIDATION_ERROR"
+        assert "Validation failed" in result_data["message"]
+        assert result_data["field"] == "input_validation"
         
         # BMC client should not be called
         mock_bmc_client.get_assignments.assert_not_called()
@@ -1146,10 +1150,11 @@ class TestMCPTools:
         # Call the core function
         result = await _get_assignments_core("TEST123", "DEV", None, mock_context)
         
-        # Should return error JSON
+        # Should return enhanced error JSON
         result_data = json.loads(result)
-        assert "error" in result_data
-        assert "HTTP error" in result_data["error"]
+        assert result_data["error"] is True
+        assert result_data["error_type"] == "SERVER_ERROR"
+        assert "Internal server error during get_assignments" in result_data["message"]
         
         # Context should log error
         mock_context.error.assert_called()
