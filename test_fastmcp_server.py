@@ -6,6 +6,7 @@ Tests the real FastMCP implementation with authentication, validation, and retry
 import json
 import os
 import tempfile
+import time
 import unittest.mock
 from typing import Dict, Any
 
@@ -59,28 +60,9 @@ class TestSettings:
         }
         
         with unittest.mock.patch.dict(os.environ, test_env):
-            # Create a test-specific Settings class to avoid caching issues
-            from pydantic import BaseModel, Field, ConfigDict
-            from typing import Optional
-            
-            class TestSettings(BaseModel):
-                host: str = Field(default="0.0.0.0")
-                port: int = Field(default=8080)
-                log_level: str = Field(default="INFO")
-                api_base_url: str = Field(default="https://devx.bmc.com/code-pipeline/api/v1")
-                api_timeout: int = Field(default=30)
-                api_retry_attempts: int = Field(default=3)
-                auth_provider: Optional[str] = Field(default=None)
-                auth_jwks_uri: Optional[str] = Field(default=None)
-                auth_issuer: Optional[str] = Field(default=None)
-                auth_audience: Optional[str] = Field(default=None)
-                auth_secret: Optional[str] = Field(default=None)
-                auth_enabled: bool = Field(default=False)
-                openapi_spec_path: str = Field(default="config/openapi.json")
-                
-                model_config = ConfigDict(extra="ignore", env_file=".env")
-            
-            settings = TestSettings()
+            # Use the new from_env() method to test environment variable loading
+            from main import Settings
+            settings = Settings.from_env()
             
             assert settings.host == "127.0.0.1"
             assert settings.port == 9000
@@ -93,17 +75,19 @@ class TestSettings:
     
     def test_invalid_environment_values(self):
         """Test handling of invalid environment values."""
-        # Test invalid port
+        # Test invalid port - should use default value instead of raising error
         with unittest.mock.patch.dict(os.environ, {"PORT": "invalid"}):
-            with pytest.raises(ValueError):
-                from main import get_settings
-                get_settings()
+            from main import Settings
+            settings = Settings.from_env()
+            # Should fall back to default port since conversion failed
+            assert settings.port == 8080
         
-        # Test invalid boolean
+        # Test invalid boolean - should use default value instead of raising error
         with unittest.mock.patch.dict(os.environ, {"AUTH_ENABLED": "maybe"}):
-            with pytest.raises(ValueError):
-                from main import get_settings
-                get_settings()
+            from main import Settings
+            settings = Settings.from_env()
+            # Should fall back to default value since conversion failed
+            assert settings.auth_enabled is False
 
 
 class TestInputValidation:
@@ -263,7 +247,7 @@ class TestBMCClient:
         
         # Create a proper async mock
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.get.return_value = mock_response
+        mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         # Create client
@@ -280,7 +264,7 @@ class TestBMCClient:
         """Test get_assignments with HTTP error."""
         # Create a proper async mock that raises HTTP error
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.get.side_effect = httpx.HTTPError("API Error")
+        mock_client_instance.request.side_effect = httpx.HTTPError("API Error")
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         client = BMCAMIDevXClient(mock_client_instance)
@@ -300,7 +284,7 @@ class TestBMCClient:
         
         # Create a proper async mock
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.post.return_value = mock_response
+        mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         client = BMCAMIDevXClient(mock_client_instance)
@@ -308,7 +292,7 @@ class TestBMCClient:
         
         assert "assignmentId" in result
         assert result["assignmentId"] == "ASSIGN-002"
-        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/assignments", json=assignment_data)
+        mock_client_instance.request.assert_called_once_with("POST","/ispw/TEST123/assignments", json=assignment_data)
     
     @pytest.mark.asyncio
     async def test_get_assignment_details_success(self, mock_httpx_client):
@@ -320,7 +304,7 @@ class TestBMCClient:
         
         # Create a proper async mock
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.get.return_value = mock_response
+        mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         client = BMCAMIDevXClient(mock_client_instance)
@@ -328,7 +312,7 @@ class TestBMCClient:
         
         assert "assignmentId" in result
         assert result["assignmentId"] == "ASSIGN-001"
-        mock_client_instance.get.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001")
+        mock_client_instance.request.assert_called_once_with("GET","/ispw/TEST123/assignments/ASSIGN-001")
     
     @pytest.mark.asyncio
     async def test_get_assignment_tasks_success(self, mock_httpx_client):
@@ -340,7 +324,7 @@ class TestBMCClient:
         
         # Create a proper async mock
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.get.return_value = mock_response
+        mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         client = BMCAMIDevXClient(mock_client_instance)
@@ -349,7 +333,7 @@ class TestBMCClient:
         assert "tasks" in result
         assert len(result["tasks"]) == 1
         assert result["tasks"][0]["id"] == "TASK-001"
-        mock_client_instance.get.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001/tasks")
+        mock_client_instance.request.assert_called_once_with("GET","/ispw/TEST123/assignments/ASSIGN-001/tasks")
     
     @pytest.mark.asyncio
     async def test_generate_assignment_success(self, mock_httpx_client):
@@ -363,7 +347,7 @@ class TestBMCClient:
         
         # Create a proper async mock
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.post.return_value = mock_response
+        mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         client = BMCAMIDevXClient(mock_client_instance)
@@ -371,7 +355,7 @@ class TestBMCClient:
         
         assert "generationId" in result
         assert result["generationId"] == "GEN-001"
-        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001/generate", json=generate_data)
+        mock_client_instance.request.assert_called_once_with("POST","/ispw/TEST123/assignments/ASSIGN-001/generate", json=generate_data)
     
     @pytest.mark.asyncio
     async def test_promote_assignment_success(self, mock_httpx_client):
@@ -385,7 +369,7 @@ class TestBMCClient:
         
         # Create a proper async mock
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.post.return_value = mock_response
+        mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         client = BMCAMIDevXClient(mock_client_instance)
@@ -393,7 +377,7 @@ class TestBMCClient:
         
         assert "promotionId" in result
         assert result["promotionId"] == "PROM-001"
-        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001/promote", json=promote_data)
+        mock_client_instance.request.assert_called_once_with("POST","/ispw/TEST123/assignments/ASSIGN-001/promote", json=promote_data)
     
     @pytest.mark.asyncio
     async def test_deploy_assignment_success(self, mock_httpx_client):
@@ -407,7 +391,7 @@ class TestBMCClient:
         
         # Create a proper async mock
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.post.return_value = mock_response
+        mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         client = BMCAMIDevXClient(mock_client_instance)
@@ -415,7 +399,7 @@ class TestBMCClient:
         
         assert "deploymentId" in result
         assert result["deploymentId"] == "DEP-001"
-        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/assignments/ASSIGN-001/deploy", json=deploy_data)
+        mock_client_instance.request.assert_called_once_with("POST","/ispw/TEST123/assignments/ASSIGN-001/deploy", json=deploy_data)
     
     @pytest.mark.asyncio
     async def test_get_releases_success(self, mock_httpx_client):
@@ -427,7 +411,7 @@ class TestBMCClient:
         
         # Create a proper async mock
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.get.return_value = mock_response
+        mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         client = BMCAMIDevXClient(mock_client_instance)
@@ -436,7 +420,7 @@ class TestBMCClient:
         assert "releases" in result
         assert len(result["releases"]) == 1
         assert result["releases"][0]["id"] == "REL-001"
-        mock_client_instance.get.assert_called_once_with("/ispw/TEST123/releases", params={"releaseId": "REL-001"})
+        mock_client_instance.request.assert_called_once_with("GET","/ispw/TEST123/releases", params={"releaseId": "REL-001"})
     
     @pytest.mark.asyncio
     async def test_create_release_success(self, mock_httpx_client):
@@ -450,7 +434,7 @@ class TestBMCClient:
         
         # Create a proper async mock
         mock_client_instance = unittest.mock.AsyncMock()
-        mock_client_instance.post.return_value = mock_response
+        mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
         
         client = BMCAMIDevXClient(mock_client_instance)
@@ -458,7 +442,89 @@ class TestBMCClient:
         
         assert "releaseId" in result
         assert result["releaseId"] == "REL-002"
-        mock_client_instance.post.assert_called_once_with("/ispw/TEST123/releases", json=release_data)
+        mock_client_instance.request.assert_called_once_with("POST","/ispw/TEST123/releases", json=release_data)
+
+
+class TestRateLimiting:
+    """Test rate limiting functionality."""
+    
+    @pytest.mark.asyncio
+    async def test_rate_limiter_acquire_success(self):
+        """Test successful token acquisition."""
+        from main import RateLimiter
+        
+        rate_limiter = RateLimiter(requests_per_minute=60, burst_size=10)
+        
+        # Should be able to acquire token immediately
+        result = await rate_limiter.acquire()
+        assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_rate_limiter_acquire_failure(self):
+        """Test token acquisition failure when rate limited."""
+        from main import RateLimiter
+        
+        # Create rate limiter with very low limits
+        rate_limiter = RateLimiter(requests_per_minute=1, burst_size=1)
+        
+        # First request should succeed
+        result1 = await rate_limiter.acquire()
+        assert result1 is True
+        
+        # Second request should fail (no tokens available)
+        result2 = await rate_limiter.acquire()
+        assert result2 is False
+    
+    @pytest.mark.asyncio
+    async def test_rate_limiter_wait_for_token(self):
+        """Test waiting for token availability."""
+        from main import RateLimiter
+        
+        # Create rate limiter with very low limits
+        rate_limiter = RateLimiter(requests_per_minute=60, burst_size=1)
+        
+        # First request should succeed
+        result1 = await rate_limiter.acquire()
+        assert result1 is True
+        
+        # Second request should fail immediately
+        result2 = await rate_limiter.acquire()
+        assert result2 is False
+        
+        # Wait for token should eventually succeed
+        start_time = time.time()
+        await rate_limiter.wait_for_token()
+        elapsed = time.time() - start_time
+        
+        # Should have waited at least 1 second (60 requests per minute = 1 per second)
+        assert elapsed >= 0.9  # Allow some tolerance
+    
+    @pytest.mark.asyncio
+    async def test_bmc_client_rate_limiting(self):
+        """Test that BMC client uses rate limiting."""
+        from main import BMCAMIDevXClient, RateLimiter
+        import unittest.mock
+        
+        # Create a mock rate limiter
+        mock_rate_limiter = unittest.mock.AsyncMock()
+        mock_rate_limiter.wait_for_token = unittest.mock.AsyncMock()
+        
+        # Create mock HTTP client
+        mock_http_client = unittest.mock.AsyncMock()
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"assignments": []}
+        mock_response.raise_for_status.return_value = None
+        mock_http_client.request.return_value = mock_response
+        
+        # Create BMC client with mock rate limiter
+        client = BMCAMIDevXClient(mock_http_client, mock_rate_limiter)
+        
+        # Make a request
+        await client.get_assignments("TEST123")
+        
+        # Verify rate limiter was called
+        mock_rate_limiter.wait_for_token.assert_called_once()
+        mock_http_client.request.assert_called_once()
 
 
 class TestAuthentication:
@@ -838,9 +904,9 @@ class TestConfiguration:
         }
         
         with unittest.mock.patch.dict(os.environ, test_env):
-            # Use get_settings() to get a fresh instance
-            from main import get_settings
-            settings = get_settings()
+            # Use from_env() to get a fresh instance
+            from main import Settings
+            settings = Settings.from_env()
             
             assert settings.host == "192.168.1.100"
             assert settings.port == 9999

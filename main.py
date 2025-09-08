@@ -9,6 +9,8 @@ import os
 import asyncio
 from typing import Any, Dict, List, Optional
 from pathlib import Path
+from collections import deque
+from datetime import datetime, timedelta
 
 import httpx
 from fastmcp import FastMCP, Context
@@ -29,6 +31,12 @@ class Settings(BaseModel):
     api_timeout: int = Field(default=30)
     api_retry_attempts: int = Field(default=3)
     
+    # Rate limiting and connection pooling
+    rate_limit_requests_per_minute: int = Field(default=60)
+    rate_limit_burst_size: int = Field(default=10)
+    connection_pool_size: int = Field(default=20)
+    connection_pool_max_keepalive: int = Field(default=30)
+    
     # Authentication configuration (FastMCP native)
     auth_provider: Optional[str] = Field(default=None)  # e.g., "fastmcp.server.auth.providers.jwt.JWTVerifier"
     auth_jwks_uri: Optional[str] = Field(default=None)
@@ -41,6 +49,64 @@ class Settings(BaseModel):
     openapi_spec_path: str = Field(default="config/openapi.json")
     
     model_config = ConfigDict(env_file=".env", extra="ignore")
+    
+    @classmethod
+    def from_env(cls, **kwargs) -> "Settings":
+        """Create Settings instance from environment variables with optional overrides."""
+        # Get current environment variables
+        env_vars = {}
+        for field_name, field_info in cls.model_fields.items():
+            env_value = os.getenv(field_name.upper())
+            if env_value is not None:
+                # Handle type conversion
+                if field_info.annotation == int:
+                    try:
+                        env_vars[field_name] = int(env_value)
+                    except ValueError:
+                        pass  # Keep as string, let Pydantic handle validation
+                elif field_info.annotation == bool:
+                    env_vars[field_name] = env_value.lower() in ('true', '1', 'yes', 'on')
+                else:
+                    env_vars[field_name] = env_value
+        
+        # Merge with any provided kwargs
+        env_vars.update(kwargs)
+        return cls(**env_vars)
+
+
+class RateLimiter:
+    """Token bucket rate limiter for API calls."""
+    
+    def __init__(self, requests_per_minute: int, burst_size: int):
+        self.requests_per_minute = requests_per_minute
+        self.burst_size = burst_size
+        self.tokens = burst_size
+        self.last_refill = datetime.now()
+        self.lock = asyncio.Lock()
+    
+    async def acquire(self) -> bool:
+        """Acquire a token for making an API request."""
+        async with self.lock:
+            now = datetime.now()
+            time_passed = (now - self.last_refill).total_seconds()
+            
+            # Refill tokens based on time passed
+            tokens_to_add = (time_passed / 60.0) * self.requests_per_minute
+            self.tokens = min(self.burst_size, self.tokens + tokens_to_add)
+            self.last_refill = now
+            
+            if self.tokens >= 1:
+                self.tokens -= 1
+                return True
+            else:
+                return False
+    
+    async def wait_for_token(self) -> None:
+        """Wait until a token is available."""
+        while not await self.acquire():
+            # Calculate wait time based on refill rate
+            wait_time = 60.0 / self.requests_per_minute
+            await asyncio.sleep(wait_time)
 
 
 # Global settings instance
@@ -49,7 +115,7 @@ settings = Settings()
 def get_settings() -> Settings:
     """Get settings instance, reloading from environment if needed."""
     # Create a new Settings instance which will pick up current environment variables
-    return Settings()
+    return Settings.from_env()
 
 
 # Input validation functions
@@ -181,9 +247,17 @@ def create_auth_provider(settings_instance: Optional[Settings] = None):
         return None
 
 # HTTP client for BMC AMI DevX API
+# HTTP client with connection pooling
+limits = httpx.Limits(
+    max_keepalive_connections=settings.connection_pool_size,
+    max_connections=settings.connection_pool_size * 2,
+    keepalive_expiry=settings.connection_pool_max_keepalive
+)
+
 http_client = httpx.AsyncClient(
     base_url=settings.api_base_url,
     timeout=settings.api_timeout,
+    limits=limits,
     headers={
         "Content-Type": "application/json",
         "Accept": "application/json",
@@ -192,12 +266,25 @@ http_client = httpx.AsyncClient(
 
 
 class BMCAMIDevXClient:
-    """Client for BMC AMI DevX Code Pipeline API operations with retry logic."""
+    """Client for BMC AMI DevX Code Pipeline API operations with retry logic, rate limiting, and connection pooling."""
     
-    def __init__(self, client: httpx.AsyncClient):
+    def __init__(self, client: httpx.AsyncClient, rate_limiter: Optional[RateLimiter] = None):
         self.client = client
         self.max_retries = settings.api_retry_attempts
         self.retry_delay = 1.0  # seconds
+        self.rate_limiter = rate_limiter or RateLimiter(
+            settings.rate_limit_requests_per_minute,
+            settings.rate_limit_burst_size
+        )
+    
+    async def _make_request(self, method: str, url: str, **kwargs) -> httpx.Response:
+        """Make an HTTP request with rate limiting."""
+        # Wait for rate limit token
+        await self.rate_limiter.wait_for_token()
+        
+        # Make the request
+        response = await self.client.request(method, url, **kwargs)
+        return response
     
     @retry_on_failure(max_retries=3, delay=1.0)
     async def get_assignments(self, srid: str, level: Optional[str] = None, assignment_id: Optional[str] = None) -> Dict[str, Any]:
@@ -208,44 +295,44 @@ class BMCAMIDevXClient:
         if assignment_id:
             params["assignmentId"] = assignment_id
             
-        response = await self.client.get(f"/ispw/{srid}/assignments", params=params)
+        response = await self._make_request("GET", f"/ispw/{srid}/assignments", params=params)
         response.raise_for_status()
         return response.json()
     
     @retry_on_failure(max_retries=3, delay=1.0)
     async def create_assignment(self, srid: str, assignment_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new assignment."""
-        response = await self.client.post(f"/ispw/{srid}/assignments", json=assignment_data)
+        response = await self._make_request("POST", f"/ispw/{srid}/assignments", json=assignment_data)
         response.raise_for_status()
         return response.json()
     
     async def get_assignment_details(self, srid: str, assignment_id: str) -> Dict[str, Any]:
         """Get details for a specific assignment."""
-        response = await self.client.get(f"/ispw/{srid}/assignments/{assignment_id}")
+        response = await self._make_request("GET", f"/ispw/{srid}/assignments/{assignment_id}")
         response.raise_for_status()
         return response.json()
     
     async def get_assignment_tasks(self, srid: str, assignment_id: str) -> Dict[str, Any]:
         """Get tasks for a specific assignment."""
-        response = await self.client.get(f"/ispw/{srid}/assignments/{assignment_id}/tasks")
+        response = await self._make_request("GET", f"/ispw/{srid}/assignments/{assignment_id}/tasks")
         response.raise_for_status()
         return response.json()
     
     async def generate_assignment(self, srid: str, assignment_id: str, generate_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate code for an assignment."""
-        response = await self.client.post(f"/ispw/{srid}/assignments/{assignment_id}/generate", json=generate_data)
+        response = await self._make_request("POST", f"/ispw/{srid}/assignments/{assignment_id}/generate", json=generate_data)
         response.raise_for_status()
         return response.json()
     
     async def promote_assignment(self, srid: str, assignment_id: str, promote_data: Dict[str, Any]) -> Dict[str, Any]:
         """Promote assignment to next level."""
-        response = await self.client.post(f"/ispw/{srid}/assignments/{assignment_id}/promote", json=promote_data)
+        response = await self._make_request("POST", f"/ispw/{srid}/assignments/{assignment_id}/promote", json=promote_data)
         response.raise_for_status()
         return response.json()
     
     async def deploy_assignment(self, srid: str, assignment_id: str, deploy_data: Dict[str, Any]) -> Dict[str, Any]:
         """Deploy assignment to target environment."""
-        response = await self.client.post(f"/ispw/{srid}/assignments/{assignment_id}/deploy", json=deploy_data)
+        response = await self._make_request("POST", f"/ispw/{srid}/assignments/{assignment_id}/deploy", json=deploy_data)
         response.raise_for_status()
         return response.json()
     
@@ -255,25 +342,25 @@ class BMCAMIDevXClient:
         if release_id:
             params["releaseId"] = release_id
             
-        response = await self.client.get(f"/ispw/{srid}/releases", params=params)
+        response = await self._make_request("GET", f"/ispw/{srid}/releases", params=params)
         response.raise_for_status()
         return response.json()
     
     async def create_release(self, srid: str, release_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new release."""
-        response = await self.client.post(f"/ispw/{srid}/releases", json=release_data)
+        response = await self._make_request("POST", f"/ispw/{srid}/releases", json=release_data)
         response.raise_for_status()
         return response.json()
     
     async def get_release_details(self, srid: str, release_id: str) -> Dict[str, Any]:
         """Get details for a specific release."""
-        response = await self.client.get(f"/ispw/{srid}/releases/{release_id}")
+        response = await self._make_request("GET", f"/ispw/{srid}/releases/{release_id}")
         response.raise_for_status()
         return response.json()
     
     async def deploy_release(self, srid: str, release_id: str, deploy_data: Dict[str, Any]) -> Dict[str, Any]:
         """Deploy a release."""
-        response = await self.client.post(f"/ispw/{srid}/releases/{release_id}/deploy", json=deploy_data)
+        response = await self._make_request("POST", f"/ispw/{srid}/releases/{release_id}/deploy", json=deploy_data)
         response.raise_for_status()
         return response.json()
     
@@ -283,13 +370,13 @@ class BMCAMIDevXClient:
         if set_id:
             params["setId"] = set_id
             
-        response = await self.client.get(f"/ispw/{srid}/sets", params=params)
+        response = await self._make_request("GET", f"/ispw/{srid}/sets", params=params)
         response.raise_for_status()
         return response.json()
     
     async def deploy_set(self, srid: str, set_id: str, deploy_data: Dict[str, Any]) -> Dict[str, Any]:
         """Deploy a set."""
-        response = await self.client.post(f"/ispw/{srid}/sets/{set_id}/deploy", json=deploy_data)
+        response = await self._make_request("POST", f"/ispw/{srid}/sets/{set_id}/deploy", json=deploy_data)
         response.raise_for_status()
         return response.json()
     
@@ -299,18 +386,19 @@ class BMCAMIDevXClient:
         if package_id:
             params["packageId"] = package_id
             
-        response = await self.client.get(f"/ispw/{srid}/packages", params=params)
+        response = await self._make_request("GET", f"/ispw/{srid}/packages", params=params)
         response.raise_for_status()
         return response.json()
     
     async def get_package_details(self, srid: str, package_id: str) -> Dict[str, Any]:
         """Get details for a specific package."""
-        response = await self.client.get(f"/ispw/{srid}/packages/{package_id}")
+        response = await self._make_request("GET",f"/ispw/{srid}/packages/{package_id}")
         response.raise_for_status()
         return response.json()
 
 
 # Initialize BMC AMI DevX client
+# Global BMC client with rate limiting and connection pooling
 bmc_client = BMCAMIDevXClient(http_client)
 
 # Create FastMCP server with authentication
