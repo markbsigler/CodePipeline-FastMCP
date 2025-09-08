@@ -935,6 +935,612 @@ class TestErrorHandling:
             await error_handler.execute_with_recovery("test_operation", validation_failing_function)
         
         assert call_count == 1  # Should only be called once
+    
+    def test_error_handler_http_status_errors(self):
+        """Test HTTP status error conversion for different status codes."""
+        from main import ErrorHandler, Settings, BMCAPIAuthenticationError, BMCAPINotFoundError, BMCAPIRateLimitError, BMCAPIValidationError
+        import httpx
+        
+        settings = Settings()
+        error_handler = ErrorHandler(settings)
+        
+        # Test 401 Authentication Error
+        response_401 = httpx.Response(401, request=httpx.Request("GET", "http://test.com"))
+        response_401._content = b'{"error": "unauthorized"}'
+        status_error_401 = httpx.HTTPStatusError("Unauthorized", request=response_401.request, response=response_401)
+        bmc_error = error_handler.handle_http_error(status_error_401, "test_operation")
+        assert isinstance(bmc_error, BMCAPIAuthenticationError)
+        assert bmc_error.status_code == 401
+        
+        # Test 404 Not Found Error
+        response_404 = httpx.Response(404, request=httpx.Request("GET", "http://test.com"))
+        response_404._content = b'{"error": "not found"}'
+        status_error_404 = httpx.HTTPStatusError("Not Found", request=response_404.request, response=response_404)
+        bmc_error = error_handler.handle_http_error(status_error_404, "test_operation")
+        assert isinstance(bmc_error, BMCAPINotFoundError)
+        assert bmc_error.status_code == 404
+        
+        # Test 429 Rate Limit Error
+        response_429 = httpx.Response(429, request=httpx.Request("GET", "http://test.com"))
+        response_429._content = b'{"error": "rate limited"}'
+        response_429.headers['Retry-After'] = '60'
+        status_error_429 = httpx.HTTPStatusError("Too Many Requests", request=response_429.request, response=response_429)
+        bmc_error = error_handler.handle_http_error(status_error_429, "test_operation")
+        assert isinstance(bmc_error, BMCAPIRateLimitError)
+        assert bmc_error.status_code == 429
+        assert bmc_error.retry_after == 60
+        
+        # Test 422 Validation Error
+        response_422 = httpx.Response(422, request=httpx.Request("GET", "http://test.com"))
+        response_422._content = b'{"errors": ["field1 is required", "field2 is invalid"]}'
+        status_error_422 = httpx.HTTPStatusError("Unprocessable Entity", request=response_422.request, response=response_422)
+        bmc_error = error_handler.handle_http_error(status_error_422, "test_operation")
+        assert isinstance(bmc_error, BMCAPIValidationError)
+        assert bmc_error.status_code == 422
+        assert bmc_error.validation_errors == ["field1 is required", "field2 is invalid"]
+        
+        # Test other status codes
+        response_500 = httpx.Response(500, request=httpx.Request("GET", "http://test.com"))
+        response_500._content = b'{"error": "internal server error"}'
+        status_error_500 = httpx.HTTPStatusError("Internal Server Error", request=response_500.request, response=response_500)
+        bmc_error = error_handler.handle_http_error(status_error_500, "test_operation")
+        assert isinstance(bmc_error, BMCAPIError)
+        assert bmc_error.status_code == 500
+    
+    def test_error_handler_json_parsing_failure(self):
+        """Test error handler when JSON parsing fails."""
+        from main import ErrorHandler, Settings, BMCAPIAuthenticationError
+        import httpx
+        
+        settings = Settings()
+        error_handler = ErrorHandler(settings)
+        
+        # Create response with invalid JSON
+        response = httpx.Response(401, request=httpx.Request("GET", "http://test.com"))
+        response._content = b'invalid json content'
+        status_error = httpx.HTTPStatusError("Unauthorized", request=response.request, response=response)
+        
+        bmc_error = error_handler.handle_http_error(status_error, "test_operation")
+        assert isinstance(bmc_error, BMCAPIAuthenticationError)
+        assert bmc_error.response_data == {"raw_response": "invalid json content"}
+    
+    def test_error_response_with_metrics(self):
+        """Test error response creation with metrics integration."""
+        from main import ErrorHandler, Settings, Metrics, BMCAPIError
+        
+        settings = Settings()
+        metrics = Metrics()
+        error_handler = ErrorHandler(settings, metrics)
+        
+        bmc_error = BMCAPIError("Test error", status_code=500)
+        response = error_handler.create_error_response(bmc_error, "test_operation")
+        
+        assert response["error"] is True
+        assert metrics.failed_requests == 1
+        assert "test_operation_500" in metrics.endpoint_errors
+        assert metrics.endpoint_errors["test_operation_500"] == 1
+    
+    @pytest.mark.asyncio
+    async def test_error_recovery_with_different_error_types(self):
+        """Test error recovery with different types of errors."""
+        from main import ErrorHandler, Settings, BMCAPITimeoutError, BMCAPIAuthenticationError, MCPValidationError
+        
+        settings = Settings(error_recovery_attempts=2)
+        error_handler = ErrorHandler(settings)
+        
+        # Test with timeout error (should retry)
+        call_count = 0
+        async def timeout_failing_function():
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise BMCAPITimeoutError("Timeout")
+            return "success"
+        
+        result = await error_handler.execute_with_recovery("test_operation", timeout_failing_function)
+        assert result == "success"
+        assert call_count == 2
+        
+        # Test with authentication error (should not retry)
+        call_count = 0
+        async def auth_failing_function():
+            nonlocal call_count
+            call_count += 1
+            raise BMCAPIAuthenticationError("Auth failed")
+        
+        with pytest.raises(BMCAPIAuthenticationError):
+            await error_handler.execute_with_recovery("test_operation", auth_failing_function)
+        assert call_count == 1  # Should not retry
+    
+    def test_error_handler_http_status_errors(self):
+        """Test HTTP status error conversion for different status codes."""
+        from main import ErrorHandler, Settings, BMCAPIAuthenticationError, BMCAPINotFoundError, BMCAPIRateLimitError, BMCAPIValidationError
+        import httpx
+        
+        settings = Settings()
+        error_handler = ErrorHandler(settings)
+        
+        # Test 401 Authentication Error
+        response_401 = httpx.Response(401, request=httpx.Request("GET", "http://test.com"))
+        response_401._content = b'{"error": "unauthorized"}'
+        status_error_401 = httpx.HTTPStatusError("Unauthorized", request=response_401.request, response=response_401)
+        bmc_error = error_handler.handle_http_error(status_error_401, "test_operation")
+        assert isinstance(bmc_error, BMCAPIAuthenticationError)
+        assert bmc_error.status_code == 401
+        
+        # Test 404 Not Found Error
+        response_404 = httpx.Response(404, request=httpx.Request("GET", "http://test.com"))
+        response_404._content = b'{"error": "not found"}'
+        status_error_404 = httpx.HTTPStatusError("Not Found", request=response_404.request, response=response_404)
+        bmc_error = error_handler.handle_http_error(status_error_404, "test_operation")
+        assert isinstance(bmc_error, BMCAPINotFoundError)
+        assert bmc_error.status_code == 404
+        
+        # Test 429 Rate Limit Error
+        response_429 = httpx.Response(429, request=httpx.Request("GET", "http://test.com"))
+        response_429._content = b'{"error": "rate limited"}'
+        response_429.headers['Retry-After'] = '60'
+        status_error_429 = httpx.HTTPStatusError("Too Many Requests", request=response_429.request, response=response_429)
+        bmc_error = error_handler.handle_http_error(status_error_429, "test_operation")
+        assert isinstance(bmc_error, BMCAPIRateLimitError)
+        assert bmc_error.status_code == 429
+        assert bmc_error.retry_after == 60
+        
+        # Test 422 Validation Error
+        response_422 = httpx.Response(422, request=httpx.Request("GET", "http://test.com"))
+        response_422._content = b'{"errors": ["field1 is required", "field2 is invalid"]}'
+        status_error_422 = httpx.HTTPStatusError("Unprocessable Entity", request=response_422.request, response=response_422)
+        bmc_error = error_handler.handle_http_error(status_error_422, "test_operation")
+        assert isinstance(bmc_error, BMCAPIValidationError)
+        assert bmc_error.status_code == 422
+        assert bmc_error.validation_errors == ["field1 is required", "field2 is invalid"]
+        
+        # Test other status codes
+        response_500 = httpx.Response(500, request=httpx.Request("GET", "http://test.com"))
+        response_500._content = b'{"error": "internal server error"}'
+        status_error_500 = httpx.HTTPStatusError("Internal Server Error", request=response_500.request, response=response_500)
+        bmc_error = error_handler.handle_http_error(status_error_500, "test_operation")
+        assert isinstance(bmc_error, BMCAPIError)
+        assert bmc_error.status_code == 500
+    
+    def test_error_handler_json_parsing_failure(self):
+        """Test error handler when JSON parsing fails."""
+        from main import ErrorHandler, Settings, BMCAPIAuthenticationError
+        import httpx
+        
+        settings = Settings()
+        error_handler = ErrorHandler(settings)
+        
+        # Create response with invalid JSON
+        response = httpx.Response(401, request=httpx.Request("GET", "http://test.com"))
+        response._content = b'invalid json content'
+        status_error = httpx.HTTPStatusError("Unauthorized", request=response.request, response=response)
+        
+        bmc_error = error_handler.handle_http_error(status_error, "test_operation")
+        assert isinstance(bmc_error, BMCAPIAuthenticationError)
+        assert bmc_error.response_data == {"raw_response": "invalid json content"}
+    
+    def test_error_response_with_metrics(self):
+        """Test error response creation with metrics integration."""
+        from main import ErrorHandler, Settings, Metrics, BMCAPIError
+        
+        settings = Settings()
+        metrics = Metrics()
+        error_handler = ErrorHandler(settings, metrics)
+        
+        bmc_error = BMCAPIError("Test error", status_code=500)
+        response = error_handler.create_error_response(bmc_error, "test_operation")
+        
+        assert response["error"] is True
+        assert metrics.failed_requests == 1
+        assert "test_operation_500" in metrics.endpoint_errors
+        assert metrics.endpoint_errors["test_operation_500"] == 1
+    
+    @pytest.mark.asyncio
+    async def test_error_recovery_with_different_error_types(self):
+        """Test error recovery with different types of errors."""
+        from main import ErrorHandler, Settings, BMCAPITimeoutError, BMCAPIAuthenticationError, MCPValidationError
+        
+        settings = Settings(error_recovery_attempts=2)
+        error_handler = ErrorHandler(settings)
+        
+        # Test with timeout error (should retry)
+        call_count = 0
+        async def timeout_failing_function():
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise BMCAPITimeoutError("Timeout")
+            return "success"
+        
+        result = await error_handler.execute_with_recovery("test_operation", timeout_failing_function)
+        assert result == "success"
+        assert call_count == 2
+        
+        # Test with authentication error (should not retry)
+        call_count = 0
+        async def auth_failing_function():
+            nonlocal call_count
+            call_count += 1
+            raise BMCAPIAuthenticationError("Auth failed")
+        
+        with pytest.raises(BMCAPIAuthenticationError):
+            await error_handler.execute_with_recovery("test_operation", auth_failing_function)
+        assert call_count == 1  # Should not retry
+
+
+class TestBMCClientComprehensive:
+    """Comprehensive tests for BMCAMIDevXClient methods."""
+    
+    @pytest.fixture
+    def mock_httpx_client(self):
+        """Mock httpx.AsyncClient for testing."""
+        with unittest.mock.patch('httpx.AsyncClient') as mock_client:
+            yield mock_client
+    
+    @pytest.mark.asyncio
+    async def test_create_assignment_success(self, mock_httpx_client):
+        """Test successful create_assignment call."""
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"assignmentId": "ASSIGN-002", "status": "created"}
+        mock_response.raise_for_status.return_value = None
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.request.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        assignment_data = {"assignmentId": "ASSIGN-002", "stream": "STREAM1"}
+        result = await client.create_assignment("TEST123", assignment_data)
+        
+        assert result["assignmentId"] == "ASSIGN-002"
+        mock_client_instance.request.assert_called_once_with("POST", "/ispw/TEST123/assignments", json=assignment_data)
+    
+    @pytest.mark.asyncio
+    async def test_get_assignment_details_success(self, mock_httpx_client):
+        """Test successful get_assignment_details call."""
+        mock_response = unittest.mock.MagicMock()
+        mock_response.json.return_value = {"assignmentId": "ASSIGN-001", "status": "active"}
+        mock_response.raise_for_status.return_value = None
+        mock_client_instance = unittest.mock.AsyncMock()
+        mock_client_instance.request.return_value = mock_response
+        mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
+        
+        client = BMCAMIDevXClient(mock_client_instance)
+        result = await client.get_assignment_details("TEST123", "ASSIGN-001")
+        
+        assert result["assignmentId"] == "ASSIGN-001"
+        mock_client_instance.request.assert_called_once_with("GET", "/ispw/TEST123/assignments/ASSIGN-001")
+
+
+class TestMCPToolsComprehensive:
+    """Comprehensive tests for MCP tool core functions."""
+    
+    @pytest.fixture
+    def mock_bmc_client(self):
+        """Mock BMC client for testing."""
+        return unittest.mock.MagicMock()
+    
+    @pytest.fixture
+    def mock_context(self):
+        """Mock FastMCP context for testing."""
+        context = unittest.mock.MagicMock(spec=Context)
+        context.info = unittest.mock.AsyncMock()
+        context.error = unittest.mock.AsyncMock()
+        return context
+
+
+class TestValidationFunctions:
+    """Test validation functions with edge cases."""
+    
+    def test_validate_srid_edge_cases(self):
+        """Test validate_srid with edge cases."""
+        from main import validate_srid
+        
+        # Test valid cases
+        assert validate_srid("A") == "A"
+        assert validate_srid("12345678") == "12345678"
+        assert validate_srid("ABC123") == "ABC123"
+        
+        # Test invalid cases
+        with pytest.raises(ValueError, match="SRID is required and must be a string"):
+            validate_srid("")
+        
+        with pytest.raises(ValueError, match="SRID must be 1-8 alphanumeric characters"):
+            validate_srid("123456789")  # Too long
+        
+        with pytest.raises(ValueError, match="SRID must be 1-8 alphanumeric characters"):
+            validate_srid("A@B")  # Invalid character
+    
+    def test_validate_assignment_id_edge_cases(self):
+        """Test validate_assignment_id with edge cases."""
+        from main import validate_assignment_id
+        
+        # Test valid cases
+        assert validate_assignment_id("A") == "A"
+        assert validate_assignment_id("12345678901234567890") == "12345678901234567890"  # Max length
+        assert validate_assignment_id("ABC123XYZ") == "ABC123XYZ"
+        
+        # Test invalid cases
+        with pytest.raises(ValueError, match="Assignment ID is required and must be a string"):
+            validate_assignment_id("")
+        
+        with pytest.raises(ValueError, match="Assignment ID must be 1-20 alphanumeric characters"):
+            validate_assignment_id("123456789012345678901")  # Too long
+        
+        with pytest.raises(ValueError, match="Assignment ID must be 1-20 alphanumeric characters"):
+            validate_assignment_id("A@B")  # Invalid character
+    
+    def test_validate_level_edge_cases(self):
+        """Test validate_level with edge cases."""
+        from main import validate_level
+        
+        # Test valid cases
+        assert validate_level("dev") == "DEV"
+        assert validate_level("TEST") == "TEST"
+        assert validate_level("stage") == "STAGE"
+        assert validate_level("PROD") == "PROD"
+        assert validate_level("uat") == "UAT"
+        assert validate_level("qa") == "QA"
+        
+        # Test invalid cases
+        with pytest.raises(ValueError, match="Level must be one of"):
+            validate_level("INVALID")
+        
+        with pytest.raises(ValueError, match="Level must be one of"):
+            validate_level("DEVELOPMENT")
+    
+    def test_validate_environment_edge_cases(self):
+        """Test validate_environment with edge cases."""
+        from main import validate_environment
+        
+        # Test valid cases
+        assert validate_environment("dev") == "DEV"
+        assert validate_environment("TEST") == "TEST"
+        assert validate_environment("stage") == "STAGE"
+        assert validate_environment("PROD") == "PROD"
+        assert validate_environment("uat") == "UAT"
+        assert validate_environment("qa") == "QA"
+        
+        # Test invalid cases
+        with pytest.raises(ValueError, match="Environment must be one of"):
+            validate_environment("INVALID")
+        
+        with pytest.raises(ValueError, match="Environment must be one of"):
+            validate_environment("PRODUCTION")
+
+
+class TestSettingsComprehensive:
+    """Comprehensive tests for Settings class."""
+    
+    def test_settings_from_env_with_all_types(self):
+        """Test Settings.from_env with all data types."""
+        test_env = {
+            "HOST": "127.0.0.1",
+            "PORT": "9000",
+            "LOG_LEVEL": "DEBUG",
+            "API_BASE_URL": "https://test.bmc.com/api",
+            "API_TIMEOUT": "60",
+            "API_RETRY_ATTEMPTS": "5",
+            "AUTH_ENABLED": "true",
+            "AUTH_PROVIDER": "fastmcp.server.auth.providers.jwt.JWTVerifier",
+            "RATE_LIMIT_REQUESTS_PER_MINUTE": "120",
+            "RATE_LIMIT_BURST_SIZE": "20",
+            "CONNECTION_POOL_SIZE": "30",
+            "CONNECTION_POOL_MAX_KEEPALIVE": "60",
+            "ENABLE_METRICS": "true",
+            "METRICS_PORT": "9090",
+            "HEALTH_CHECK_INTERVAL": "45",
+            "LOG_REQUESTS": "true",
+            "LOG_RESPONSES": "true",
+            "ENABLE_TRACING": "false",
+            "ENABLE_CACHING": "true",
+            "CACHE_TTL_SECONDS": "600",
+            "CACHE_MAX_SIZE": "2000",
+            "CACHE_CLEANUP_INTERVAL": "120",
+            "ENABLE_DETAILED_ERRORS": "true",
+            "LOG_ERROR_DETAILS": "true",
+            "MAX_ERROR_MESSAGE_LENGTH": "2000",
+            "ENABLE_ERROR_RECOVERY": "true",
+            "ERROR_RECOVERY_ATTEMPTS": "5"
+        }
+        
+        with unittest.mock.patch.dict(os.environ, test_env):
+            from main import Settings
+            settings = Settings.from_env()
+            
+            # Test string values
+            assert settings.host == "127.0.0.1"
+            assert settings.log_level == "DEBUG"
+            assert settings.api_base_url == "https://test.bmc.com/api"
+            assert settings.auth_provider == "fastmcp.server.auth.providers.jwt.JWTVerifier"
+            
+            # Test integer values
+            assert settings.port == 9000
+            assert settings.api_timeout == 60
+            assert settings.api_retry_attempts == 5
+            assert settings.rate_limit_requests_per_minute == 120
+            assert settings.rate_limit_burst_size == 20
+            assert settings.connection_pool_size == 30
+            assert settings.connection_pool_max_keepalive == 60
+            assert settings.metrics_port == 9090
+            assert settings.health_check_interval == 45
+            assert settings.cache_ttl_seconds == 600
+            assert settings.cache_max_size == 2000
+            assert settings.cache_cleanup_interval == 120
+            assert settings.max_error_message_length == 2000
+            assert settings.error_recovery_attempts == 5
+            
+            # Test boolean values
+            assert settings.auth_enabled is True
+            assert settings.enable_metrics is True
+            assert settings.log_requests is True
+            assert settings.log_responses is True
+            assert settings.enable_tracing is False
+            assert settings.enable_caching is True
+            assert settings.enable_detailed_errors is True
+            assert settings.log_error_details is True
+            assert settings.enable_error_recovery is True
+    
+    def test_settings_from_env_with_invalid_types(self):
+        """Test Settings.from_env with invalid type conversions."""
+        test_env = {
+            "PORT": "invalid_port",
+            "API_TIMEOUT": "not_a_number",
+            "AUTH_ENABLED": "maybe",
+            "RATE_LIMIT_REQUESTS_PER_MINUTE": "invalid"
+        }
+        
+        with unittest.mock.patch.dict(os.environ, test_env):
+            from main import Settings
+            settings = Settings.from_env()
+            
+            # Should fall back to defaults for invalid values
+            assert settings.port == 8080  # default
+            assert settings.api_timeout == 30  # default
+            assert settings.auth_enabled is False  # default
+            assert settings.rate_limit_requests_per_minute == 60  # default
+    
+    def test_settings_from_env_with_kwargs_override(self):
+        """Test Settings.from_env with kwargs override."""
+        test_env = {
+            "HOST": "127.0.0.1",
+            "PORT": "9000"
+        }
+        
+        with unittest.mock.patch.dict(os.environ, test_env):
+            from main import Settings
+            settings = Settings.from_env(host="192.168.1.1", port=8000)
+            
+            # kwargs should override environment variables
+            assert settings.host == "192.168.1.1"
+            assert settings.port == 8000
+
+
+class TestMetricsComprehensive:
+    """Comprehensive tests for Metrics class."""
+    
+    def test_metrics_initialization(self):
+        """Test Metrics class initialization."""
+        from main import Metrics
+        from collections import deque
+        
+        metrics = Metrics()
+        assert metrics.total_requests == 0
+        assert metrics.successful_requests == 0
+        assert metrics.failed_requests == 0
+        assert metrics.bmc_api_calls == 0
+        assert metrics.bmc_api_errors == 0
+        assert metrics.cache_hits == 0
+        assert metrics.cache_misses == 0
+        assert metrics.start_time is not None
+        assert isinstance(metrics.response_times, deque)
+        assert isinstance(metrics.endpoint_errors, dict)
+    
+    def test_metrics_update_response_time(self):
+        """Test Metrics response time updates."""
+        from main import Metrics
+        
+        metrics = Metrics()
+        metrics.update_bmc_response_time(1.0)
+        metrics.update_bmc_response_time(2.0)
+        metrics.update_bmc_response_time(3.0)
+        
+        assert len(metrics.bmc_api_response_times) == 3
+        assert list(metrics.bmc_api_response_times) == [1.0, 2.0, 3.0]
+    
+    def test_metrics_success_rate(self):
+        """Test Metrics success rate calculation."""
+        from main import Metrics
+        
+        metrics = Metrics()
+        metrics.successful_requests = 8
+        metrics.failed_requests = 2
+        
+        assert metrics.get_success_rate() == 80.0  # Returns percentage
+    
+    def test_metrics_cache_hit_rate(self):
+        """Test Metrics cache hit rate calculation."""
+        from main import Metrics
+        
+        metrics = Metrics()
+        metrics.cache_hits = 7
+        metrics.cache_misses = 3
+        
+        assert metrics.get_cache_hit_rate() == 70.0  # Returns percentage
+    
+    def test_metrics_to_dict(self):
+        """Test Metrics to_dict serialization."""
+        from main import Metrics
+        
+        metrics = Metrics()
+        metrics.total_requests = 10
+        metrics.successful_requests = 8
+        metrics.failed_requests = 2
+        metrics.bmc_api_calls = 5
+        metrics.bmc_api_errors = 1
+        metrics.cache_hits = 3
+        metrics.cache_misses = 2
+        
+        metrics_dict = metrics.to_dict()
+        
+        # Test nested structure
+        assert metrics_dict["requests"]["total"] == 10
+        assert metrics_dict["requests"]["successful"] == 8
+        assert metrics_dict["requests"]["failed"] == 2
+        assert metrics_dict["bmc_api"]["calls"] == 5
+        assert metrics_dict["bmc_api"]["errors"] == 1
+        assert metrics_dict["cache"]["hits"] == 3
+        assert metrics_dict["cache"]["misses"] == 2
+        assert "success_rate" in metrics_dict["requests"]
+        assert "hit_rate" in metrics_dict["cache"]
+        
+        # Test that all expected top-level keys exist
+        expected_keys = ["requests", "response_times", "endpoints", "bmc_api", "cache", "system"]
+        for key in expected_keys:
+            assert key in metrics_dict
+
+
+class TestCacheComprehensive:
+    """Comprehensive tests for Cache classes."""
+    
+    def test_cache_entry_creation(self):
+        """Test CacheEntry creation and TTL."""
+        from main import CacheEntry
+        from datetime import datetime
+        
+        entry = CacheEntry(data={"data": "value"}, timestamp=datetime.now(), ttl_seconds=1)
+        assert entry.data == {"data": "value"}
+        assert entry.ttl_seconds == 1
+        assert not entry.is_expired()
+    
+    def test_intelligent_cache_initialization(self):
+        """Test IntelligentCache initialization."""
+        from main import IntelligentCache
+        
+        cache = IntelligentCache(max_size=3, default_ttl=60)
+        assert cache.max_size == 3
+        assert cache.default_ttl == 60
+        assert len(cache.cache) == 0
+        assert len(cache.access_order) == 0
+
+
+class TestHealthCheckerComprehensive:
+    """Comprehensive tests for HealthChecker class."""
+    
+    def test_health_checker_initialization(self):
+        """Test HealthChecker initialization."""
+        from main import HealthChecker, Settings
+        import unittest.mock
+        
+        mock_bmc_client = unittest.mock.MagicMock()
+        settings = Settings()
+        health_checker = HealthChecker(mock_bmc_client, settings)
+        
+        assert health_checker.bmc_client == mock_bmc_client
+        assert health_checker.settings == settings
+        assert health_checker.health_status == "unknown"
+        assert health_checker.last_check is None
+        assert health_checker.health_details == {}
 
 
 class TestAuthentication:
