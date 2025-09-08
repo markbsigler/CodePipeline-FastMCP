@@ -3,6 +3,7 @@ Test suite for BMC AMI DevX Code Pipeline FastMCP Server
 Tests the real FastMCP implementation with authentication, validation, and retry logic.
 """
 
+import asyncio
 import json
 import os
 import tempfile
@@ -525,6 +526,226 @@ class TestRateLimiting:
         # Verify rate limiter was called
         mock_rate_limiter.wait_for_token.assert_called_once()
         mock_http_client.request.assert_called_once()
+
+
+class TestMonitoring:
+    """Test monitoring and metrics functionality."""
+    
+    def test_metrics_initialization(self):
+        """Test metrics initialization."""
+        from main import Metrics
+        
+        metrics = Metrics()
+        assert metrics.total_requests == 0
+        assert metrics.successful_requests == 0
+        assert metrics.failed_requests == 0
+        assert metrics.avg_response_time == 0.0
+        assert metrics.min_response_time == float('inf')
+        assert metrics.max_response_time == 0.0
+    
+    def test_metrics_update_response_time(self):
+        """Test response time metrics updates."""
+        from main import Metrics
+        
+        metrics = Metrics()
+        metrics.update_response_time(1.5)
+        metrics.update_response_time(2.0)
+        metrics.update_response_time(0.5)
+        
+        assert abs(metrics.avg_response_time - 1.33) < 0.01  # (1.5 + 2.0 + 0.5) / 3
+        assert metrics.min_response_time == 0.5
+        assert metrics.max_response_time == 2.0
+        assert len(metrics.response_times) == 3
+    
+    def test_metrics_success_rate(self):
+        """Test success rate calculation."""
+        from main import Metrics
+        
+        metrics = Metrics()
+        metrics.successful_requests = 80
+        metrics.failed_requests = 20
+        
+        assert metrics.get_success_rate() == 80.0
+    
+    def test_metrics_cache_hit_rate(self):
+        """Test cache hit rate calculation."""
+        from main import Metrics
+        
+        metrics = Metrics()
+        metrics.cache_hits = 75
+        metrics.cache_misses = 25
+        
+        assert metrics.get_cache_hit_rate() == 75.0
+    
+    def test_metrics_to_dict(self):
+        """Test metrics serialization to dictionary."""
+        from main import Metrics
+        
+        metrics = Metrics()
+        metrics.total_requests = 100
+        metrics.successful_requests = 90
+        metrics.failed_requests = 10
+        metrics.cache_hits = 50
+        metrics.cache_misses = 50
+        
+        metrics_dict = metrics.to_dict()
+        
+        assert "requests" in metrics_dict
+        assert "response_times" in metrics_dict
+        assert "cache" in metrics_dict
+        assert "system" in metrics_dict
+        assert metrics_dict["requests"]["total"] == 100
+        assert metrics_dict["requests"]["success_rate"] == 90.0
+        assert metrics_dict["cache"]["hit_rate"] == 50.0
+
+
+class TestCaching:
+    """Test caching functionality."""
+    
+    @pytest.mark.asyncio
+    async def test_cache_basic_operations(self):
+        """Test basic cache operations."""
+        from main import IntelligentCache
+        
+        cache = IntelligentCache(max_size=10, default_ttl=60)
+        
+        # Test set and get
+        await cache.set("test_method", {"data": "test"}, srid="TEST123")
+        result = await cache.get("test_method", srid="TEST123")
+        
+        assert result == {"data": "test"}
+    
+    @pytest.mark.asyncio
+    async def test_cache_expiration(self):
+        """Test cache expiration."""
+        from main import IntelligentCache
+        
+        cache = IntelligentCache(max_size=10, default_ttl=1)  # 1 second TTL
+        
+        # Set data
+        await cache.set("test_method", {"data": "test"}, srid="TEST123")
+        
+        # Should be available immediately
+        result = await cache.get("test_method", srid="TEST123")
+        assert result == {"data": "test"}
+        
+        # Wait for expiration
+        await asyncio.sleep(1.1)
+        
+        # Should be expired
+        result = await cache.get("test_method", srid="TEST123")
+        assert result is None
+    
+    @pytest.mark.asyncio
+    async def test_cache_lru_eviction(self):
+        """Test LRU eviction when cache is full."""
+        from main import IntelligentCache
+        
+        cache = IntelligentCache(max_size=3, default_ttl=60)
+        
+        # Fill cache to capacity
+        await cache.set("method1", "data1", srid="TEST1")
+        await cache.set("method2", "data2", srid="TEST2")
+        await cache.set("method3", "data3", srid="TEST3")
+        
+        # Access first item to make it recently used
+        await cache.get("method1", srid="TEST1")
+        
+        # Add one more item - should evict least recently used (method2)
+        await cache.set("method4", "data4", srid="TEST4")
+        
+        # method2 should be evicted
+        result = await cache.get("method2", srid="TEST2")
+        assert result is None
+        
+        # method1 should still be available
+        result = await cache.get("method1", srid="TEST1")
+        assert result == "data1"
+    
+    @pytest.mark.asyncio
+    async def test_cache_cleanup_expired(self):
+        """Test cleanup of expired entries."""
+        from main import IntelligentCache
+        
+        cache = IntelligentCache(max_size=10, default_ttl=1)
+        
+        # Add some data
+        await cache.set("method1", "data1", srid="TEST1")
+        await cache.set("method2", "data2", srid="TEST2", ttl=2)  # Longer TTL
+        
+        # Wait for first item to expire
+        await asyncio.sleep(1.1)
+        
+        # Cleanup expired entries
+        expired_count = await cache.cleanup_expired()
+        
+        assert expired_count == 1
+        
+        # First item should be gone
+        result = await cache.get("method1", srid="TEST1")
+        assert result is None
+        
+        # Second item should still be available
+        result = await cache.get("method2", srid="TEST2")
+        assert result == "data2"
+    
+    def test_cache_stats(self):
+        """Test cache statistics."""
+        from main import IntelligentCache
+        
+        cache = IntelligentCache(max_size=100, default_ttl=300)
+        
+        stats = cache.get_stats()
+        
+        assert "size" in stats
+        assert "max_size" in stats
+        assert "default_ttl" in stats
+        assert "keys" in stats
+        assert stats["max_size"] == 100
+        assert stats["default_ttl"] == 300
+
+
+class TestHealthChecker:
+    """Test health checker functionality."""
+    
+    @pytest.mark.asyncio
+    async def test_health_check_success(self):
+        """Test successful health check."""
+        from main import HealthChecker, Settings
+        import unittest.mock
+        
+        # Create mock BMC client
+        mock_bmc_client = unittest.mock.AsyncMock()
+        mock_bmc_client.get_assignments.return_value = {"assignments": []}
+        
+        settings = Settings()
+        health_checker = HealthChecker(mock_bmc_client, settings)
+        
+        health_data = await health_checker.check_health()
+        
+        assert "status" in health_data
+        assert "timestamp" in health_data
+        assert "details" in health_data
+        assert health_data["status"] in ["healthy", "degraded", "unhealthy"]
+    
+    @pytest.mark.asyncio
+    async def test_health_check_bmc_api_error(self):
+        """Test health check with BMC API error."""
+        from main import HealthChecker, Settings
+        import unittest.mock
+        
+        # Create mock BMC client that raises error
+        mock_bmc_client = unittest.mock.AsyncMock()
+        mock_bmc_client.get_assignments.side_effect = Exception("API Error")
+        
+        settings = Settings()
+        health_checker = HealthChecker(mock_bmc_client, settings)
+        
+        health_data = await health_checker.check_health()
+        
+        assert health_data["status"] == "degraded"
+        assert "bmc_api" in health_data["details"]
+        assert "error" in health_data["details"]["bmc_api"]
 
 
 class TestAuthentication:

@@ -7,10 +7,13 @@ Real FastMCP 2.x server for BMC AMI DevX Code Pipeline integration.
 import json
 import os
 import asyncio
+import time
+import logging
 from typing import Any, Dict, List, Optional
 from pathlib import Path
-from collections import deque
+from collections import deque, defaultdict
 from datetime import datetime, timedelta
+from dataclasses import dataclass, field
 
 import httpx
 from fastmcp import FastMCP, Context
@@ -47,6 +50,22 @@ class Settings(BaseModel):
     
     # OpenAPI specification path
     openapi_spec_path: str = Field(default="config/openapi.json")
+    
+    # Monitoring and observability
+    enable_metrics: bool = Field(default=True)
+    metrics_port: int = Field(default=9090)
+    health_check_interval: int = Field(default=30)
+    log_requests: bool = Field(default=True)
+    log_responses: bool = Field(default=False)
+    log_level: str = Field(default="INFO")
+    enable_tracing: bool = Field(default=False)
+    tracing_endpoint: Optional[str] = Field(default=None)
+    
+    # Caching configuration
+    enable_caching: bool = Field(default=True)
+    cache_ttl_seconds: int = Field(default=300)  # 5 minutes
+    cache_max_size: int = Field(default=1000)
+    cache_cleanup_interval: int = Field(default=60)  # 1 minute
     
     model_config = ConfigDict(env_file=".env", extra="ignore")
     
@@ -107,6 +126,265 @@ class RateLimiter:
             # Calculate wait time based on refill rate
             wait_time = 60.0 / self.requests_per_minute
             await asyncio.sleep(wait_time)
+
+
+@dataclass
+class Metrics:
+    """Application metrics for monitoring and observability."""
+    
+    # Request metrics
+    total_requests: int = 0
+    successful_requests: int = 0
+    failed_requests: int = 0
+    rate_limited_requests: int = 0
+    
+    # Response time metrics
+    response_times: deque = field(default_factory=lambda: deque(maxlen=1000))
+    avg_response_time: float = 0.0
+    min_response_time: float = float('inf')
+    max_response_time: float = 0.0
+    
+    # API endpoint metrics
+    endpoint_counts: Dict[str, int] = field(default_factory=dict)
+    endpoint_errors: Dict[str, int] = field(default_factory=dict)
+    
+    # BMC API metrics
+    bmc_api_calls: int = 0
+    bmc_api_errors: int = 0
+    bmc_api_response_times: deque = field(default_factory=lambda: deque(maxlen=1000))
+    
+    # Cache metrics
+    cache_hits: int = 0
+    cache_misses: int = 0
+    cache_size: int = 0
+    
+    # System metrics
+    start_time: datetime = field(default_factory=datetime.now)
+    uptime_seconds: float = 0.0
+    
+    def update_response_time(self, response_time: float):
+        """Update response time metrics."""
+        self.response_times.append(response_time)
+        self.avg_response_time = sum(self.response_times) / len(self.response_times)
+        self.min_response_time = min(self.min_response_time, response_time)
+        self.max_response_time = max(self.max_response_time, response_time)
+    
+    def update_bmc_response_time(self, response_time: float):
+        """Update BMC API response time metrics."""
+        self.bmc_api_response_times.append(response_time)
+    
+    def get_cache_hit_rate(self) -> float:
+        """Calculate cache hit rate."""
+        total = self.cache_hits + self.cache_misses
+        return (self.cache_hits / total * 100) if total > 0 else 0.0
+    
+    def get_success_rate(self) -> float:
+        """Calculate request success rate."""
+        total = self.successful_requests + self.failed_requests
+        return (self.successful_requests / total * 100) if total > 0 else 100.0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert metrics to dictionary for JSON serialization."""
+        return {
+            "requests": {
+                "total": self.total_requests,
+                "successful": self.successful_requests,
+                "failed": self.failed_requests,
+                "rate_limited": self.rate_limited_requests,
+                "success_rate": self.get_success_rate()
+            },
+            "response_times": {
+                "average": self.avg_response_time,
+                "minimum": self.min_response_time if self.min_response_time != float('inf') else 0,
+                "maximum": self.max_response_time,
+                "samples": len(self.response_times)
+            },
+            "endpoints": {
+                "counts": self.endpoint_counts,
+                "errors": self.endpoint_errors
+            },
+            "bmc_api": {
+                "calls": self.bmc_api_calls,
+                "errors": self.bmc_api_errors,
+                "avg_response_time": sum(self.bmc_api_response_times) / len(self.bmc_api_response_times) if self.bmc_api_response_times else 0
+            },
+            "cache": {
+                "hits": self.cache_hits,
+                "misses": self.cache_misses,
+                "hit_rate": self.get_cache_hit_rate(),
+                "size": self.cache_size
+            },
+            "system": {
+                "uptime_seconds": (datetime.now() - self.start_time).total_seconds(),
+                "start_time": self.start_time.isoformat()
+            }
+        }
+
+
+class HealthChecker:
+    """Health check system for monitoring server status."""
+    
+    def __init__(self, bmc_client, settings: Settings):
+        self.bmc_client = bmc_client
+        self.settings = settings
+        self.last_check = None
+        self.health_status = "unknown"
+        self.health_details = {}
+    
+    async def check_health(self) -> Dict[str, Any]:
+        """Perform comprehensive health check."""
+        start_time = time.time()
+        health_status = "healthy"
+        health_details = {}
+        
+        try:
+            # Check BMC API connectivity
+            try:
+                # Simple health check - try to get assignments with a minimal request
+                await self.bmc_client.get_assignments("HEALTH_CHECK")
+                health_details["bmc_api"] = "connected"
+            except Exception as e:
+                health_status = "degraded"
+                health_details["bmc_api"] = f"error: {str(e)}"
+            
+            # Check rate limiter status
+            if hasattr(self.bmc_client, 'rate_limiter'):
+                tokens_available = self.bmc_client.rate_limiter.tokens
+                health_details["rate_limiter"] = f"tokens_available: {tokens_available}"
+            
+            # Check system resources
+            import psutil
+            health_details["system"] = {
+                "cpu_percent": psutil.cpu_percent(),
+                "memory_percent": psutil.virtual_memory().percent,
+                "disk_percent": psutil.disk_usage('/').percent
+            }
+            
+        except ImportError:
+            health_details["system"] = "psutil not available"
+        except Exception as e:
+            health_status = "unhealthy"
+            health_details["error"] = str(e)
+        
+        check_duration = time.time() - start_time
+        health_details["check_duration_ms"] = round(check_duration * 1000, 2)
+        
+        self.last_check = datetime.now()
+        self.health_status = health_status
+        self.health_details = health_details
+        
+        return {
+            "status": health_status,
+            "timestamp": self.last_check.isoformat(),
+            "details": health_details
+        }
+
+
+@dataclass
+class CacheEntry:
+    """Cache entry with TTL support."""
+    data: Any
+    timestamp: datetime
+    ttl_seconds: int
+    
+    def is_expired(self) -> bool:
+        """Check if cache entry has expired."""
+        return (datetime.now() - self.timestamp).total_seconds() > self.ttl_seconds
+
+
+class IntelligentCache:
+    """Intelligent caching system with TTL and LRU eviction."""
+    
+    def __init__(self, max_size: int = 1000, default_ttl: int = 300):
+        self.max_size = max_size
+        self.default_ttl = default_ttl
+        self.cache: Dict[str, CacheEntry] = {}
+        self.access_order: deque = deque()
+        self.lock = asyncio.Lock()
+    
+    def _generate_key(self, method: str, **kwargs) -> str:
+        """Generate cache key from method and parameters."""
+        # Sort kwargs for consistent key generation
+        sorted_kwargs = sorted(kwargs.items())
+        key_parts = [method] + [f"{k}={v}" for k, v in sorted_kwargs]
+        return "|".join(key_parts)
+    
+    async def get(self, method: str, **kwargs) -> Optional[Any]:
+        """Get cached data if available and not expired."""
+        async with self.lock:
+            key = self._generate_key(method, **kwargs)
+            
+            if key not in self.cache:
+                return None
+            
+            entry = self.cache[key]
+            if entry.is_expired():
+                # Remove expired entry
+                del self.cache[key]
+                if key in self.access_order:
+                    self.access_order.remove(key)
+                return None
+            
+            # Update access order (move to end)
+            if key in self.access_order:
+                self.access_order.remove(key)
+            self.access_order.append(key)
+            
+            return entry.data
+    
+    async def set(self, method: str, data: Any, ttl: Optional[int] = None, **kwargs) -> None:
+        """Cache data with TTL."""
+        async with self.lock:
+            key = self._generate_key(method, **kwargs)
+            ttl = ttl or self.default_ttl
+            
+            # Remove existing entry if present
+            if key in self.cache:
+                if key in self.access_order:
+                    self.access_order.remove(key)
+            
+            # Add new entry
+            self.cache[key] = CacheEntry(
+                data=data,
+                timestamp=datetime.now(),
+                ttl_seconds=ttl
+            )
+            self.access_order.append(key)
+            
+            # Evict if over capacity
+            await self._evict_if_needed()
+    
+    async def _evict_if_needed(self) -> None:
+        """Evict least recently used entries if cache is over capacity."""
+        while len(self.cache) > self.max_size and self.access_order:
+            # Remove least recently used entry
+            lru_key = self.access_order.popleft()
+            if lru_key in self.cache:
+                del self.cache[lru_key]
+    
+    async def cleanup_expired(self) -> int:
+        """Remove expired entries and return count of removed entries."""
+        async with self.lock:
+            expired_keys = []
+            for key, entry in self.cache.items():
+                if entry.is_expired():
+                    expired_keys.append(key)
+            
+            for key in expired_keys:
+                del self.cache[key]
+                if key in self.access_order:
+                    self.access_order.remove(key)
+            
+            return len(expired_keys)
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        return {
+            "size": len(self.cache),
+            "max_size": self.max_size,
+            "default_ttl": self.default_ttl,
+            "keys": list(self.cache.keys())
+        }
 
 
 # Global settings instance
@@ -266,9 +544,10 @@ http_client = httpx.AsyncClient(
 
 
 class BMCAMIDevXClient:
-    """Client for BMC AMI DevX Code Pipeline API operations with retry logic, rate limiting, and connection pooling."""
+    """Client for BMC AMI DevX Code Pipeline API operations with retry logic, rate limiting, connection pooling, monitoring, and caching."""
     
-    def __init__(self, client: httpx.AsyncClient, rate_limiter: Optional[RateLimiter] = None):
+    def __init__(self, client: httpx.AsyncClient, rate_limiter: Optional[RateLimiter] = None, 
+                 cache: Optional[IntelligentCache] = None, metrics: Optional[Metrics] = None):
         self.client = client
         self.max_retries = settings.api_retry_attempts
         self.retry_delay = 1.0  # seconds
@@ -276,28 +555,73 @@ class BMCAMIDevXClient:
             settings.rate_limit_requests_per_minute,
             settings.rate_limit_burst_size
         )
+        self.cache = cache
+        self.metrics = metrics
     
     async def _make_request(self, method: str, url: str, **kwargs) -> httpx.Response:
-        """Make an HTTP request with rate limiting."""
+        """Make an HTTP request with rate limiting, monitoring, and caching."""
+        start_time = time.time()
+        
         # Wait for rate limit token
         await self.rate_limiter.wait_for_token()
         
         # Make the request
         response = await self.client.request(method, url, **kwargs)
+        
+        # Update metrics
+        if self.metrics:
+            response_time = time.time() - start_time
+            self.metrics.bmc_api_calls += 1
+            self.metrics.update_bmc_response_time(response_time)
+            
+            if response.status_code >= 400:
+                self.metrics.bmc_api_errors += 1
+        
         return response
+    
+    async def _get_cached_or_fetch(self, method: str, cache_key: str, fetch_func, **kwargs) -> Any:
+        """Get data from cache or fetch from API with caching."""
+        if not self.cache or not settings.enable_caching:
+            return await fetch_func()
+        
+        # Try to get from cache
+        cached_data = await self.cache.get(method, **kwargs)
+        if cached_data is not None:
+            if self.metrics:
+                self.metrics.cache_hits += 1
+            return cached_data
+        
+        # Cache miss - fetch from API
+        if self.metrics:
+            self.metrics.cache_misses += 1
+        
+        data = await fetch_func()
+        
+        # Cache the result
+        await self.cache.set(method, data, **kwargs)
+        
+        return data
     
     @retry_on_failure(max_retries=3, delay=1.0)
     async def get_assignments(self, srid: str, level: Optional[str] = None, assignment_id: Optional[str] = None) -> Dict[str, Any]:
-        """Get assignments for a specific SRID."""
-        params = {}
-        if level:
-            params["level"] = level
-        if assignment_id:
-            params["assignmentId"] = assignment_id
-            
-        response = await self._make_request("GET", f"/ispw/{srid}/assignments", params=params)
-        response.raise_for_status()
-        return response.json()
+        """Get assignments for a specific SRID with caching."""
+        async def fetch_assignments():
+            params = {}
+            if level:
+                params["level"] = level
+            if assignment_id:
+                params["assignmentId"] = assignment_id
+                
+            response = await self._make_request("GET", f"/ispw/{srid}/assignments", params=params)
+            response.raise_for_status()
+            return response.json()
+        
+        return await self._get_cached_or_fetch(
+            "get_assignments", 
+            f"assignments_{srid}_{level}_{assignment_id}",
+            fetch_assignments,
+            srid=srid, level=level, assignment_id=assignment_id
+        )
     
     @retry_on_failure(max_retries=3, delay=1.0)
     async def create_assignment(self, srid: str, assignment_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -397,9 +721,21 @@ class BMCAMIDevXClient:
         return response.json()
 
 
-# Initialize BMC AMI DevX client
-# Global BMC client with rate limiting and connection pooling
-bmc_client = BMCAMIDevXClient(http_client)
+# Initialize global instances
+# Global metrics instance
+metrics = Metrics()
+
+# Global cache instance
+cache = IntelligentCache(
+    max_size=settings.cache_max_size,
+    default_ttl=settings.cache_ttl_seconds
+)
+
+# Initialize BMC AMI DevX client with monitoring and caching
+bmc_client = BMCAMIDevXClient(http_client, cache=cache, metrics=metrics)
+
+# Initialize health checker
+health_checker = HealthChecker(bmc_client, settings)
 
 # Create FastMCP server with authentication
 auth_provider = create_auth_provider()
@@ -409,6 +745,72 @@ server = FastMCP(
     instructions="MCP server for BMC AMI DevX Code Pipeline integration with comprehensive ISPW operations",
     auth=auth_provider
 )
+
+# Add monitoring and health check endpoints
+@server.tool
+async def get_metrics(ctx: Context = None) -> str:
+    """Get server metrics and performance statistics."""
+    if ctx:
+        ctx.info("Retrieving server metrics")
+    
+    # Update cache size in metrics
+    if metrics:
+        metrics.cache_size = len(cache.cache) if cache else 0
+    
+    metrics_data = metrics.to_dict() if metrics else {}
+    return json.dumps(metrics_data, indent=2)
+
+@server.tool
+async def get_health_status(ctx: Context = None) -> str:
+    """Get server health status and system information."""
+    if ctx:
+        ctx.info("Performing health check")
+    
+    health_data = await health_checker.check_health()
+    return json.dumps(health_data, indent=2)
+
+@server.tool
+async def get_cache_stats(ctx: Context = None) -> str:
+    """Get cache statistics and performance metrics."""
+    if ctx:
+        ctx.info("Retrieving cache statistics")
+    
+    cache_stats = cache.get_stats() if cache else {}
+    return json.dumps(cache_stats, indent=2)
+
+@server.tool
+async def clear_cache(ctx: Context = None) -> str:
+    """Clear all cached data."""
+    if ctx:
+        ctx.info("Clearing cache")
+    
+    if cache:
+        cache.cache.clear()
+        cache.access_order.clear()
+        return json.dumps({"status": "success", "message": "Cache cleared"})
+    else:
+        return json.dumps({"status": "error", "message": "Cache not available"})
+
+
+# Background tasks
+async def cache_cleanup_task():
+    """Background task to clean up expired cache entries."""
+    while True:
+        try:
+            if cache:
+                expired_count = await cache.cleanup_expired()
+                if expired_count > 0:
+                    print(f"Cleaned up {expired_count} expired cache entries")
+        except Exception as e:
+            print(f"Cache cleanup error: {e}")
+        
+        await asyncio.sleep(settings.cache_cleanup_interval)
+
+
+def start_background_tasks():
+    """Start background tasks for the server."""
+    if settings.enable_caching:
+        asyncio.create_task(cache_cleanup_task())
 
 
 # Assignment Management Tools - Core Functions (for testing)
@@ -836,4 +1238,11 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+    
+    async def main_with_tasks():
+        # Start background tasks
+        start_background_tasks()
+        # Run the main server
+        await main()
+    
+    asyncio.run(main_with_tasks())
