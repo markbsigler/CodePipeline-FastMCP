@@ -22,11 +22,9 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "fastmcp>=2.11.0",
-    "httpx>=0.25.0,<0.26.0",
-    "python-dotenv>=1.0.0,<1.1.0",
-    "uvicorn>=0.24.0,<0.25.0",
-    "starlette>=0.27.0,<0.28.0",
+    "fastmcp>=2.12.0",
+    "httpx>=0.28.0",
+    "python-dotenv>=1.1.0",
 ]
 
 [project.optional-dependencies]
