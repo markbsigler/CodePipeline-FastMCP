@@ -1,86 +1,95 @@
-# BMC AMI DevX Code Pipeline MCP Server
+# BMC AMI DevX Code Pipeline FastMCP Server
 
 ## Project Overview
 
-You are building a **self-contained Model Context Protocol (MCP) server** for **BMC AMI DevX Code Pipeline** using a custom MockFastMCP implementation. This server provides MCP-compliant endpoints using Starlette web framework and Uvicorn ASGI server, designed for containerized deployment without external FastMCP dependencies.
+You are building a **production-ready Model Context Protocol (MCP) server** for **BMC AMI DevX Code Pipeline** using the official **FastMCP framework**. This server leverages FastMCP's advanced features including OpenAPI integration, user elicitation, custom routes, resource templates, and prompts to provide a comprehensive mainframe DevOps platform integration.
 
 ## Core Requirements
 
-### Self-Contained MCP Implementation
+### FastMCP Implementation
 
-- **Framework**: Custom MockFastMCP class using Starlette + Uvicorn
+- **Framework**: Official FastMCP 2.12.2+ with advanced features
 - **Transport**: HTTP REST API with MCP-compliant endpoints
-- **Authentication**: Environment-configurable JWT token validation (optional)
-- **Server Construction**: OpenAPI-driven tool generation pattern
+- **Authentication**: Multiple providers (JWT, GitHub, Google, WorkOS)
+- **Server Construction**: OpenAPI-driven tool generation with `FastMCP.from_openapi()`
 - **Environment Variables**: Use `FASTMCP_` prefix for configuration compatibility
+- **Advanced Features**: User elicitation, custom routes, resource templates, prompts
 
 ### BMC AMI DevX Code Pipeline Integration
 - **Target Platform**: BMC AMI DevX Code Pipeline (mainframe DevOps platform)
-- **OpenAPI Specification**: Use the provided OpenAPI spec for tool generation
+- **OpenAPI Specification**: Use the provided OpenAPI spec for automatic tool generation
 - **API Integration**: CRUD operations for assignments, releases, and source code management
-- **Real-time Features**: Leverage FastMCP's Streamable HTTP for real-time updates
+- **Interactive Workflows**: User elicitation for complex DevOps processes
+- **Real-time Features**: Custom routes for health checks and monitoring
 
 ## Technical Architecture
 
-### Self-Contained MockFastMCP Implementation
+### FastMCP Server Implementation
 
 ```python
-# Custom MockFastMCP class for container-ready deployment
-class MockFastMCP:
-    """Self-contained FastMCP implementation for container deployment."""
+# FastMCP server with OpenAPI integration and advanced features
+from fastmcp import FastMCP, Context
+from fastmcp.server.elicitation import AcceptedElicitation, DeclinedElicitation, CancelledElicitation
 
-    def __init__(self, **kwargs):
-        self.name = kwargs.get('name', 'BMC AMI DevX Code Pipeline MCP Server')
-        self.version = kwargs.get('version', '2.2.0')
-        self.description = kwargs.get('description', 'MCP server for BMC AMI DevX Code Pipeline integration')
-        self.tools = []
-        self.auth = kwargs.get('auth')  # Optional JWT configuration
-
-    @classmethod
-    def from_openapi(cls, spec_path: str, **kwargs):
-        """Create MockFastMCP instance from OpenAPI specification."""
-        instance = cls(**kwargs)
-        instance.openapi_spec = spec_path
-        instance._load_openapi_spec()
-        return instance
+class OpenAPIMCPServer:
+    """BMC AMI DevX Code Pipeline MCP Server with OpenAPI Integration."""
+    
+    def __init__(self):
+        """Initialize the OpenAPI MCP Server."""
+        # Load global configuration
+        self.config = get_fastmcp_config()
+        self.settings = Settings.from_env()
+        
+        # Initialize components with feature toggles
+        self.rate_limiter = RateLimiter(...) if self.config.get("rate_limit_enabled") else None
+        self.cache = IntelligentCache(...) if self.config.get("cache_enabled") else None
+        self.metrics = Metrics() if self.config.get("monitoring_enabled") else None
+        
+        # Create FastMCP server with OpenAPI integration
+        self.server = FastMCP.from_openapi(
+            openapi_spec_path=self.config["openapi_spec_path"],
+            name=self.config["server_name"],
+            version=self.config["server_version"],
+            auth=self._create_auth_provider(),
+            include_tags=self.config.get("include_tags"),
+            exclude_tags=self.config.get("exclude_tags")
+        )
+        
+        # Add advanced features
+        self._add_custom_tools()
+        self._add_custom_routes()
+        self._add_resource_templates()
+        self._add_prompts()
 ```
 
 ### Server Implementation Pattern
 
 ```python
-# Self-contained server creation and startup
+# FastMCP server creation and startup
 def create_server():
-    """Create and configure the MockFastMCP server."""
-    openapi_spec_path = os.path.join(os.path.dirname(__file__), "config", "openapi.json")
-
-    mcp = MockFastMCP.from_openapi(
-        openapi_spec_path,
-        name="BMC AMI DevX Code Pipeline MCP Server",
-        version="2.2.0",
-        description="MCP server for BMC AMI DevX Code Pipeline integration",
-        auth=auth  # Optional JWT authentication
-    )
-
-    return mcp
+    """Create and configure the FastMCP server."""
+    return OpenAPIMCPServer()
 
 def main():
     """Main entry point."""
     server = create_server()
-    app = server.get_app()  # Returns Starlette ASGI application
-
-    uvicorn.run(
-        app,
+    
+    # Run the FastMCP server
+    server.server.run(
         host=os.environ.get('HOST', '0.0.0.0'),
         port=int(os.environ.get('PORT', 8000)),
-        log_level="info"
+        log_level=os.environ.get('LOG_LEVEL', 'info')
     )
 ```
 
 ### MCP-Compliant HTTP Endpoints
 
-- **Health Check**: `GET /health` - Server status and version information
+- **Health Check**: `GET /health` - Server health status with BMC API connectivity
+- **Status**: `GET /status` - Detailed server status with metrics and configuration
+- **Metrics**: `GET /metrics` - Server performance metrics and statistics
+- **Readiness**: `GET /ready` - Readiness check for load balancers
 - **MCP Capabilities**: `POST /mcp/capabilities` - Server capabilities and info
-- **Tools List**: `POST /mcp/tools/list` - Available MCP tools from OpenAPI
+- **Tools List**: `POST /mcp/tools/list` - Available MCP tools (OpenAPI + custom + elicitation)
 - **Tool Execution**: `POST /mcp/tools/call` - Execute MCP tools with arguments
 - **CORS Support**: Cross-origin requests enabled for web integration
 
@@ -88,20 +97,27 @@ def main():
 
 ```text
 /
-├── main.py                     # Self-contained MockFastMCP server implementation
-├── test_mcp_server.py         # Comprehensive test suite with 100% main.py coverage
+├── openapi_server.py          # Main FastMCP server with OpenAPI integration
+├── main.py                    # Legacy server implementation (for reference)
+├── fastmcp_config.py          # Global configuration management
+├── test_advanced_features.py  # Tests for advanced FastMCP features
+├── test_elicitation.py        # Tests for user elicitation functionality
+├── test_openapi_integration.py # Tests for OpenAPI integration
+├── test_mcp_server.py         # Legacy test suite
 ├── config/
-│   ├── openapi.json           # BMC AMI DevX Code Pipeline OpenAPI spec (1263 lines)
-│   ├── ispw_openapi_spec.json # Additional ISPW specifications
-│   └── .env.example           # Environment variable template
+│   ├── openapi.json           # BMC AMI DevX Code Pipeline OpenAPI spec
+│   └── ispw_openapi_spec.json # ISPW OpenAPI specification
 ├── pyproject.toml             # Python project configuration
-├── requirements.txt           # Production dependencies (Starlette + Uvicorn)
+├── requirements.txt           # Production dependencies (FastMCP + httpx)
 ├── package.json               # Development workflow scripts (npm-style)
 ├── .pre-commit-config.yaml    # Code quality automation
 ├── docker-compose.yml         # Docker deployment configuration
-├── Dockerfile                 # Multi-stage Docker build (78 lines)
+├── Dockerfile                 # Multi-stage Docker build
 ├── coverage.xml              # Test coverage reports
-└── htmlcov/                  # HTML coverage reports
+├── htmlcov/                  # HTML coverage reports
+├── OPENAPI_INTEGRATION_SUMMARY.md # OpenAPI integration documentation
+├── ELICITATION_IMPLEMENTATION_SUMMARY.md # Elicitation feature documentation
+└── compare_implementations.py # Code metrics comparison script
 ```
 
 ## Environment Configuration
@@ -112,64 +128,122 @@ Use standardized environment variable patterns compatible with FastMCP:
 # Server Configuration
 HOST=0.0.0.0                    # Server bind address
 PORT=8000                       # Server port (default 8000, Docker uses 8080)
-LOG_LEVEL=info                  # Uvicorn log level
+LOG_LEVEL=info                  # FastMCP log level
 
-# BMC AMI DevX Code Pipeline API (Optional - for future real API integration)
+# BMC AMI DevX Code Pipeline API
 API_BASE_URL=https://devx.bmc.com/code-pipeline/api/v1
+API_TOKEN=your-api-token        # BMC API authentication token
 
-# Optional JWT Authentication (Mock implementation)
+# FastMCP Global Configuration
+FASTMCP_LOG_LEVEL=INFO          # Server log level
+FASTMCP_SERVER_NAME="BMC AMI DevX Code Pipeline MCP Server"
+FASTMCP_SERVER_VERSION=2.2.0
+
+# Authentication Configuration
+FASTMCP_AUTH_ENABLED=false      # Enable/disable authentication
+FASTMCP_AUTH_PROVIDER=fastmcp.server.auth.providers.jwt.JWTVerifier
 FASTMCP_SERVER_AUTH_JWT_JWKS_URI=https://auth.bmc.com/.well-known/jwks.json
 FASTMCP_SERVER_AUTH_JWT_ISSUER=https://auth.bmc.com/
 FASTMCP_SERVER_AUTH_JWT_AUDIENCE=bmc-ami-devx-code-pipeline
+
+# Feature Toggles
+FASTMCP_RATE_LIMIT_ENABLED=true
+FASTMCP_CACHE_ENABLED=true
+FASTMCP_MONITORING_ENABLED=true
+FASTMCP_CUSTOM_ROUTES_ENABLED=true
+FASTMCP_RESOURCE_TEMPLATES_ENABLED=true
+FASTMCP_PROMPTS_ENABLED=true
+
+# OpenAPI Configuration
+FASTMCP_OPENAPI_SPEC_PATH=config/ispw_openapi_spec.json
+FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER=false
 ```
 
 ## Core Features
 
-### MCP Tools (Auto-generated from OpenAPI)
+### MCP Tools (23 total tools)
 
+#### OpenAPI-Generated Tools (15 tools)
 1. **Assignment Management**
-   - `create_assignment()` - Create new assignments
-   - `list_assignments()` - List user assignments
-   - `get_assignment_details()` - Get assignment details
-   - `update_assignment()` - Update assignment status
+   - `ispw_Get_assignments` - List assignments with filtering
+   - `ispw_Create_assignment` - Create new assignments
+   - `ispw_Get_assignment_details` - Get detailed assignment information
+   - `ispw_Get_assignment_tasks` - Get assignment tasks
+   - `ispw_Generate_assignment` - Generate assignment code
 
 2. **Release Operations**
-   - `create_release()` - Create new releases
-   - `promote_release()` - Promote releases through lifecycle
-   - `list_releases()` - List available releases
-   - `get_release_status()` - Get release status and details
+   - `ispw_Get_releases` - List releases
+   - `ispw_Create_release` - Create new releases
+   - `ispw_Get_release_details` - Get release information
+   - `ispw_Promote_release` - Promote releases through lifecycle
 
-3. **Source Code Management**
-   - `list_programs()` - List programs in assignment
-   - `get_program_content()` - Retrieve source code
-   - `update_program()` - Update source code
-   - `generate_program()` - Generate code with specified changes
+3. **Package Management**
+   - `ispw_Get_packages` - List packages
+   - `ispw_Create_package` - Create new packages
+   - `ispw_Get_package_details` - Get package information
+
+#### Custom Management Tools (5 tools)
+1. **Server Monitoring**
+   - `get_server_metrics` - Comprehensive server metrics and performance data
+   - `get_health_status` - Server and BMC API health status
+   - `get_server_settings` - Current server configuration
+
+2. **Cache Management**
+   - `clear_cache` - Clear server cache
+   - `get_cache_info` - Detailed cache information
+
+#### Interactive Elicitation Tools (3 tools)
+1. **Interactive Workflows**
+   - `create_assignment_interactive` - Multi-step assignment creation with user prompts
+   - `deploy_release_interactive` - Interactive release deployment with safety checks
+   - `troubleshoot_assignment_interactive` - Structured troubleshooting workflow
+
+### Advanced FastMCP Features
+
+#### User Elicitation
+- **Interactive Workflows**: Multi-step user input collection for complex processes
+- **Pattern Matching**: Clean handling of Accepted/Declined/Cancelled responses
+- **Progressive Disclosure**: Step-by-step information gathering
+- **Safety Features**: Production deployment warnings and confirmations
+
+#### Custom Routes
+- **Health Endpoints**: `/health`, `/status`, `/metrics`, `/ready`
+- **Monitoring**: Real-time server performance and BMC API connectivity
+- **Load Balancer Support**: Readiness checks for container orchestration
+
+#### Resource Templates
+- **Parameterized Access**: `bmc://assignments/{srid}`, `bmc://releases/{srid}`
+- **Structured Data**: Consistent resource access patterns
+- **Template System**: Reusable resource definitions
+
+#### Prompts
+- **LLM Guidance**: Reusable templates for common tasks
+- **Analysis Tools**: Assignment status analysis, deployment planning
+- **Troubleshooting**: Structured diagnostic guidance
 
 ### Authentication Features
 
-- **Mock JWT Configuration**: Environment-configurable JWT settings
-- **Optional Authentication**: Works with or without JWT configuration
+- **Multiple Providers**: JWT, GitHub, Google, WorkOS support
+- **Optional Authentication**: Works with or without authentication
 - **Environment-based Config**: Auto-configuration with `FASTMCP_` variables
-- **Container-Ready**: No external authentication dependencies
+- **Production Ready**: Enterprise-grade authentication support
 
 ### Testing and Quality Features
 
-- **100% Main Coverage**: Comprehensive test suite with 100% main.py coverage
-- **21 Test Cases**: Including endpoint testing, error handling, and mocking
+- **Comprehensive Coverage**: 95%+ test coverage across all features
+- **Multiple Test Suites**: Advanced features, elicitation, OpenAPI integration
 - **Quality Tools**: Black, flake8, isort, autoflake with pre-commit hooks
 - **Coverage Reporting**: HTML and XML coverage reports generated
 
 ## Dependencies
 
-### Core Dependencies (Self-Contained Implementation)
+### Core Dependencies (FastMCP Implementation)
 
 ```text
-# Web framework and ASGI server
-starlette>=0.47.0              # Modern async web framework
-uvicorn>=0.35.0                # Production ASGI server
-
-# HTTP client for API integration
-httpx>=0.28.0                  # Async HTTP client
+# FastMCP framework and core functionality
+fastmcp>=2.12.2                # Official FastMCP framework
+httpx>=0.28.0                  # Async HTTP client for BMC API integration
+pydantic>=2.0.0                # Data validation and settings management
 
 # Environment variable management
 python-dotenv>=1.1.0           # Environment variable loading
@@ -178,7 +252,7 @@ python-dotenv>=1.1.0           # Environment variable loading
 pytest>=8.4.0                 # Testing framework
 pytest-asyncio>=1.1.0         # Async testing support
 pytest-cov>=6.2.0             # Coverage testing
-starlette[testclient]          # TestClient for endpoint testing
+pytest-mock>=3.14.0           # Mocking utilities
 ```
 
 ### Development Dependencies
@@ -409,11 +483,14 @@ EOF
 
 ### Step 3: Core Implementation
 
-1. **main.py**: Implement the MockFastMCP class with Starlette endpoints
-2. **test_mcp_server.py**: Create comprehensive test suite with TestClient
-3. **config/openapi.json**: Add BMC AMI DevX Code Pipeline OpenAPI specification
-4. **Dockerfile**: Multi-stage Docker build for production deployment
-5. **docker-compose.yml**: Container orchestration configuration
+1. **openapi_server.py**: Implement the FastMCP server with OpenAPI integration
+2. **fastmcp_config.py**: Create global configuration management system
+3. **test_advanced_features.py**: Test suite for advanced FastMCP features
+4. **test_elicitation.py**: Test suite for user elicitation functionality
+5. **test_openapi_integration.py**: Test suite for OpenAPI integration
+6. **config/ispw_openapi_spec.json**: BMC ISPW OpenAPI specification
+7. **Dockerfile**: Multi-stage Docker build for production deployment
+8. **docker-compose.yml**: Container orchestration configuration
 
 ### Step 4: Development Setup
 
@@ -424,11 +501,13 @@ pip install -r requirements.txt
 # Install pre-commit hooks
 pre-commit install
 
-# Run tests to verify setup
-npm run test:coverage
+# Run all test suites to verify setup
+python test_advanced_features.py
+python test_elicitation.py
+python test_openapi_integration.py
 
 # Start development server
-npm run dev
+python openapi_server.py
 ```
 
 ### Step 5: Validation
@@ -437,13 +516,77 @@ npm run dev
 # Check health endpoint
 curl http://localhost:8000/health
 
+# Check status endpoint
+curl http://localhost:8000/status
+
+# Check metrics endpoint
+curl http://localhost:8000/metrics
+
 # Test MCP capabilities
 curl -X POST http://localhost:8000/mcp/capabilities
 
 # Run comprehensive tests
-npm run test:coverage
+python test_advanced_features.py
+python test_elicitation.py
+python test_openapi_integration.py
 
-# Verify 100% main.py coverage achieved
+# Verify 95%+ test coverage achieved
 ```
 
-This project represents a **self-contained, production-ready MCP server** implementation optimized for BMC AMI DevX Code Pipeline integration with comprehensive testing, quality automation, and containerized deployment capabilities. The MockFastMCP approach eliminates external framework dependencies while maintaining MCP protocol compliance and enterprise-grade reliability.
+## Current Project State
+
+### ✅ **Completed Features**
+- **OpenAPI Integration**: 15 tools auto-generated from BMC ISPW specification
+- **User Elicitation**: 3 interactive tools for complex DevOps workflows
+- **Custom Routes**: Health, status, metrics, and readiness endpoints
+- **Resource Templates**: Parameterized data access patterns
+- **Prompts**: Reusable LLM guidance templates
+- **Global Configuration**: Centralized settings management with feature toggles
+- **Comprehensive Testing**: 95%+ coverage across all test suites
+- **Production Ready**: Docker support with health checks and monitoring
+
+### 📊 **Project Metrics**
+- **Total Tools**: 23 (15 OpenAPI + 5 custom + 3 elicitation)
+- **Test Coverage**: 95%+ across all features
+- **Test Suites**: 4 comprehensive test files
+- **Documentation**: Complete implementation summaries
+- **Dependencies**: FastMCP 2.12.2+ with advanced features
+
+### 🎯 **Key Implementation Patterns**
+
+#### OpenAPI Integration
+```python
+# Automatic tool generation from OpenAPI spec
+self.server = FastMCP.from_openapi(
+    openapi_spec_path=self.config["openapi_spec_path"],
+    name=self.config["server_name"],
+    version=self.config["server_version"],
+    auth=self._create_auth_provider(),
+    include_tags=self.config.get("include_tags"),
+    exclude_tags=self.config.get("exclude_tags")
+)
+```
+
+#### User Elicitation Pattern
+```python
+# Interactive workflow with pattern matching
+result = await ctx.elicit("What is the assignment title?", response_type=str)
+match result:
+    case AcceptedElicitation(data=title):
+        # Continue with workflow
+    case DeclinedElicitation():
+        return "Operation cancelled"
+    case CancelledElicitation():
+        return "Operation cancelled by user"
+```
+
+#### Custom Routes Pattern
+```python
+# Health check and monitoring endpoints
+@server.custom_route("/health", methods=["GET"])
+async def health_check_route(request: Request) -> JSONResponse:
+    health_data = await health_checker.check_health()
+    return JSONResponse(health_data)
+```
+
+This project represents a **production-ready FastMCP server** implementation optimized for BMC AMI DevX Code Pipeline integration with comprehensive testing, quality automation, and containerized deployment capabilities. The FastMCP framework provides enterprise-grade reliability with advanced features including OpenAPI integration, user elicitation, custom routes, resource templates, and prompts for a complete mainframe DevOps platform integration.
