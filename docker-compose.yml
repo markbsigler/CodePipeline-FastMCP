@@ -14,7 +14,7 @@ services:
       - LOG_LEVEL=INFO
       - API_BASE_URL=https://devx.bmc.com/code-pipeline/api/v1
       # FastMCP Authentication (configure based on your setup)
-      - FASTMCP_SERVER_AUTH=${FASTMCP_SERVER_AUTH:-NONE}
+      # - FASTMCP_SERVER_AUTH=${FASTMCP_SERVER_AUTH:-NONE}  # Commented out - auth is optional
       - FASTMCP_SERVER_AUTH_JWT_JWKS_URI=${FASTMCP_SERVER_AUTH_JWT_JWKS_URI}
       - FASTMCP_SERVER_AUTH_JWT_ISSUER=${FASTMCP_SERVER_AUTH_JWT_ISSUER}
       - FASTMCP_SERVER_AUTH_JWT_AUDIENCE=${FASTMCP_SERVER_AUTH_JWT_AUDIENCE}
@@ -54,7 +54,7 @@ networks:
 #   ports:
 #     - "8080:8080"
 #   environment:
-#     - FASTMCP_SERVER_AUTH=NONE
+#     # - FASTMCP_SERVER_AUTH=NONE  # Commented out - auth is optional
 #     - LOG_LEVEL=DEBUG
 #   command: ["python", "-u", "main.py"]
 #   networks:
