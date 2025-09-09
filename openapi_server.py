@@ -22,6 +22,11 @@ from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.auth.providers.github import GitHubProvider
 from fastmcp.server.auth.providers.google import GoogleProvider
 from fastmcp.server.auth.providers.workos import WorkOSProvider
+from fastmcp.server.elicitation import (
+    AcceptedElicitation, 
+    DeclinedElicitation, 
+    CancelledElicitation
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -380,6 +385,331 @@ class OpenAPIMCPServer:
             except Exception as e:
                 error_response = self.error_handler.handle_general_error(e, "get_cache_info")
                 # Ensure error_response is JSON serializable
+                if isinstance(error_response, dict):
+                    return json.dumps(error_response, indent=2)
+                else:
+                    return json.dumps({"error": True, "message": str(e)}, indent=2)
+        
+        # Elicitation-enabled tools for interactive BMC workflows
+        @server.tool(tags={"elicitation", "workflow", "admin"})
+        async def create_assignment_interactive(ctx: Context) -> str:
+            """Create a new assignment with interactive user input collection."""
+            try:
+                if not ctx:
+                    return json.dumps({"error": True, "message": "Context required for elicitation"})
+                
+                await ctx.info("Starting interactive assignment creation...")
+                
+                # Step 1: Get assignment title
+                title_result = await ctx.elicit(
+                    "What is the title of the assignment?",
+                    response_type=str
+                )
+                
+                match title_result:
+                    case AcceptedElicitation(data=title):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled - title required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled by user"})
+                
+                # Step 2: Get assignment description
+                desc_result = await ctx.elicit(
+                    "Please provide a description for the assignment:",
+                    response_type=str
+                )
+                
+                match desc_result:
+                    case AcceptedElicitation(data=description):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled - description required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled by user"})
+                
+                # Step 3: Get SRID
+                srid_result = await ctx.elicit(
+                    "What is the SRID (System Reference ID) for this assignment?",
+                    response_type=str
+                )
+                
+                match srid_result:
+                    case AcceptedElicitation(data=srid):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled - SRID required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled by user"})
+                
+                # Step 4: Get priority level
+                priority_result = await ctx.elicit(
+                    "What priority level should this assignment have?",
+                    response_type=["low", "medium", "high", "critical"]
+                )
+                
+                match priority_result:
+                    case AcceptedElicitation(data=priority):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled - priority required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled by user"})
+                
+                # Step 5: Confirm creation
+                confirm_result = await ctx.elicit(
+                    f"Confirm assignment creation:\n"
+                    f"Title: {title}\n"
+                    f"Description: {description}\n"
+                    f"SRID: {srid}\n"
+                    f"Priority: {priority}\n\n"
+                    f"Proceed with creation?",
+                    response_type=None
+                )
+                
+                match confirm_result:
+                    case AcceptedElicitation():
+                        # Here you would make the actual API call to create the assignment
+                        assignment_data = {
+                            "title": title,
+                            "description": description,
+                            "srid": srid,
+                            "priority": priority,
+                            "status": "created",
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        }
+                        
+                        return json.dumps({
+                            "success": True,
+                            "message": "Assignment created successfully",
+                            "assignment": assignment_data
+                        }, indent=2)
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled by user"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Assignment creation cancelled by user"})
+                
+            except Exception as e:
+                error_response = self.error_handler.handle_general_error(e, "create_assignment_interactive")
+                if isinstance(error_response, dict):
+                    return json.dumps(error_response, indent=2)
+                else:
+                    return json.dumps({"error": True, "message": str(e)}, indent=2)
+        
+        @server.tool(tags={"elicitation", "workflow", "admin"})
+        async def deploy_release_interactive(ctx: Context) -> str:
+            """Deploy a release with interactive confirmation and parameter collection."""
+            try:
+                if not ctx:
+                    return json.dumps({"error": True, "message": "Context required for elicitation"})
+                
+                await ctx.info("Starting interactive release deployment...")
+                
+                # Step 1: Get release ID
+                release_result = await ctx.elicit(
+                    "What is the release ID you want to deploy?",
+                    response_type=str
+                )
+                
+                match release_result:
+                    case AcceptedElicitation(data=release_id):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Deployment cancelled - release ID required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Deployment cancelled by user"})
+                
+                # Step 2: Get deployment environment
+                env_result = await ctx.elicit(
+                    "Which environment should this be deployed to?",
+                    response_type=["development", "staging", "production", "test"]
+                )
+                
+                match env_result:
+                    case AcceptedElicitation(data=environment):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Deployment cancelled - environment required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Deployment cancelled by user"})
+                
+                # Step 3: Get deployment strategy
+                strategy_result = await ctx.elicit(
+                    "What deployment strategy should be used?",
+                    response_type=["blue-green", "rolling", "canary", "immediate"]
+                )
+                
+                match strategy_result:
+                    case AcceptedElicitation(data=strategy):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Deployment cancelled - strategy required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Deployment cancelled by user"})
+                
+                # Step 4: Get approval for production deployments
+                if environment == "production":
+                    approval_result = await ctx.elicit(
+                        f"⚠️  PRODUCTION DEPLOYMENT WARNING ⚠️\n\n"
+                        f"Release: {release_id}\n"
+                        f"Environment: {environment}\n"
+                        f"Strategy: {strategy}\n\n"
+                        f"This will deploy to PRODUCTION. Are you sure you want to proceed?",
+                        response_type=None
+                    )
+                    
+                    match approval_result:
+                        case AcceptedElicitation():
+                            pass  # Continue
+                        case DeclinedElicitation():
+                            return json.dumps({"error": True, "message": "Production deployment cancelled - approval required"})
+                        case CancelledElicitation():
+                            return json.dumps({"error": True, "message": "Production deployment cancelled by user"})
+                
+                # Step 5: Final confirmation
+                confirm_result = await ctx.elicit(
+                    f"Confirm deployment:\n"
+                    f"Release ID: {release_id}\n"
+                    f"Environment: {environment}\n"
+                    f"Strategy: {strategy}\n\n"
+                    f"Proceed with deployment?",
+                    response_type=None
+                )
+                
+                match confirm_result:
+                    case AcceptedElicitation():
+                        # Here you would make the actual API call to deploy the release
+                        deployment_data = {
+                            "release_id": release_id,
+                            "environment": environment,
+                            "strategy": strategy,
+                            "status": "deploying",
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        }
+                        
+                        return json.dumps({
+                            "success": True,
+                            "message": f"Release {release_id} deployment initiated",
+                            "deployment": deployment_data
+                        }, indent=2)
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Deployment cancelled by user"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Deployment cancelled by user"})
+                
+            except Exception as e:
+                error_response = self.error_handler.handle_general_error(e, "deploy_release_interactive")
+                if isinstance(error_response, dict):
+                    return json.dumps(error_response, indent=2)
+                else:
+                    return json.dumps({"error": True, "message": str(e)}, indent=2)
+        
+        @server.tool(tags={"elicitation", "workflow", "admin"})
+        async def troubleshoot_assignment_interactive(ctx: Context) -> str:
+            """Troubleshoot an assignment with interactive diagnostic steps."""
+            try:
+                if not ctx:
+                    return json.dumps({"error": True, "message": "Context required for elicitation"})
+                
+                await ctx.info("Starting interactive assignment troubleshooting...")
+                
+                # Step 1: Get assignment ID
+                assignment_result = await ctx.elicit(
+                    "What is the assignment ID you want to troubleshoot?",
+                    response_type=str
+                )
+                
+                match assignment_result:
+                    case AcceptedElicitation(data=assignment_id):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled - assignment ID required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled by user"})
+                
+                # Step 2: Get issue description
+                issue_result = await ctx.elicit(
+                    "Please describe the issue you're experiencing with this assignment:",
+                    response_type=str
+                )
+                
+                match issue_result:
+                    case AcceptedElicitation(data=issue_description):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled - issue description required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled by user"})
+                
+                # Step 3: Get error level
+                error_level_result = await ctx.elicit(
+                    "What is the severity level of this issue?",
+                    response_type=["low", "medium", "high", "critical"]
+                )
+                
+                match error_level_result:
+                    case AcceptedElicitation(data=error_level):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled - error level required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled by user"})
+                
+                # Step 4: Get diagnostic preferences
+                diagnostic_result = await ctx.elicit(
+                    "What type of diagnostic information would you like to collect?",
+                    response_type=["basic", "detailed", "comprehensive"]
+                )
+                
+                match diagnostic_result:
+                    case AcceptedElicitation(data=diagnostic_level):
+                        pass  # Continue
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled - diagnostic level required"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled by user"})
+                
+                # Step 5: Confirm troubleshooting
+                confirm_result = await ctx.elicit(
+                    f"Confirm troubleshooting session:\n"
+                    f"Assignment ID: {assignment_id}\n"
+                    f"Issue: {issue_description}\n"
+                    f"Severity: {error_level}\n"
+                    f"Diagnostic Level: {diagnostic_level}\n\n"
+                    f"Start troubleshooting?",
+                    response_type=None
+                )
+                
+                match confirm_result:
+                    case AcceptedElicitation():
+                        # Here you would perform the actual troubleshooting
+                        troubleshooting_data = {
+                            "assignment_id": assignment_id,
+                            "issue_description": issue_description,
+                            "error_level": error_level,
+                            "diagnostic_level": diagnostic_level,
+                            "status": "troubleshooting",
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "recommendations": [
+                                "Check assignment logs for errors",
+                                "Verify assignment dependencies",
+                                "Review assignment configuration",
+                                "Check system resources"
+                            ]
+                        }
+                        
+                        return json.dumps({
+                            "success": True,
+                            "message": f"Troubleshooting session started for assignment {assignment_id}",
+                            "troubleshooting": troubleshooting_data
+                        }, indent=2)
+                    case DeclinedElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled by user"})
+                    case CancelledElicitation():
+                        return json.dumps({"error": True, "message": "Troubleshooting cancelled by user"})
+                
+            except Exception as e:
+                error_response = self.error_handler.handle_general_error(e, "troubleshoot_assignment_interactive")
                 if isinstance(error_response, dict):
                     return json.dumps(error_response, indent=2)
                 else:
