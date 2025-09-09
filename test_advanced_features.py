@@ -16,6 +16,7 @@ import pytest
 # Add the current directory to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Local imports after path setup
 from fastmcp_config import (
     get_bmc_api_config,
     get_caching_config,

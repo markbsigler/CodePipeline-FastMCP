@@ -30,6 +30,7 @@ from fastmcp.server.elicitation import (
 # Add the current directory to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Local imports after path setup
 from fastmcp_config import (
     get_caching_config,
     get_fastmcp_config,
@@ -126,7 +127,8 @@ class OpenAPIMCPServer:
                 openapi_spec = json.load(f)
 
             logger.info(
-                f"Loaded OpenAPI specification: {openapi_spec['info']['title']} v{openapi_spec['info']['version']}"
+                f"Loaded OpenAPI specification: "
+                f"{openapi_spec['info']['title']} v{openapi_spec['info']['version']}"
             )
 
             # Get server configuration
@@ -138,18 +140,21 @@ class OpenAPIMCPServer:
                 name=server_config["name"],
                 version=server_config["version"],
                 instructions="""
-                This MCP server provides comprehensive BMC AMI DevX Code Pipeline integration
-                with ISPW operations. All tools are automatically generated from the BMC ISPW
-                OpenAPI specification, ensuring complete API coverage and maintainability.
+                This MCP server provides comprehensive BMC AMI DevX Code Pipeline
+                integration with ISPW operations. All tools are automatically generated
+                from the BMC ISPW OpenAPI specification, ensuring complete API coverage
+                and maintainability.
 
                 Available operations include:
-                - Assignment management (create, read, update, delete, generate, promote, deploy)
+                - Assignment management (create, read, update, delete, generate,
+                  promote, deploy)
                 - Task management (list, details)
                 - Release management (create, read, deploy)
                 - Set management (list, deploy)
                 - Package management (list, details)
 
-                All operations support comprehensive error handling, rate limiting, caching,
+                All operations support comprehensive error handling, rate limiting,
+                caching,
                 and monitoring capabilities.
 
                 Tools are organized by tags:
@@ -315,7 +320,9 @@ class OpenAPIMCPServer:
                     "api_timeout": self.settings.api_timeout,
                     "auth_enabled": self.settings.auth_enabled,
                     "auth_provider": self.settings.auth_provider,
-                    "rate_limit_requests_per_minute": self.settings.rate_limit_requests_per_minute,
+                    "rate_limit_requests_per_minute": (
+                        self.settings.rate_limit_requests_per_minute
+                    ),
                     "rate_limit_burst_size": self.settings.rate_limit_burst_size,
                     "cache_max_size": self.settings.cache_max_size,
                     "cache_ttl_seconds": self.settings.cache_ttl_seconds,
@@ -350,7 +357,10 @@ class OpenAPIMCPServer:
 
                 result = {
                     "success": True,
-                    "message": f"Cache cleared successfully. Removed {cache_size_before} entries.",
+                    "message": (
+                        f"Cache cleared successfully. "
+                        f"Removed {cache_size_before} entries."
+                    ),
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
@@ -456,7 +466,9 @@ class OpenAPIMCPServer:
                     return json.dumps(
                         {
                             "error": True,
-                            "message": "Assignment creation cancelled - description required",
+                            "message": (
+                                "Assignment creation cancelled - description required"
+                            ),
                         }
                     )
                 elif isinstance(desc_result, CancelledElicitation):
