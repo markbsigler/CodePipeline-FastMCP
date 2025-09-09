@@ -124,7 +124,7 @@ This version represents a complete transformation from a mock implementation to 
 - **Comprehensive Test Suite**:
   - `test_simple.py` - 15 passing tests covering core functionality
   - `test_fastmcp_server.py` - Comprehensive test suite for all features
-- **Configuration Examples**: `config.env.example` with all authentication options
+- **Configuration Examples**: `config/.env.example` with all authentication options
 - **Documentation Updates**: Complete README.md overhaul with new features
 
 ### Changed

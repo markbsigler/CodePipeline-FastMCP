@@ -74,7 +74,7 @@ The server uses the BMC AMI DevX Code Pipeline OpenAPI 3.x specification located
 
 ## Environment Configuration
 
-The server supports both programmatic and environment-based configuration. Copy `config.env.example` to `.env` and customize for your environment:
+The server supports both programmatic and environment-based configuration. Copy `config/.env.example` to `config/.env` and customize for your environment:
 
 ### Server Configuration
 ```bash
@@ -237,7 +237,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # Configure environment (copy and edit)
-cp config.env.example .env
+cp config/.env.example config/.env
 # Edit .env with your BMC AMI DevX Code Pipeline settings
 
 # Install pre-commit hooks (optional)
@@ -419,7 +419,7 @@ For production deployment with BMC AMI DevX Code Pipeline:
 
 1. **Configure Authentication**: Choose and configure your authentication provider
 2. **Set API Base URL**: Point to your BMC AMI DevX Code Pipeline instance
-3. **Configure Environment**: Copy `config.env.example` to `.env` and customize
+3. **Configure Environment**: Copy `config/.env.example` to `config/.env` and customize
 4. **Deploy with Docker**: Use provided Docker Compose configuration
 5. **Monitor Health**: Use `/health` endpoint for monitoring
 6. **Configure Logging**: Set appropriate log levels for production
@@ -470,7 +470,7 @@ This version represents a complete transformation from a mock implementation to 
 - Added environment-based configuration support
 
 #### 📁 **New Files**
-- `config.env.example` - Comprehensive configuration examples
+- `config/.env.example` - Comprehensive configuration examples
 - `test_simple.py` - Simplified test suite (15 tests, all passing)
 - `test_fastmcp_server.py` - Comprehensive test suite
 
