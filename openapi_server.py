@@ -27,10 +27,6 @@ from fastmcp.server.elicitation import (
     DeclinedElicitation,
 )
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Add the current directory to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -52,6 +48,10 @@ from main import (
     RateLimiter,
     Settings,
 )
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class OpenAPIMCPServer:
@@ -138,20 +138,20 @@ class OpenAPIMCPServer:
                 name=server_config["name"],
                 version=server_config["version"],
                 instructions="""
-                This MCP server provides comprehensive BMC AMI DevX Code Pipeline integration 
-                with ISPW operations. All tools are automatically generated from the BMC ISPW 
+                This MCP server provides comprehensive BMC AMI DevX Code Pipeline integration
+                with ISPW operations. All tools are automatically generated from the BMC ISPW
                 OpenAPI specification, ensuring complete API coverage and maintainability.
-                
+
                 Available operations include:
                 - Assignment management (create, read, update, delete, generate, promote, deploy)
                 - Task management (list, details)
                 - Release management (create, read, deploy)
                 - Set management (list, deploy)
                 - Package management (list, details)
-                
-                All operations support comprehensive error handling, rate limiting, caching, 
+
+                All operations support comprehensive error handling, rate limiting, caching,
                 and monitoring capabilities.
-                
+
                 Tools are organized by tags:
                 - 'public': Available to all users
                 - 'admin': Administrative functions
@@ -1083,19 +1083,19 @@ class OpenAPIMCPServer:
 
             return f"""
             Analyze the following BMC ISPW assignment and provide recommendations:
-            
+
             Assignment ID: {assignment_id}
             Status: {status}
             Level: {level}
             Owner: {owner}
-            
+
             Please provide:
             1. Current status assessment
             2. Next recommended actions
             3. Potential issues or blockers
             4. Best practices for this assignment type
             5. Timeline recommendations based on the current level
-            
+
             Consider BMC ISPW best practices and typical development workflows.
             """
 
@@ -1108,11 +1108,11 @@ class OpenAPIMCPServer:
 
             return f"""
             Create a deployment plan for the following BMC ISPW release:
-            
+
             Release ID: {release_id}
             Application: {application}
             Status: {status}
-            
+
             Please provide:
             1. Pre-deployment checklist
             2. Risk assessment and mitigation strategies
@@ -1120,7 +1120,7 @@ class OpenAPIMCPServer:
             4. Testing requirements
             5. Communication plan for stakeholders
             6. Monitoring and validation steps
-            
+
             Consider mainframe deployment best practices and BMC ISPW workflows.
             """
 
@@ -1133,11 +1133,11 @@ class OpenAPIMCPServer:
 
             return f"""
             Troubleshoot the following BMC ISPW issue:
-            
+
             Error Type: {error_type}
             Operation: {operation}
             Error Message: {error_message}
-            
+
             Please provide:
             1. Root cause analysis
             2. Step-by-step troubleshooting guide
@@ -1145,7 +1145,7 @@ class OpenAPIMCPServer:
             4. Prevention strategies
             5. Escalation criteria
             6. Documentation references
-            
+
             Focus on BMC ISPW-specific troubleshooting and mainframe environment considerations.
             """
 
@@ -1158,11 +1158,11 @@ class OpenAPIMCPServer:
 
             return f"""
             Provide code review guidelines for the following BMC ISPW assignment:
-            
+
             Assignment ID: {assignment_id}
             Level: {level}
             Application: {application}
-            
+
             Please provide:
             1. Code review checklist specific to this level
             2. Security considerations
@@ -1171,7 +1171,7 @@ class OpenAPIMCPServer:
             5. Documentation standards
             6. Approval criteria
             7. Common issues to watch for
-            
+
             Tailor the guidelines to the specific level ({level}) and application ({application}).
             """
 

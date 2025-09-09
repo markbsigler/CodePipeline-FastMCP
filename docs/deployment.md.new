@@ -17,14 +17,14 @@ This guide covers deploying the FastMCP 2.x compliant server for BMC AMI DevX Co
    ```bash
    git clone https://github.com/markbsigler/CodePipeline-FastMCP.git
    cd CodePipeline-FastMCP
-   
+
    # Create virtual environment
    python3 -m venv .venv
    source .venv/bin/activate
-   
+
    # Install dependencies
    pip install -r requirements.txt
-   
+
    # Configure environment
    cp config/.env.example config/.env
    # Edit config/.env with your BMC AMI DevX settings
@@ -399,7 +399,7 @@ LOG_LEVEL=INFO
    ```bash
    # Check JWT configuration
    curl -H "Authorization: Bearer invalid-token" http://localhost:8080/health
-   
+
    # Verify JWKS URI accessibility
    curl https://your-auth-provider.com/.well-known/jwks.json
    ```
@@ -409,7 +409,7 @@ LOG_LEVEL=INFO
    # Test API connectivity
    curl -H "Authorization: Bearer valid-token" \
         https://your-bmc-instance.com/code-pipeline/api/v1/assignments
-   
+
    # Check DNS resolution
    nslookup your-bmc-instance.com
    ```
@@ -418,10 +418,10 @@ LOG_LEVEL=INFO
    ```bash
    # Check container logs
    docker logs fastmcp-code-pipeline-server
-   
+
    # Verify container health
    docker inspect --format='{{json .State.Health}}' fastmcp-code-pipeline-server
-   
+
    # Test from inside container
    docker exec -it fastmcp-code-pipeline-server curl http://localhost:8080/health
    ```
@@ -470,7 +470,7 @@ echo "Backup created: $BACKUP_DIR.tar.gz"
    tar -xzf backup.tar.gz
    cp -r backup/config/ config/
    docker-compose up -d
-   
+
    # Verify health
    curl http://localhost:8080/health
    ```
@@ -483,7 +483,7 @@ echo "Backup created: $BACKUP_DIR.tar.gz"
    ```bash
    # Update FastMCP and dependencies
    pip install --upgrade fastmcp httpx python-dotenv
-   
+
    # Rebuild Docker image
    docker-compose build --no-cache
    ```
@@ -492,7 +492,7 @@ echo "Backup created: $BACKUP_DIR.tar.gz"
    ```bash
    # Update base image
    docker pull python:3.11-slim
-   
+
    # Scan for vulnerabilities
    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
      aquasec/trivy image fastmcp-code-pipeline:latest

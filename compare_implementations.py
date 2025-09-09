@@ -16,8 +16,7 @@ def analyze_manual_implementation() -> Dict[str, Any]:
     if not main_py_path.exists():
         return {"error": "main.py not found"}
 
-    with open(main_py_path, "r") as f:
-        content = main_py_path.read_text()
+    content = main_py_path.read_text()
 
     # Count lines and functions
     lines = content.split("\n")
@@ -93,7 +92,10 @@ def analyze_openapi_implementation() -> Dict[str, Any]:
             for method in methods.keys():
                 if method.upper() in ["GET", "POST", "PUT", "DELETE", "PATCH"]:
                     # Generate tool name from path and method
-                    tool_name = f"{method.lower()}_{path.replace('/', '_').replace('{', '').replace('}', '').strip('_')}"
+                    tool_name = (
+                        f"{method.lower()}_{path.replace('/', '_')}"
+                        f".replace('{', '').replace('}', '').strip('_')"
+                    )
                     openapi_tools.append(tool_name)
 
     return {
@@ -124,18 +126,18 @@ def compare_implementations():
 
     print("\n📊 Code Metrics Comparison")
     print("-" * 40)
-    print(f"Manual Implementation:")
+    print("Manual Implementation:")
     print(f"  • Total lines of code: {manual['total_lines']:,}")
     print(f"  • MCP tools: {manual['tool_count']}")
     print(f"  • BMC client methods: {manual['method_count']}")
 
-    print(f"\nOpenAPI Implementation:")
+    print("\nOpenAPI Implementation:")
     print(f"  • Total lines of code: {openapi['total_lines']:,}")
     print(f"  • Custom tools: {openapi['custom_tool_count']}")
     print(f"  • Generated tools: {openapi['openapi_tool_count']}")
     print(f"  • Total tools: {openapi['total_tool_count']}")
 
-    print(f"\n📈 Improvement Metrics")
+    print("\n📈 Improvement Metrics")
     print("-" * 40)
     line_reduction = manual["total_lines"] - openapi["total_lines"]
     line_reduction_pct = (line_reduction / manual["total_lines"]) * 100
@@ -145,27 +147,28 @@ def compare_implementations():
     print(f"  • Code reduction: {line_reduction:,} lines ({line_reduction_pct:.1f}%)")
     print(f"  • Tool increase: +{tool_increase} tools ({tool_increase_pct:.1f}%)")
     print(
-        f"  • Efficiency ratio: {openapi['total_tool_count'] / openapi['total_lines']:.2f} tools/line"
+        f"  • Efficiency ratio: "
+        f"{openapi['total_tool_count'] / openapi['total_lines']:.2f} tools/line"
     )
 
-    print(f"\n🛠️ Manual Implementation Tools")
+    print("\n🛠️ Manual Implementation Tools")
     print("-" * 40)
     for tool in manual["mcp_tools"]:
         print(f"  • {tool}")
 
-    print(f"\n🔧 OpenAPI Implementation Custom Tools")
+    print("\n🔧 OpenAPI Implementation Custom Tools")
     print("-" * 40)
     for tool in openapi["custom_tools"]:
         print(f"  • {tool}")
 
-    print(f"\n🤖 OpenAPI Generated Tools (Sample)")
+    print("\n🤖 OpenAPI Generated Tools (Sample)")
     print("-" * 40)
     for tool in openapi["openapi_tools"][:10]:  # Show first 10
         print(f"  • {tool}")
     if len(openapi["openapi_tools"]) > 10:
         print(f"  • ... and {len(openapi['openapi_tools']) - 10} more")
 
-    print(f"\n✅ Benefits of OpenAPI Integration")
+    print("\n✅ Benefits of OpenAPI Integration")
     print("-" * 40)
     print("  • 🚀 Automatic tool generation from API specification")
     print("  • 📝 Always in sync with BMC API changes")
@@ -178,14 +181,14 @@ def compare_implementations():
     print("  • ⚡ Better performance with connection pooling")
     print("  • 📊 Built-in monitoring and metrics")
 
-    print(f"\n⚠️ Considerations")
+    print("\n⚠️ Considerations")
     print("-" * 40)
     print("  • 🔍 Less control over individual tool behavior")
     print("  • 📋 Dependent on OpenAPI specification quality")
     print("  • 🎨 Limited customization of tool descriptions")
     print("  • 🔧 May require OpenAPI spec updates for new features")
 
-    print(f"\n🎯 Recommendation")
+    print("\n🎯 Recommendation")
     print("-" * 40)
     print("The OpenAPI integration approach is recommended for:")
     print("  • Production environments requiring complete API coverage")

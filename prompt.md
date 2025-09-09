@@ -33,18 +33,18 @@ from fastmcp.server.elicitation import AcceptedElicitation, DeclinedElicitation,
 
 class OpenAPIMCPServer:
     """BMC AMI DevX Code Pipeline MCP Server with OpenAPI Integration."""
-    
+
     def __init__(self):
         """Initialize the OpenAPI MCP Server."""
         # Load global configuration
         self.config = get_fastmcp_config()
         self.settings = Settings.from_env()
-        
+
         # Initialize components with feature toggles
         self.rate_limiter = RateLimiter(...) if self.config.get("rate_limit_enabled") else None
         self.cache = IntelligentCache(...) if self.config.get("cache_enabled") else None
         self.metrics = Metrics() if self.config.get("monitoring_enabled") else None
-        
+
         # Create FastMCP server with OpenAPI integration
         self.server = FastMCP.from_openapi(
             openapi_spec_path=self.config["openapi_spec_path"],
@@ -54,7 +54,7 @@ class OpenAPIMCPServer:
             include_tags=self.config.get("include_tags"),
             exclude_tags=self.config.get("exclude_tags")
         )
-        
+
         # Add advanced features
         self._add_custom_tools()
         self._add_custom_routes()
@@ -73,7 +73,7 @@ def create_server():
 def main():
     """Main entry point."""
     server = create_server()
-    
+
     # Run the FastMCP server
     server.server.run(
         host=os.environ.get('HOST', '0.0.0.0'),

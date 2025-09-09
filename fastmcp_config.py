@@ -307,7 +307,7 @@ def print_config_summary() -> None:
 
     # Tag Configuration
     tag_config = get_tag_config()
-    print(f"\nTag Filtering:")
+    print("\nTag Filtering:")
     print(f"  • Include: {', '.join(tag_config['include_tags'])}")
     print(f"  • Exclude: {', '.join(tag_config['exclude_tags'])}")
 

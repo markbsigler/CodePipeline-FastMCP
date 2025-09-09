@@ -14,7 +14,7 @@ class StreamingResponse {
    */
   initializeSSE() {
     if (this.isInitialized) return;
-    
+
     this.res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -23,7 +23,7 @@ class StreamingResponse {
       'Access-Control-Allow-Headers': 'Cache-Control, Authorization',
       'X-Accel-Buffering': 'no' // Disable nginx buffering
     });
-    
+
     this.isInitialized = true;
   }
 
@@ -32,14 +32,14 @@ class StreamingResponse {
    */
   initializeChunked() {
     if (this.isInitialized) return;
-    
+
     this.res.writeHead(200, {
       'Content-Type': 'application/json',
       'Transfer-Encoding': 'chunked',
       'Access-Control-Allow-Origin': '*',
       'X-Content-Type-Options': 'nosniff'
     });
-    
+
     this.isInitialized = true;
   }
 
@@ -48,20 +48,20 @@ class StreamingResponse {
    */
   async sendProgress(message, progress = null, eventType = 'progress') {
     this.initializeSSE();
-    
+
     const data = {
       type: eventType,
       message: message,
       timestamp: new Date().toISOString()
     };
-    
+
     if (progress !== null) {
       data.progress = progress;
     }
-    
+
     this.res.write(`event: ${eventType}\n`);
     this.res.write(`data: ${JSON.stringify(data)}\n\n`);
-    
+
     // Small delay to ensure proper streaming
     await new Promise(resolve => setImmediate(resolve));
   }
@@ -71,10 +71,10 @@ class StreamingResponse {
    */
   async sendChunk(data) {
     this.initializeChunked();
-    
+
     const chunk = typeof data === 'string' ? data : JSON.stringify(data);
     this.res.write(chunk);
-    
+
     await new Promise(resolve => setImmediate(resolve));
   }
 
@@ -88,18 +88,18 @@ class StreamingResponse {
         type: 'complete',
         timestamp: new Date().toISOString()
       };
-      
+
       if (result !== null) {
         data.result = result;
       }
-      
+
       this.res.write(`event: complete\n`);
       this.res.write(`data: ${JSON.stringify(data)}\n\n`);
     } else if (result !== null) {
       // Chunked mode - send final data
       await this.sendChunk(result);
     }
-    
+
     this.res.end();
   }
 
@@ -115,7 +115,7 @@ class StreamingResponse {
       });
       return;
     }
-    
+
     if (this.res.getHeader('content-type') === 'text/event-stream') {
       // SSE mode
       this.res.write(`event: error\n`);
@@ -133,7 +133,7 @@ class StreamingResponse {
         timestamp: new Date().toISOString()
       });
     }
-    
+
     this.res.end();
   }
 
@@ -160,12 +160,12 @@ class WebSocketStreaming {
   constructor(ws) {
     this.ws = ws;
     this.isConnected = true;
-    
+
     // Monitor connection status
     ws.on('close', () => {
       this.isConnected = false;
     });
-    
+
     ws.on('error', () => {
       this.isConnected = false;
     });
@@ -178,7 +178,7 @@ class WebSocketStreaming {
     if (!this.isConnected || this.ws.readyState !== 1) { // WebSocket.OPEN
       return false;
     }
-    
+
     const message = {
       type: 'stream_data',
       streamId: streamId,
@@ -186,11 +186,11 @@ class WebSocketStreaming {
       timestamp: new Date().toISOString(),
       isLast: isLast
     };
-    
+
     if (sequence !== null) {
       message.sequence = sequence;
     }
-    
+
     try {
       this.ws.send(JSON.stringify(message));
       return true;
@@ -206,18 +206,18 @@ class WebSocketStreaming {
    */
   async sendProgress(progress, message, streamId = null) {
     if (!this.isConnected) return false;
-    
+
     const progressMessage = {
       type: 'progress',
       progress: progress,
       message: message,
       timestamp: new Date().toISOString()
     };
-    
+
     if (streamId) {
       progressMessage.streamId = streamId;
     }
-    
+
     try {
       this.ws.send(JSON.stringify(progressMessage));
       return true;
@@ -232,20 +232,20 @@ class WebSocketStreaming {
    */
   async sendComplete(result = null, streamId = null) {
     if (!this.isConnected) return false;
-    
+
     const completeMessage = {
       type: 'complete',
       timestamp: new Date().toISOString()
     };
-    
+
     if (result !== null) {
       completeMessage.result = result;
     }
-    
+
     if (streamId) {
       completeMessage.streamId = streamId;
     }
-    
+
     try {
       this.ws.send(JSON.stringify(completeMessage));
       return true;
@@ -260,17 +260,17 @@ class WebSocketStreaming {
    */
   async sendError(error, streamId = null) {
     if (!this.isConnected) return false;
-    
+
     const errorMessage = {
       type: 'error',
       error: error.message || error,
       timestamp: new Date().toISOString()
     };
-    
+
     if (streamId) {
       errorMessage.streamId = streamId;
     }
-    
+
     try {
       this.ws.send(JSON.stringify(errorMessage));
       return true;

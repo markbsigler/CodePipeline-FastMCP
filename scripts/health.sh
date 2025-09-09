@@ -22,9 +22,9 @@ check_endpoint() {
     local endpoint=$1
     local name=$2
     local expected_content=$3
-    
+
     echo -n "🔍 Checking $name... "
-    
+
     if response=$(curl -s --max-time 10 "$endpoint" 2>/dev/null); then
         if [ -n "$expected_content" ]; then
             if echo "$response" | grep -q "$expected_content"; then
@@ -73,10 +73,10 @@ echo ""
 if [ $HEALTH_RESULT -eq 0 ]; then
     echo "📊 Detailed Health Information:"
     echo "-------------------------------"
-    
+
     # Get health data
     health_data=$(curl -s --max-time 10 "$HEALTH_ENDPOINT" 2>/dev/null)
-    
+
     if [ -n "$health_data" ]; then
         echo "Server Status: $(get_json_value "$health_data" "status")"
         echo "Version: $(get_json_value "$health_data" "version")"
@@ -92,14 +92,14 @@ fi
 if [ $MCP_RESULT -eq 0 ]; then
     echo "🔧 MCP Capabilities:"
     echo "--------------------"
-    
+
     capabilities_data=$(curl -s --max-time 10 "$MCP_CAPABILITIES_ENDPOINT" 2>/dev/null)
-    
+
     if [ -n "$capabilities_data" ]; then
         echo "Server Name: $(get_json_value "$capabilities_data" "serverInfo.name")"
         echo "Server Version: $(get_json_value "$capabilities_data" "serverInfo.version")"
         echo "Protocol Version: $(get_json_value "$capabilities_data" "protocolVersion")"
-        
+
         # Count tools
         tools_count=$(echo "$capabilities_data" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('capabilities', {}).get('tools', {}).get('listChanged', False) and 'tools' in data or []))" 2>/dev/null || echo "Unknown")
         echo "Tools Available: $tools_count"
@@ -111,9 +111,9 @@ fi
 if [ $METRICS_RESULT -eq 0 ]; then
     echo "📈 Performance Metrics:"
     echo "----------------------"
-    
+
     metrics_data=$(curl -s --max-time 10 "$METRICS_ENDPOINT" 2>/dev/null)
-    
+
     if [ -n "$metrics_data" ]; then
         echo "Total Requests: $(get_json_value "$metrics_data" "total_requests")"
         echo "Successful Requests: $(get_json_value "$metrics_data" "successful_requests")"

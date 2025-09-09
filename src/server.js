@@ -28,7 +28,7 @@ const wss = new WebSocket.Server({
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return false;
     }
-    
+
     const token = authHeader.slice(7);
     try {
       jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
@@ -52,7 +52,7 @@ app.use(helmet({
   }
 }));
 
-app.use(cors({ 
+app.use(cors({
   origin: config.corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -77,7 +77,7 @@ app.post('/oauth/token', oauth2Middleware, (req, res) => {
 app.post('/oauth/introspect', authenticateToken, (req, res) => {
   // Token introspection endpoint
   const { token } = req.body;
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret');
     res.json({
@@ -94,7 +94,7 @@ app.post('/oauth/introspect', authenticateToken, (req, res) => {
 
 // Health check endpoints
 app.get('/health', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     transport: ['http', 'websocket'],
@@ -118,8 +118,8 @@ app.get('/events/progress', authenticateToken, (req, res) => {
   });
 
   // Send initial connection event
-  res.write(`data: ${JSON.stringify({ 
-    type: 'connection', 
+  res.write(`data: ${JSON.stringify({
+    type: 'connection',
     message: 'Connected to progress stream',
     timestamp: new Date().toISOString()
   })}\n\n`);
@@ -130,7 +130,7 @@ app.get('/events/progress', authenticateToken, (req, res) => {
     progress += Math.random() * 10;
     if (progress >= 100) {
       progress = 100;
-      res.write(`data: ${JSON.stringify({ 
+      res.write(`data: ${JSON.stringify({
         type: 'complete',
         progress: 100,
         message: 'Operation completed',
@@ -139,7 +139,7 @@ app.get('/events/progress', authenticateToken, (req, res) => {
       clearInterval(interval);
       res.end();
     } else {
-      res.write(`data: ${JSON.stringify({ 
+      res.write(`data: ${JSON.stringify({
         type: 'progress',
         progress: Math.round(progress),
         message: `Processing... ${Math.round(progress)}%`,
@@ -165,9 +165,9 @@ app.get('/stream/large-dataset', authenticateToken, async (req, res) => {
   // Simulate streaming large dataset
   const totalItems = 1000;
   const chunkSize = 50;
-  
+
   res.write('{"items":[');
-  
+
   for (let i = 0; i < totalItems; i += chunkSize) {
     const chunk = [];
     for (let j = i; j < Math.min(i + chunkSize, totalItems); j++) {
@@ -178,14 +178,14 @@ app.get('/stream/large-dataset', authenticateToken, async (req, res) => {
         data: `Sample data for item ${j}`
       });
     }
-    
+
     const chunkData = chunk.map(item => JSON.stringify(item)).join(',');
     res.write(i === 0 ? chunkData : ',' + chunkData);
-    
+
     // Small delay to simulate processing time
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  
+
   res.write(']}');
   res.end();
 });
@@ -196,9 +196,9 @@ const clientConnections = new Map();
 wss.on('connection', (ws, req) => {
   const clientId = `client_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   clientConnections.set(clientId, ws);
-  
+
   console.log(`WebSocket client connected: ${clientId}`);
-  
+
   // Send welcome message
   ws.send(JSON.stringify({
     type: 'welcome',
@@ -206,17 +206,17 @@ wss.on('connection', (ws, req) => {
     timestamp: new Date().toISOString(),
     features: ['mcp', 'streaming', 'real-time']
   }));
-  
+
   // Handle messages
   ws.on('message', async (message) => {
     try {
       const data = JSON.parse(message);
-      
+
       switch (data.type) {
         case 'ping':
           ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
           break;
-          
+
         case 'mcp_request':
           // Handle MCP requests via WebSocket
           const response = await handleMCPRequest(data);
@@ -227,12 +227,12 @@ wss.on('connection', (ws, req) => {
             timestamp: new Date().toISOString()
           }));
           break;
-          
+
         case 'stream_request':
           // Handle streaming data requests
           await handleStreamRequest(ws, data);
           break;
-          
+
         default:
           ws.send(JSON.stringify({
             type: 'error',
@@ -249,19 +249,19 @@ wss.on('connection', (ws, req) => {
       }));
     }
   });
-  
+
   // Handle disconnection
   ws.on('close', () => {
     console.log(`WebSocket client disconnected: ${clientId}`);
     clientConnections.delete(clientId);
   });
-  
+
   // Handle errors
   ws.on('error', (err) => {
     console.error(`WebSocket error for client ${clientId}:`, err);
     clientConnections.delete(clientId);
   });
-  
+
   // Heartbeat mechanism
   const heartbeat = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
@@ -291,11 +291,11 @@ async function handleMCPRequest(data) {
 // Stream request handler for WebSocket
 async function handleStreamRequest(ws, data) {
   const streamId = data.streamId || `stream_${Date.now()}`;
-  
+
   // Start streaming data
   for (let i = 0; i < 100; i++) {
     if (ws.readyState !== WebSocket.OPEN) break;
-    
+
     ws.send(JSON.stringify({
       type: 'stream_data',
       streamId: streamId,
@@ -307,7 +307,7 @@ async function handleStreamRequest(ws, data) {
       },
       isLast: i === 99
     }));
-    
+
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 }
@@ -317,43 +317,43 @@ async function handleStreamRequest(ws, data) {
   try {
     const openapiSpec = await loadOpenAPISpec();
     const tools = generateMCPToolsFromOpenAPI(openapiSpec);
-    
+
     for (const [toolName, tool] of Object.entries(tools)) {
       const [method, route] = toolName.split(' ');
-      
+
       app[method.toLowerCase()](route, oauth2Middleware, async (req, res) => {
         try {
           if (tool.validate && !tool.validate(req.body)) {
-            return res.status(400).json({ 
-              error: 'Invalid request', 
-              details: tool.validate.errors 
+            return res.status(400).json({
+              error: 'Invalid request',
+              details: tool.validate.errors
             });
           }
-          
+
           // Check if client requests streaming response
-          const acceptsStream = req.headers.accept && 
-            (req.headers.accept.includes('text/event-stream') || 
+          const acceptsStream = req.headers.accept &&
+            (req.headers.accept.includes('text/event-stream') ||
              req.headers.accept.includes('application/stream+json'));
-          
+
           if (acceptsStream) {
             // Return streaming response
             const streaming = new StreamingResponse(res);
             await streaming.sendProgress(`Executing ${toolName}...`, 0);
-            
+
             // Simulate work with progress updates
             for (let i = 10; i <= 100; i += 10) {
               await new Promise(resolve => setTimeout(resolve, 200));
               await streaming.sendProgress(`Processing... ${i}%`, i);
             }
-            
-            await streaming.sendComplete({ 
+
+            await streaming.sendComplete({
               message: `Executed ${toolName}`,
               timestamp: new Date().toISOString(),
               tool: toolName
             });
           } else {
             // Return regular response
-            res.status(200).json({ 
+            res.status(200).json({
               message: `Executed ${toolName}`,
               timestamp: new Date().toISOString(),
               tool: toolName
@@ -361,15 +361,15 @@ async function handleStreamRequest(ws, data) {
           }
         } catch (err) {
           console.error(`Error executing ${toolName}:`, err);
-          res.status(500).json({ 
-            error: 'Server error', 
+          res.status(500).json({
+            error: 'Server error',
             details: err.message,
             tool: toolName
           });
         }
       });
     }
-    
+
     console.log(`Generated ${Object.keys(tools).length} MCP tools from OpenAPI spec`);
   } catch (err) {
     console.error('Failed to load OpenAPI spec:', err);
