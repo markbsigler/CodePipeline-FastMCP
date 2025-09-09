@@ -37,8 +37,8 @@ class BMCAPITimeoutError(BMCAPIError):
 
 class BMCAPIRateLimitError(BMCAPIError):
     """Exception raised when BMC API rate limits are exceeded."""
-    def __init__(self, message: str, retry_after: Optional[int] = None):
-        super().__init__(message)
+    def __init__(self, message: str, status_code: Optional[int] = None, response_data: Optional[Dict[str, Any]] = None, retry_after: Optional[int] = None):
+        super().__init__(message, status_code, response_data)
         self.retry_after = retry_after
 
 
@@ -54,8 +54,8 @@ class BMCAPINotFoundError(BMCAPIError):
 
 class BMCAPIValidationError(BMCAPIError):
     """Exception raised when BMC API request validation fails."""
-    def __init__(self, message: str, validation_errors: Optional[List[str]] = None):
-        super().__init__(message)
+    def __init__(self, message: str, status_code: Optional[int] = None, response_data: Optional[Dict[str, Any]] = None, validation_errors: Optional[List[str]] = None):
+        super().__init__(message, status_code, response_data)
         self.validation_errors = validation_errors or []
 
 
