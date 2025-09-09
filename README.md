@@ -534,7 +534,7 @@ flowchart TB
     subgraph "Docker Container"
         FastMCP[FastMCP Server - Python 3.11]
         Config[config/openapi.json - BMC AMI DevX Spec]
-        Health[/health endpoint]
+        Health[Health Endpoint]
     end
 
     subgraph "External Systems"
