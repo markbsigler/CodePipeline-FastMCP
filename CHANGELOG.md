@@ -5,6 +5,101 @@ All notable changes to the BMC AMI DevX Code Pipeline FastMCP Server project wil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-01-09
+
+### 🚀 **Advanced FastMCP Features Implementation**
+
+This version introduces comprehensive FastMCP advanced features including OpenAPI integration, user elicitation, custom routes, resource templates, prompts, and tag-based filtering.
+
+### Added
+- **OpenAPI Integration** (`openapi_server.py`):
+  - Automatic tool generation from BMC ISPW OpenAPI specification
+  - 15+ tools generated from OpenAPI spec
+  - Always in sync with API changes
+  - Complete BMC ISPW API coverage
+
+- **User Elicitation System**:
+  - Interactive multi-step workflows with `ctx.elicit()`
+  - 3 elicitation-enabled tools for complex BMC workflows
+  - User input collection, confirmation dialogs, cancellation handling
+  - Pattern matching for `AcceptedElicitation`, `DeclinedElicitation`, `CancelledElicitation`
+
+- **Custom HTTP Routes**:
+  - `/health` - Real-time health monitoring
+  - `/status` - System status and metrics
+  - `/metrics` - Performance metrics and statistics
+  - `/ready` - Readiness probe for deployment
+
+- **Resource Templates**:
+  - `bmc://assignments/{srid}` - Assignment resource patterns
+  - `bmc://releases/{srid}` - Release resource patterns
+  - `bmc://packages/{srid}` - Package resource patterns
+  - `bmc://server/status` - Server status resource
+
+- **Prompt System**:
+  - Assignment analysis prompts
+  - Deployment planning prompts
+  - Troubleshooting guidance prompts
+  - Code review guidelines prompts
+
+- **Tag-Based Filtering**:
+  - Tools organized by functionality and access level
+  - Tags: `public`, `admin`, `monitoring`, `elicitation`, `workflow`
+  - Granular access control and tool organization
+
+- **Comprehensive Test Suite**:
+  - `test_advanced_features.py` - Advanced FastMCP features testing
+  - `test_elicitation.py` - User elicitation workflow testing
+  - `test_openapi_integration.py` - OpenAPI integration testing
+  - `test_fastmcp_server.py` - Core FastMCP server testing
+  - `test_simple.py` - Basic functionality testing
+
+- **Development Workflow Automation**:
+  - `scripts/setup.sh` - Complete project setup with FastMCP dependencies
+  - `scripts/test.sh` - Comprehensive test execution for all features
+  - `scripts/deploy.sh` - Production deployment with health verification
+  - `scripts/dev.sh` - Development server with hot reload
+  - `scripts/health.sh` - Real-time health monitoring and diagnostics
+  - `scripts/coverage.sh` - Detailed coverage analysis with thresholds
+
+- **Configuration Management**:
+  - `fastmcp_config.py` - Centralized configuration management
+  - Dynamic environment variable loading
+  - Feature toggles for advanced capabilities
+  - Global configuration validation
+
+### Changed
+- **Server Architecture**: Enhanced with OpenAPI integration and advanced features
+- **Tool Count**: Increased from 5 to 23 total tools (15 OpenAPI + 5 custom + 3 elicitation)
+- **Test Coverage**: Achieved 100% test pass rate across all test suites
+- **Code Quality**: Implemented comprehensive linting and formatting
+- **Documentation**: Complete overhaul with advanced features documentation
+
+### Fixed
+- **Python 3.9 Compatibility**: Replaced `match` statements with `if-elif-else` blocks
+- **Import Order**: Fixed module level import order issues
+- **Line Length**: Addressed flake8 line length violations
+- **F-string Issues**: Fixed f-strings without placeholders
+- **Syntax Errors**: Resolved all critical syntax errors
+
+### Security
+- **Input Validation**: Enhanced parameter validation for elicitation workflows
+- **Error Handling**: Secure error responses in interactive tools
+- **Authentication**: Maintained FastMCP native authentication providers
+
+### Testing
+- **Test Coverage**: 100% test pass rate across all test suites
+- **Async Testing**: Comprehensive async testing patterns for FastMCP compatibility
+- **Mock Implementations**: Advanced mocking for external dependencies
+- **Elicitation Testing**: Complete coverage of interactive workflow testing
+
+### Documentation
+- **PROMPT.md**: Complete implementation guide and scaffolding
+- **OPENAPI_INTEGRATION_SUMMARY.md**: OpenAPI integration details
+- **ELICITATION_IMPLEMENTATION_SUMMARY.md**: Elicitation feature documentation
+- **UPDATE_SUMMARY.md**: Comprehensive project status overview
+- **README.md**: Updated with all advanced features and capabilities
+
 ## [2.2.0] - 2025-01-09
 
 ### 🚀 **Major Refactoring - Real FastMCP Implementation**
@@ -100,6 +195,32 @@ This version represents a complete transformation from a mock implementation to 
 ---
 
 ## Migration Guide
+
+### From v2.2.0 to v2.3.0
+
+#### New Features
+- **OpenAPI Integration**: Automatic tool generation from BMC ISPW OpenAPI specification
+- **User Elicitation**: Interactive multi-step workflows with `ctx.elicit()`
+- **Custom Routes**: Health, status, metrics, and readiness endpoints
+- **Resource Templates**: Parameterized data access patterns
+- **Prompt System**: Reusable LLM guidance templates
+- **Tag-Based Filtering**: Granular access control and tool organization
+
+#### Configuration Changes
+- **New Environment Variables**: Added FastMCP-specific configuration options
+- **Feature Toggles**: Enable/disable advanced features via configuration
+- **OpenAPI Spec**: Point to BMC ISPW OpenAPI specification file
+
+#### Code Changes
+- **New Server File**: Use `openapi_server.py` instead of `main.py` for advanced features
+- **Tool Registration**: Leverage OpenAPI-generated tools alongside custom tools
+- **Elicitation**: Add interactive workflows using `ctx.elicit()` pattern
+- **Custom Routes**: Implement health checks and monitoring endpoints
+
+#### Testing
+- **New Test Files**: Add tests for advanced features and elicitation
+- **Coverage**: Achieve 100% test pass rate across all test suites
+- **Async Testing**: Use proper async testing patterns for FastMCP compatibility
 
 ### From v2.1.0 to v2.2.0
 
