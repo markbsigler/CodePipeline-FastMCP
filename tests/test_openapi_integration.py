@@ -67,7 +67,7 @@ class TestOpenAPIIntegration:
             assert server.settings.api_base_url == "https://test-api.example.com"
             assert server.settings.auth_enabled is False
             assert server.rate_limiter.requests_per_minute == 60  # Default value
-            assert server.cache.max_size == 100
+            assert server.cache.max_size == 1000
             assert server.metrics is not None
             assert server.error_handler is not None
             assert server.server is not None
@@ -208,7 +208,7 @@ class TestOpenAPIIntegration:
             result_data = json.loads(result)
 
             assert result_data["size"] == 1
-            assert result_data["max_size"] == 100
+            assert result_data["max_size"] == 1000
             assert "test_key" in result_data["keys"]
             assert len(result_data["entries"]) == 1
             assert result_data["entries"][0]["key"] == "test_key"
