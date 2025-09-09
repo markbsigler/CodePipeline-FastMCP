@@ -532,16 +532,16 @@ sequenceDiagram
 ```mermaid
 flowchart TB
     subgraph "Docker Container"
-        FastMCP[FastMCP Server<br/>Python 3.11]
-        Config[config/openapi.json<br/>BMC AMI DevX Spec]
+        FastMCP[FastMCP Server - Python 3.11]
+        Config[config/openapi.json - BMC AMI DevX Spec]
         Health[/health endpoint]
     end
 
     subgraph "External Systems"
-        AI[AI Assistant<br/>MCP Client]
-        JWT[JWT Provider<br/>JWKS Endpoint]
-        BMC[BMC AMI DevX<br/>Code Pipeline API]
-        Mainframe[Mainframe<br/>COBOL/PL1/JCL]
+        AI[AI Assistant - MCP Client]
+        JWT[JWT Provider - JWKS Endpoint]
+        BMC[BMC AMI DevX - Code Pipeline API]
+        Mainframe[Mainframe - COBOL/PL1/JCL]
     end
 
     AI -->|MCP Protocol| FastMCP

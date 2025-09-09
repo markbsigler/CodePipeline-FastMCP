@@ -223,25 +223,25 @@ sequenceDiagram
 ## 🎯 **Elicitation Architecture**
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Started: ctx.info("Starting...")
-    Started --> Step1: First Input
+stateDiagram
+    [*] --> Started
+    Started --> Step1 : First Input
     
-    Step1 --> Accepted1: User Accepts
-    Step1 --> Declined1: User Declines
-    Step1 --> Cancelled: User Cancels
+    Step1 --> Accepted1 : User Accepts
+    Step1 --> Declined1 : User Declines
+    Step1 --> Cancelled : User Cancels
     
-    Accepted1 --> Step2: Next Input
-    Step2 --> Accepted2: User Accepts
-    Step2 --> Declined2: User Declines
-    Step2 --> Cancelled: User Cancels
+    Accepted1 --> Step2 : Next Input
+    Step2 --> Accepted2 : User Accepts
+    Step2 --> Declined2 : User Declines
+    Step2 --> Cancelled : User Cancels
     
-    Accepted2 --> Confirmation: Final Confirmation
-    Confirmation --> Success: User Confirms
-    Confirmation --> Cancelled: User Cancels
+    Accepted2 --> Confirmation : Final Confirmation
+    Confirmation --> Success : User Confirms
+    Confirmation --> Cancelled : User Cancels
     
-    Declined1 --> Error: Requirement Missing
-    Declined2 --> Error: Requirement Missing
+    Declined1 --> Error : Requirement Missing
+    Declined2 --> Error : Requirement Missing
     
     Success --> [*]
     Error --> [*]
