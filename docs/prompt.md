@@ -115,8 +115,9 @@ def main():
 ├── Dockerfile                 # Multi-stage Docker build
 ├── coverage.xml              # Test coverage reports
 ├── htmlcov/                  # HTML coverage reports
-├── OPENAPI_INTEGRATION_SUMMARY.md # OpenAPI integration documentation
-├── ELICITATION_IMPLEMENTATION_SUMMARY.md # Elicitation feature documentation
+├── docs/
+│   ├── openapi-integration-summary.md # OpenAPI integration documentation
+│   ├── elicitation-implementation-summary.md # Elicitation feature documentation
 └── compare_implementations.py # Code metrics comparison script
 ```
 

@@ -52,7 +52,7 @@ Successfully implemented OpenAPI integration for the BMC AMI DevX Code Pipeline 
 1. **`openapi_server.py`** - Main OpenAPI-integrated server implementation
 2. **`test_openapi_integration.py`** - Comprehensive test suite (10 tests, 100% pass rate)
 3. **`compare_implementations.py`** - Implementation comparison tool
-4. **`OPENAPI_INTEGRATION_SUMMARY.md`** - This summary document
+4. **`openapi-integration-summary.md`** - This summary document
 
 ### **Key Technical Decisions**
 

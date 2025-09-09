@@ -94,9 +94,9 @@ This version introduces comprehensive FastMCP advanced features including OpenAP
 - **Elicitation Testing**: Complete coverage of interactive workflow testing
 
 ### Documentation
-- **PROMPT.md**: Complete implementation guide and scaffolding
-- **OPENAPI_INTEGRATION_SUMMARY.md**: OpenAPI integration details
-- **ELICITATION_IMPLEMENTATION_SUMMARY.md**: Elicitation feature documentation
+- **prompt.md**: Complete implementation guide and scaffolding
+- **openapi-integration-summary.md**: OpenAPI integration details
+- **elicitation-implementation-summary.md**: Elicitation feature documentation
 - **UPDATE_SUMMARY.md**: Comprehensive project status overview
 - **README.md**: Updated with all advanced features and capabilities
 
@@ -289,9 +289,9 @@ The BMC AMI DevX Code Pipeline FastMCP Server is now a complete, production-read
 ### 📚 Documentation
 
 **Implementation Guides:**
-- `PROMPT.md` - Complete implementation guide and scaffolding
-- `OPENAPI_INTEGRATION_SUMMARY.md` - OpenAPI integration details
-- `ELICITATION_IMPLEMENTATION_SUMMARY.md` - Elicitation feature documentation
+- `prompt.md` - Complete implementation guide and scaffolding
+- `openapi-integration-summary.md` - OpenAPI integration details
+- `elicitation-implementation-summary.md` - Elicitation feature documentation
 - `README.md` - Updated with FastMCP features and capabilities
 
 **Configuration:**
