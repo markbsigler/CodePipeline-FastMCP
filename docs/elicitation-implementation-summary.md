@@ -135,7 +135,7 @@ Successfully implemented [FastMCP User Elicitation](https://gofastmcp.com/server
                     ┌────────────────┼────────────────┐
                     │                │                │
                ✅ ACCEPTED      ❌ DECLINED     🚫 CANCELLED
-             Continue to        "Assignment      "Assignment 
+             Continue to        "Assignment      "Assignment
              Step 2            creation          creation
                               cancelled -       cancelled by
                               title required"   user"
@@ -151,7 +151,7 @@ Successfully implemented [FastMCP User Elicitation](https://gofastmcp.com/server
                     ┌────────────────┼────────────────┐
                     │                │                │
                ✅ ACCEPTED      ❌ DECLINED     🚫 CANCELLED
-             Continue to        "Assignment      "Assignment 
+             Continue to        "Assignment      "Assignment
              Step 3            creation          creation
                               cancelled -       cancelled by
                               description       user"
@@ -169,7 +169,7 @@ Successfully implemented [FastMCP User Elicitation](https://gofastmcp.com/server
                     ┌────────────────┼────────────────┐
                     │                │                │
                ✅ ACCEPTED      ❌ DECLINED     🚫 CANCELLED
-             Continue to        "Assignment      "Assignment 
+             Continue to        "Assignment      "Assignment
              Step 4            creation          creation
                               cancelled -       cancelled by
                               SRID required"    user"
@@ -186,7 +186,7 @@ Successfully implemented [FastMCP User Elicitation](https://gofastmcp.com/server
                     ┌────────────────┼────────────────┐
                     │                │                │
                ✅ ACCEPTED      ❌ DECLINED     🚫 CANCELLED
-             Continue to        "Assignment      "Assignment 
+             Continue to        "Assignment      "Assignment
              Step 5            creation          creation
                               cancelled -       cancelled by
                               priority          user"
@@ -209,7 +209,7 @@ Successfully implemented [FastMCP User Elicitation](https://gofastmcp.com/server
                     ┌────────────────┼────────────────┐
                     │                │                │
                ✅ ACCEPTED      ❌ DECLINED     🚫 CANCELLED
-           ┌───────────────┐    "Assignment      "Assignment 
+           ┌───────────────┐    "Assignment      "Assignment
            │ 🎉 SUCCESS!   │    creation          creation
            │ Assignment    │    cancelled by      cancelled by
            │ Created       │    user"             user"
@@ -224,7 +224,7 @@ Successfully implemented [FastMCP User Elicitation](https://gofastmcp.com/server
            └───────────────┘
 
 🔄 FLEXIBLE CANCELLATION: User can cancel at ANY step by selecting cancel option
-📊 PROGRESS INDICATION: Each step shows clear progress through ctx.info() messages  
+📊 PROGRESS INDICATION: Each step shows clear progress through ctx.info() messages
 🛡️ ERROR HANDLING: Each step has comprehensive error handling and user feedback
 ```
 
@@ -587,7 +587,7 @@ Start troubleshooting?
 
 # User choice messages:
 "Assignment creation cancelled by user"
-"Deployment cancelled by user"  
+"Deployment cancelled by user"
 "Troubleshooting cancelled by user"
 ```
 

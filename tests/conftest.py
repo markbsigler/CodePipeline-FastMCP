@@ -5,10 +5,11 @@ This module provides common fixtures and configuration that can be used
 across all test modules in the test suite.
 """
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, patch
 import os
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 
 @pytest.fixture(scope="session")

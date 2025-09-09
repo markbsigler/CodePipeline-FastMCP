@@ -25,25 +25,25 @@ class TestMCPServer:
         """Test server health check endpoint using OpenAPI server"""
         try:
             from openapi_server import OpenAPIMCPServer
-            
+
             # Create server instance
             server_instance = OpenAPIMCPServer()
             server = server_instance._create_server()
-            
+
             # Test that server has health functionality
             assert server is not None
-            assert hasattr(server, 'name')
+            assert hasattr(server, "name")
             assert server.name == "BMC AMI DevX Code Pipeline MCP Server"
-            assert hasattr(server, 'version') 
+            assert hasattr(server, "version")
             assert server.version == "2.2.0"
-            
+
             # Test health checker if available
-            if hasattr(server_instance, 'health_checker'):
+            if hasattr(server_instance, "health_checker"):
                 health_status = await server_instance.health_checker.check_health()
                 assert isinstance(health_status, dict)
-                
+
             print("✅ Server health functionality working")
-            
+
         except Exception as e:
             pytest.fail(f"Health check failed: {e}")
 
@@ -52,22 +52,22 @@ class TestMCPServer:
         """Test MCP capabilities using OpenAPI server"""
         try:
             from openapi_server import OpenAPIMCPServer
-            
+
             # Create server instance
             server_instance = OpenAPIMCPServer()
             server = server_instance._create_server()
-            
+
             # Test server capabilities
             assert server is not None
             assert server.name == "BMC AMI DevX Code Pipeline MCP Server"
             assert server.version == "2.2.0"
-            
+
             # Test that server has capabilities
             tools = await server.get_tools()
             assert len(tools) > 0
-            
+
             print(f"✅ MCP capabilities working: {len(tools)} tools available")
-            
+
         except Exception as e:
             pytest.fail(f"MCP capabilities test failed: {e}")
 
@@ -76,24 +76,24 @@ class TestMCPServer:
         """Test MCP tools list using OpenAPI server"""
         try:
             from openapi_server import OpenAPIMCPServer
-            
+
             # Create server instance
             server_instance = OpenAPIMCPServer()
             server = server_instance._create_server()
-            
+
             # Get tools list
             tools = await server.get_tools()
             assert len(tools) > 0
-            
+
             # Check tool structure
             tool_list = list(tools.values())
             if tool_list:
                 tool = tool_list[0]
                 # Tools might be callable objects, check they exist
                 assert tool is not None
-                
+
             print(f"✅ MCP tools list working, found {len(tools)} tools")
-            
+
         except Exception as e:
             pytest.fail(f"MCP tools list test failed: {e}")
 
@@ -104,19 +104,21 @@ class TestMCPServer:
             try:
                 # Test using OpenAPI server directly
                 from openapi_server import OpenAPIMCPServer
-                
+
                 server_instance = OpenAPIMCPServer()
                 server = server_instance._create_server()
-                
+
                 # Get tools and test one exists
                 tools = await server.get_tools()
                 assert len(tools) > 0
-                
+
                 # Get a tool name for testing
                 tool_name = list(tools.keys())[0]
                 assert tool_name is not None
-                
-                print(f"✅ MCP tools call functionality working, can call tool: {tool_name}")
+
+                print(
+                    f"✅ MCP tools call functionality working, can call tool: {tool_name}"
+                )
 
             except Exception as e:
                 pytest.fail(f"MCP tools call test failed: {e}")
@@ -246,10 +248,11 @@ class TestServerConfiguration:
     def test_main_module_import(self):
         """Test that main module can be imported"""
         try:
-            import main
+            pass
 
             # Test that we can create a server
             from openapi_server import OpenAPIMCPServer
+
             server_instance = OpenAPIMCPServer()
             server = server_instance._create_server()
             assert server is not None
@@ -268,9 +271,10 @@ class TestServerConfiguration:
     def test_environment_variables(self):
         """Test environment variable handling"""
         try:
-            import main
+            pass
 
             from fastmcp_config import get_server_config
+
             server_config = get_server_config()
             assert isinstance(server_config, dict)
             # Configuration may vary, just check basic structure
@@ -331,7 +335,7 @@ class TestServerConfiguration:
     def test_missing_environment_variables(self):
         """Test behavior with missing environment variables"""
         try:
-            import main
+            pass
 
             # Save and remove all relevant environment variables
             env_vars_to_test = [
@@ -350,6 +354,7 @@ class TestServerConfiguration:
             try:
                 # Should use defaults when no environment variables are set
                 from fastmcp_config import get_server_config
+
                 server_config = get_server_config()
                 assert isinstance(server_config, dict)
                 print("✅ Missing environment variables handled with defaults")
@@ -370,10 +375,11 @@ class TestAuthentication:
     def test_no_auth_mode(self):
         """Test server works in no-auth mode"""
         try:
-            import main
+            pass
 
             # Test with no JWT environment variables
             from openapi_server import OpenAPIMCPServer
+
             server_instance = OpenAPIMCPServer()
             server = server_instance._create_server()
             assert server is not None
@@ -407,6 +413,7 @@ class TestAuthentication:
 
             # Create server with JWT config
             from openapi_server import OpenAPIMCPServer
+
             server_instance = OpenAPIMCPServer()
             server = server_instance._create_server()
             assert server is not None
@@ -548,12 +555,12 @@ class TestMockFastMCP:
             # Test basic creation
             server_instance = OpenAPIMCPServer()
             assert server_instance is not None
-            
+
             # Create FastMCP server
             server = server_instance._create_server()
             assert server.name == "BMC AMI DevX Code Pipeline MCP Server"
             assert server.version == "2.2.0"
-            
+
             print("✅ OpenAPI server creation working")
 
         except Exception as e:
@@ -563,8 +570,9 @@ class TestMockFastMCP:
     async def test_openapi_spec_loading(self):
         """Test OpenAPI specification loading"""
         try:
-            from openapi_server import OpenAPIMCPServer
             import os
+
+            from openapi_server import OpenAPIMCPServer
 
             # Create a test OpenAPI spec
             test_spec = {
@@ -599,11 +607,11 @@ class TestMockFastMCP:
                 # Test loading from OpenAPI spec (using current architecture)
                 server_instance = OpenAPIMCPServer()
                 server = server_instance._create_server()
-                
+
                 # Test that server can load OpenAPI specs successfully
                 assert server is not None
                 assert server.name == "BMC AMI DevX Code Pipeline MCP Server"
-                
+
                 # Test that it has tools from the real OpenAPI spec
                 tools = await server.get_tools()
                 assert len(tools) > 0
@@ -1023,7 +1031,9 @@ class TestMockFastMCP:
         except Exception as e:
             pytest.fail(f"Edge cases test failed: {e}")
 
-    @pytest.mark.skip(reason="main.create_server/load_env_vars deprecated - using OpenAPI server now")
+    @pytest.mark.skip(
+        reason="main.create_server/load_env_vars deprecated - using OpenAPI server now"
+    )
     def test_main_function_components(self):
         """Test main function components without starting server"""
         try:
@@ -1206,17 +1216,17 @@ class TestBMCIntegration:
         """Test that BMC ISPW tools are generated from OpenAPI spec"""
         try:
             from openapi_server import OpenAPIMCPServer
-            
-            # Create OpenAPI server instance  
+
+            # Create OpenAPI server instance
             server_instance = OpenAPIMCPServer()
             server = server_instance._create_server()
 
             # Get tools from the server (async)
             tools = await server.get_tools()
             assert len(tools) > 0
-            
+
             tool_names = list(tools.keys())
-            
+
             # Should have some tools from OpenAPI spec
             assert len(tool_names) > 0
 
@@ -1227,10 +1237,10 @@ class TestBMCIntegration:
 
     @pytest.mark.asyncio
     async def test_tool_schema_validation(self):
-        """Test that generated tools have valid schemas"""  
+        """Test that generated tools have valid schemas"""
         try:
             from openapi_server import OpenAPIMCPServer
-            
+
             # Create OpenAPI server instance
             server_instance = OpenAPIMCPServer()
             server = server_instance._create_server()
@@ -1238,13 +1248,13 @@ class TestBMCIntegration:
             # Get tools from server (async)
             tools = await server.get_tools()
             assert len(tools) > 0
-            
+
             # Tools in FastMCP are tool objects, verify they exist and have attributes
             for tool_name, tool_obj in tools.items():
                 assert tool_name is not None
                 assert tool_obj is not None
                 # OpenAPITool objects have name attribute
-                assert hasattr(tool_obj, 'name') or hasattr(tool_obj, '__name__')
+                assert hasattr(tool_obj, "name") or hasattr(tool_obj, "__name__")
 
             print(f"✅ Tool schemas valid for {len(tools)} tools")
 

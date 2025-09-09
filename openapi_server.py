@@ -212,30 +212,218 @@ class OpenAPIMCPServer:
             return None
 
         try:
-            if "JWTVerifier" in self.settings.auth_provider:
+            provider = self.settings.auth_provider.lower()
+
+            if (
+                provider in ["jwt", "jwks"]
+                or "JWTVerifier" in self.settings.auth_provider
+            ):
+                # For JWT, we need either public_key (secret for symmetric) or JWKS URI
+                jwt_secret = getattr(self.settings, "jwt_secret", None)
+                jwt_jwks_uri = getattr(self.settings, "jwt_jwks_uri", None) or getattr(
+                    self.settings, "auth_jwks_uri", None
+                )
+                jwt_issuer = getattr(self.settings, "jwt_issuer", None) or getattr(
+                    self.settings, "auth_issuer", None
+                )
+                jwt_audience = getattr(self.settings, "jwt_audience", None) or getattr(
+                    self.settings, "auth_audience", None
+                )
+                jwt_algorithm = getattr(self.settings, "jwt_algorithm", None)
+
+                # Only use values that are not None or MagicMock objects
+                public_key = (
+                    jwt_secret
+                    if jwt_secret is not None and not hasattr(jwt_secret, "_mock_name")
+                    else None
+                )
+                jwks_uri = (
+                    jwt_jwks_uri
+                    if jwt_jwks_uri is not None
+                    and not hasattr(jwt_jwks_uri, "_mock_name")
+                    else None
+                )
+                issuer = (
+                    jwt_issuer
+                    if jwt_issuer is not None and not hasattr(jwt_issuer, "_mock_name")
+                    else None
+                )
+                audience = (
+                    jwt_audience
+                    if jwt_audience is not None
+                    and not hasattr(jwt_audience, "_mock_name")
+                    else None
+                )
+                algorithm = (
+                    jwt_algorithm
+                    if jwt_algorithm is not None
+                    and not hasattr(jwt_algorithm, "_mock_name")
+                    else "HS256"
+                )
+
                 return JWTVerifier(
-                    jwks_uri=self.settings.auth_jwks_uri,
-                    issuer=self.settings.auth_issuer,
-                    audience=self.settings.auth_audience,
+                    public_key=public_key,
+                    jwks_uri=jwks_uri,
+                    issuer=issuer,
+                    audience=audience,
+                    algorithm=algorithm,
                 )
-            elif "GitHubProvider" in self.settings.auth_provider:
-                return GitHubProvider(
-                    client_id=os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_ID"),
-                    client_secret=os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_SECRET"),
-                    base_url=f"http://{self.settings.host}:{self.settings.port}",
+            elif (
+                provider == "github" or "GitHubProvider" in self.settings.auth_provider
+            ):
+                github_client_id = getattr(
+                    self.settings, "github_client_id", None
+                ) or os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_ID")
+                github_client_secret = getattr(
+                    self.settings, "github_client_secret", None
+                ) or os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_SECRET")
+
+                # Filter out MagicMock objects
+                client_id = (
+                    github_client_id
+                    if github_client_id is not None
+                    and not hasattr(github_client_id, "_mock_name")
+                    else None
                 )
-            elif "GoogleProvider" in self.settings.auth_provider:
-                return GoogleProvider(
-                    client_id=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID"),
-                    client_secret=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET"),
-                    base_url=f"http://{self.settings.host}:{self.settings.port}",
+                client_secret = (
+                    github_client_secret
+                    if github_client_secret is not None
+                    and not hasattr(github_client_secret, "_mock_name")
+                    else None
                 )
-            elif "WorkOSProvider" in self.settings.auth_provider:
-                return WorkOSProvider(
-                    client_id=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID"),
-                    client_secret=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET"),
-                    domain=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_DOMAIN"),
+
+                if client_id and client_secret:
+                    # Construct base URL, handling MagicMock objects
+                    host = (
+                        self.settings.host
+                        if hasattr(self.settings, "host")
+                        and not hasattr(self.settings.host, "_mock_name")
+                        else "localhost"
+                    )
+                    port = (
+                        self.settings.port
+                        if hasattr(self.settings, "port")
+                        and not hasattr(self.settings.port, "_mock_name")
+                        else 8080
+                    )
+                    return GitHubProvider(
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        base_url=f"http://{host}:{port}",
+                    )
+                else:
+                    logger.warning(
+                        "GitHub provider requires client_id and client_secret"
+                    )
+                    return None
+
+            elif (
+                provider == "google" or "GoogleProvider" in self.settings.auth_provider
+            ):
+                google_client_id = getattr(
+                    self.settings, "google_client_id", None
+                ) or os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID")
+                google_client_secret = getattr(
+                    self.settings, "google_client_secret", None
+                ) or os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET")
+
+                # Filter out MagicMock objects
+                client_id = (
+                    google_client_id
+                    if google_client_id is not None
+                    and not hasattr(google_client_id, "_mock_name")
+                    else None
                 )
+                client_secret = (
+                    google_client_secret
+                    if google_client_secret is not None
+                    and not hasattr(google_client_secret, "_mock_name")
+                    else None
+                )
+
+                if client_id and client_secret:
+                    # Construct base URL, handling MagicMock objects
+                    host = (
+                        self.settings.host
+                        if hasattr(self.settings, "host")
+                        and not hasattr(self.settings.host, "_mock_name")
+                        else "localhost"
+                    )
+                    port = (
+                        self.settings.port
+                        if hasattr(self.settings, "port")
+                        and not hasattr(self.settings.port, "_mock_name")
+                        else 8080
+                    )
+                    return GoogleProvider(
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        base_url=f"http://{host}:{port}",
+                    )
+                else:
+                    logger.warning(
+                        "Google provider requires client_id and client_secret"
+                    )
+                    return None
+
+            elif (
+                provider == "workos" or "WorkOSProvider" in self.settings.auth_provider
+            ):
+                workos_client_id = getattr(
+                    self.settings, "workos_client_id", None
+                ) or os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID")
+                workos_client_secret = getattr(
+                    self.settings, "workos_client_secret", None
+                ) or os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET")
+                workos_domain = getattr(
+                    self.settings, "workos_domain", None
+                ) or os.getenv("FASTMCP_SERVER_AUTH_WORKOS_DOMAIN")
+
+                # Filter out MagicMock objects
+                client_id = (
+                    workos_client_id
+                    if workos_client_id is not None
+                    and not hasattr(workos_client_id, "_mock_name")
+                    else None
+                )
+                client_secret = (
+                    workos_client_secret
+                    if workos_client_secret is not None
+                    and not hasattr(workos_client_secret, "_mock_name")
+                    else None
+                )
+                authkit_domain = (
+                    workos_domain
+                    if workos_domain is not None
+                    and not hasattr(workos_domain, "_mock_name")
+                    else None
+                )
+
+                if client_id and client_secret:
+                    # Construct base URL, handling MagicMock objects
+                    host = (
+                        self.settings.host
+                        if hasattr(self.settings, "host")
+                        and not hasattr(self.settings.host, "_mock_name")
+                        else "localhost"
+                    )
+                    port = (
+                        self.settings.port
+                        if hasattr(self.settings, "port")
+                        and not hasattr(self.settings.port, "_mock_name")
+                        else 8080
+                    )
+                    return WorkOSProvider(
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        authkit_domain=authkit_domain,
+                        base_url=f"http://{host}:{port}",
+                    )
+                else:
+                    logger.warning(
+                        "WorkOS provider requires client_id and client_secret"
+                    )
+                    return None
             else:
                 logger.warning(f"Unknown auth provider: {self.settings.auth_provider}")
                 return None

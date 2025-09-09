@@ -261,7 +261,9 @@ class TestOpenAPIIntegration:
                 "API_BASE_URL": "https://test-api.example.com",
                 "API_TOKEN": "test-token",
                 "AUTH_ENABLED": "true",
-                "AUTH_PROVIDER": "fastmcp.server.auth.providers.jwt.JWTVerifier",
+                "AUTH_PROVIDER": "jwt",
+                "FASTMCP_AUTH_PROVIDER": "jwt",
+                "JWT_SECRET": "test-secret-key",
                 "AUTH_JWKS_URI": "https://example.com/.well-known/jwks.json",
                 "AUTH_ISSUER": "https://example.com",
                 "AUTH_AUDIENCE": "test-audience",
@@ -273,10 +275,7 @@ class TestOpenAPIIntegration:
                 server = OpenAPIMCPServer()
 
                 assert server.settings.auth_enabled is True
-                assert (
-                    server.settings.auth_provider
-                    == "fastmcp.server.auth.providers.jwt.JWTVerifier"
-                )
+                assert server.settings.auth_provider == "jwt"
                 assert server.server.auth is not None
 
     @pytest.mark.asyncio
