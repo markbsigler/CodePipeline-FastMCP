@@ -26,9 +26,9 @@ echo "🔗 Health endpoint: $HEALTH_ENDPOINT"
 # Clean up any existing log
 rm -f $SERVER_LOG
 
-# Start the server in the background
-echo "🚀 Starting server in background..."
-$PYTHON_CMD main.py > $SERVER_LOG 2>&1 &
+# Start the FastMCP server in the background
+echo "🚀 Starting FastMCP server in background..."
+$PYTHON_CMD openapi_server.py > $SERVER_LOG 2>&1 &
 SERVER_PID=$!
 
 echo "📝 Server PID: $SERVER_PID"
@@ -78,29 +78,40 @@ fi
 echo "🔬 Running comprehensive test suite..."
 echo "=================================="
 
-# Test 1: Unit tests without server dependency
-echo "📋 Running unit tests (server-independent)..."
-$PYTHON_CMD -m pytest test_mcp_server.py::TestServerConfiguration -v
-UNIT_TEST_RESULT=$?
+# Test 1: Advanced features tests
+echo "📋 Running advanced features tests..."
+$PYTHON_CMD test_advanced_features.py
+ADVANCED_TEST_RESULT=$?
 
-# Test 2: Integration tests with running server
-echo "📋 Running integration tests (server-dependent)..."
-$PYTHON_CMD -m pytest test_mcp_server.py::TestMCPServer -v
-INTEGRATION_TEST_RESULT=$?
+# Test 2: Elicitation tests
+echo "📋 Running elicitation tests..."
+$PYTHON_CMD test_elicitation.py
+ELICITATION_TEST_RESULT=$?
 
-# Test 3: Full test suite with coverage
-echo "📋 Running full test suite with coverage..."
-$PYTHON_CMD -m pytest test_mcp_server.py --cov=main --cov-report=term-missing --cov-report=html -v
-COVERAGE_TEST_RESULT=$?
+# Test 3: OpenAPI integration tests
+echo "📋 Running OpenAPI integration tests..."
+$PYTHON_CMD test_openapi_integration.py
+OPENAPI_TEST_RESULT=$?
+
+# Test 4: Legacy tests (if they exist)
+echo "📋 Running legacy tests..."
+if [ -f "test_mcp_server.py" ]; then
+    $PYTHON_CMD -m pytest test_mcp_server.py -v
+    LEGACY_TEST_RESULT=$?
+else
+    echo "ℹ️  No legacy tests found, skipping"
+    LEGACY_TEST_RESULT=0
+fi
 
 echo "=================================="
 echo "📊 Test Results Summary:"
-echo "  Unit Tests: $([ $UNIT_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
-echo "  Integration Tests: $([ $INTEGRATION_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
-echo "  Coverage Tests: $([ $COVERAGE_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Advanced Features: $([ $ADVANCED_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Elicitation Tests: $([ $ELICITATION_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  OpenAPI Integration: $([ $OPENAPI_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Legacy Tests: $([ $LEGACY_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 
 # Determine overall result
-if [ $UNIT_TEST_RESULT -eq 0 ] && [ $INTEGRATION_TEST_RESULT -eq 0 ] && [ $COVERAGE_TEST_RESULT -eq 0 ]; then
+if [ $ADVANCED_TEST_RESULT -eq 0 ] && [ $ELICITATION_TEST_RESULT -eq 0 ] && [ $OPENAPI_TEST_RESULT -eq 0 ] && [ $LEGACY_TEST_RESULT -eq 0 ]; then
     echo "🎉 ALL TESTS PASSED!"
     TEST_RESULT=0
 else

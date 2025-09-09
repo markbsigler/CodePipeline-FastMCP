@@ -90,22 +90,22 @@ echo "✅ Project directories created"
 # Verify installation
 echo "🧪 Verifying installation..."
 
-# Test import of main module
-if .venv/bin/python -c "import main; print('✅ Main module imports successfully')" 2>/dev/null; then
+# Test import of FastMCP modules
+if .venv/bin/python -c "import openapi_server; print('✅ OpenAPI server module imports successfully')" 2>/dev/null; then
     echo "✅ Core module verification passed"
 else
     echo "❌ Core module verification failed"
     exit 1
 fi
 
-# Test dependencies
-echo "📋 Testing key dependencies..."
+# Test FastMCP dependencies
+echo "📋 Testing FastMCP dependencies..."
 .venv/bin/python -c "
-import starlette
-import uvicorn
+import fastmcp
 import httpx
+import pydantic
 import pytest
-print('✅ All key dependencies available')
+print('✅ All FastMCP dependencies available')
 "
 
 echo "=================================================="
@@ -114,16 +114,16 @@ echo ""
 echo "📋 Next steps:"
 echo "  1. Activate virtual environment: source .venv/bin/activate"
 echo "  2. Edit configuration: nano config/.env"
-echo "  3. Run development server: npm run dev"
-echo "  4. Run tests: npm run test"
+echo "  3. Run FastMCP server: python openapi_server.py"
+echo "  4. Run tests: ./scripts/test.sh"
 echo "  5. Check health: curl http://localhost:8000/health"
 echo ""
 echo "📚 Available commands:"
-echo "  npm run dev              # Start development server"
-echo "  npm run test             # Run test suite"
-echo "  npm run test:coverage    # Run tests with coverage"
-echo "  npm run lint:fix         # Fix code formatting"
-echo "  npm run docker:build     # Build Docker image"
+echo "  python openapi_server.py     # Start FastMCP server"
+echo "  ./scripts/test.sh            # Run comprehensive test suite"
+echo "  ./scripts/deploy.sh          # Deploy with Docker"
+echo "  python test_advanced_features.py  # Test advanced features"
+echo "  python test_elicitation.py       # Test elicitation features"
 echo ""
 echo "🔗 Documentation:"
 echo "  README.md                # Project overview and API reference"

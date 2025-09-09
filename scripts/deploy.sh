@@ -38,7 +38,7 @@ fi
 echo "✅ Docker is available"
 
 # Check required files
-REQUIRED_FILES=("Dockerfile" "main.py" "requirements.txt" "config/openapi.json")
+REQUIRED_FILES=("Dockerfile" "openapi_server.py" "fastmcp_config.py" "requirements.txt" "config/ispw_openapi_spec.json")
 for file in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$file" ]; then
         echo "❌ Required file missing: $file"
@@ -168,8 +168,20 @@ done
 # Final verification
 echo "🔍 Final deployment verification..."
 
-# Test MCP endpoints
-echo "📋 Testing MCP endpoints..."
+# Test FastMCP endpoints
+echo "📋 Testing FastMCP endpoints..."
+if curl -s --max-time 5 "http://localhost:8080/health" | grep -q "healthy"; then
+    echo "✅ Health endpoint accessible"
+else
+    echo "⚠️  Health endpoint not responding"
+fi
+
+if curl -s --max-time 5 "http://localhost:8080/status" >/dev/null; then
+    echo "✅ Status endpoint accessible"
+else
+    echo "⚠️  Status endpoint not responding"
+fi
+
 if curl -s --max-time 5 "http://localhost:8080/mcp/capabilities" >/dev/null; then
     echo "✅ MCP capabilities endpoint accessible"
 else
@@ -197,6 +209,8 @@ echo "🎉 Deployment completed successfully!"
 echo ""
 echo "📋 Service Information:"
 echo "  Health Check:     $HEALTH_ENDPOINT"
+echo "  Status Endpoint:  http://localhost:8080/status"
+echo "  Metrics Endpoint: http://localhost:8080/metrics"
 echo "  MCP Capabilities: http://localhost:8080/mcp/capabilities"
 echo "  Container Mode:   $DEPLOYMENT_MODE"
 echo "  Image:           $IMAGE_NAME:latest"
