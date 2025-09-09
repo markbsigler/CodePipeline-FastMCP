@@ -1,19 +1,13 @@
 # BMC AMI DevX Code Pipeline MCP Server - Deployment Guide
 
-This guide covers deploying the MCP server for BMC AMI DevX Code Pipeline integration. The server uses a FastMCP-compatible implementation with Starlette and Uvicorn.
+This guide covers deploying the FastMCP 2.x compliant server for BMC AMI DevX Code Pipeline integration.
 
 ## Prerequisites
 
 - Docker and Docker Compose
-- Access to BMC AMI DevX Code Pipeline instance (BMC Compuware ISPW)
+- Access to BMC AMI DevX Code Pipeline instance
 - JWT authentication provider (for production)
-- Python 3.9+ (for local development)
-
-## Important Notes
-
-> **Framework Status**: This implementation uses a FastMCP-compatible mock for demonstration purposes. The mock provides the same interface as the intended FastMCP 2.x framework using Starlette and Uvicorn.
-
-> **Production Ready**: Despite using a mock framework, the server is fully functional for BMC AMI DevX Code Pipeline operations and includes enterprise-grade features.
+- Python 3.11+ (for local development)
 
 ## Local Development
 
@@ -24,7 +18,7 @@ This guide covers deploying the MCP server for BMC AMI DevX Code Pipeline integr
    git clone https://github.com/markbsigler/CodePipeline-FastMCP.git
    cd CodePipeline-FastMCP
 
-   # Create virtual environment (Python 3.9+ required)
+   # Create virtual environment
    python3 -m venv .venv
    source .venv/bin/activate
 
@@ -33,7 +27,7 @@ This guide covers deploying the MCP server for BMC AMI DevX Code Pipeline integr
 
    # Configure environment
    cp config/.env.example config/.env
-   # Edit config/.env with your BMC AMI DevX ISPW settings
+   # Edit config/.env with your BMC AMI DevX settings
    ```
 
 2. **Development Mode (No Authentication)**
@@ -50,15 +44,6 @@ This guide covers deploying the MCP server for BMC AMI DevX Code Pipeline integr
 4. **Verify Deployment**
    ```bash
    curl http://localhost:8080/health
-   ```
-
-5. **Run Tests**
-   ```bash
-   # Run the test suite
-   ./scripts/test.sh
-
-   # Or run tests directly
-   FASTMCP_SERVER_AUTH=NONE pytest test_mcp_server.py -v
    ```
 
 ## Docker Deployment
@@ -89,25 +74,19 @@ HOST=0.0.0.0
 PORT=8080
 LOG_LEVEL=INFO
 
-# BMC Compuware ISPW API (BMC AMI DevX Code Pipeline)
-API_BASE_URL=https://ispw.api.compuware.com
+# BMC AMI DevX Code Pipeline API
+API_BASE_URL=https://your-bmc-instance.com/code-pipeline/api/v1
 
-# Alternative: Custom CES Server
-# API_BASE_URL=https://your-ces-host:2020
-
-# FastMCP-compatible JWT Authentication
+# FastMCP JWT Authentication
 FASTMCP_SERVER_AUTH=JWT
 FASTMCP_SERVER_AUTH_JWT_JWKS_URI=https://your-auth-provider.com/.well-known/jwks.json
 FASTMCP_SERVER_AUTH_JWT_ISSUER=https://your-auth-provider.com/
 FASTMCP_SERVER_AUTH_JWT_AUDIENCE=bmc-ami-devx-code-pipeline
 
-# BMC ISPW Specific Settings
+# BMC AMI DevX Specific Settings
 BMC_AMI_DEVX_ENVIRONMENT=production
 BMC_AMI_DEVX_TIMEOUT=30
 BMC_AMI_DEVX_RETRY_ATTEMPTS=3
-
-# Personal Access Token for BMC ISPW (if using token-based auth)
-ISPW_PERSONAL_ACCESS_TOKEN=your_personal_access_token_here
 ```
 
 Deploy with production settings:
@@ -119,56 +98,6 @@ docker run -d \
   --restart unless-stopped \
   -p 8080:8080 \
   --env-file config/.env.production \
-  -v $(pwd)/config:/app/config:ro \
-  fastmcp-code-pipeline:latest
-```
-
-## Dependencies and Package Management
-
-### Core Runtime Dependencies
-
-The server requires these packages for operation:
-
-```bash
-# Web framework and server
-starlette>=0.47.0    # ASGI web framework
-uvicorn>=0.35.0      # ASGI server
-
-# HTTP client for BMC ISPW API
-httpx>=0.28.0        # Async HTTP client
-
-# Configuration management
-python-dotenv>=1.1.0 # Environment variable loading
-```
-
-### Development Dependencies
-
-For testing and development:
-
-```bash
-# Testing framework
-pytest>=8.4.0           # Test framework
-pytest-asyncio>=1.1.0   # Async testing support
-pytest-cov>=6.2.0       # Coverage reporting
-pytest-mock>=3.14.0     # Mocking utilities
-
-# Code quality
-black>=24.0.0            # Code formatting
-flake8>=7.0.0           # Linting
-isort>=5.13.0           # Import sorting
-```
-
-### Installing Dependencies
-
-```bash
-# Production installation
-pip install -r requirements.txt
-
-# Development installation with all tools
-pip install -r requirements.txt
-# Or using pyproject.toml
-pip install -e ".[dev]"
-```
   -v $(pwd)/config:/app/config:ro \
   fastmcp-code-pipeline:latest
 ```
