@@ -10,6 +10,22 @@ SERVER_HOST=${HOST:-0.0.0.0}
 LOG_LEVEL=${LOG_LEVEL:-DEBUG}
 PYTHON_CMD="python"
 
+# Implementation selection (simplified by default for new users)
+IMPLEMENTATION=${1:-simplified}
+if [ "$IMPLEMENTATION" = "complex" ] || [ "$IMPLEMENTATION" = "production" ]; then
+    SERVER_FILE="openapi_server.py"
+    IMPLEMENTATION_NAME="Complex Implementation (Production)"
+elif [ "$IMPLEMENTATION" = "simplified" ] || [ "$IMPLEMENTATION" = "simple" ]; then
+    SERVER_FILE="openapi_server_simplified.py"
+    IMPLEMENTATION_NAME="Simplified Implementation (Recommended)"
+else
+    echo "❌ Invalid implementation: $IMPLEMENTATION"
+    echo "Usage: ./scripts/dev.sh [simplified|complex]"
+    echo "  simplified (default): Uses openapi_server_simplified.py (recommended)"
+    echo "  complex:              Uses openapi_server.py (production)"
+    exit 1
+fi
+
 # Check if virtual environment Python exists
 if [ -f ".venv/bin/python" ]; then
     PYTHON_CMD=".venv/bin/python"
@@ -19,14 +35,16 @@ fi
 
 echo "🚀 Starting BMC AMI DevX Code Pipeline FastMCP Server (Development Mode)"
 echo "======================================================================"
+echo "🏗️  Implementation: $IMPLEMENTATION_NAME"
+echo "📁 Server File: $SERVER_FILE"
 echo "📍 Server: $SERVER_HOST:$SERVER_PORT"
 echo "🐍 Python: $PYTHON_CMD"
 echo "📊 Log Level: $LOG_LEVEL"
 echo ""
 
 # Check if server file exists
-if [ ! -f "openapi_server.py" ]; then
-    echo "❌ openapi_server.py not found"
+if [ ! -f "$SERVER_FILE" ]; then
+    echo "❌ $SERVER_FILE not found"
     echo "Please run ./scripts/setup.sh first"
     exit 1
 fi
@@ -52,4 +70,4 @@ echo "🛑 Press Ctrl+C to stop the server"
 echo ""
 
 # Start the FastMCP server
-$PYTHON_CMD openapi_server.py
+$PYTHON_CMD $SERVER_FILE

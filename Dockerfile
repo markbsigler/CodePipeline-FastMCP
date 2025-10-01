@@ -63,7 +63,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8080
 
 # Run FastMCP server
-CMD ["python", "main.py"]
+CMD ["python", "entrypoint.py"]
 
 # Labels for container metadata
 LABEL maintainer="BMC Software <support@bmc.com>"
