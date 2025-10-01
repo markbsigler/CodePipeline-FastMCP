@@ -263,6 +263,120 @@ class SimpleCache:
         return (datetime.now() - oldest_timestamp).total_seconds()
 
 
+class SimpleErrorHandler:
+    """Simplified error handling and recovery system following FastMCP patterns."""
+    
+    def __init__(self, metrics: SimpleMetrics):
+        self.metrics = metrics
+    
+    def categorize_error(self, error: Exception, operation: str) -> Dict[str, Any]:
+        """Categorize error and create structured response."""
+        error_info = {
+            "operation": operation,
+            "timestamp": datetime.now().isoformat(),
+            "error_type": "unknown",
+            "retryable": False,
+            "message": str(error)
+        }
+        
+        if isinstance(error, httpx.TimeoutException):
+            error_info.update({
+                "error_type": "timeout",
+                "retryable": True,
+                "message": f"Request timed out during {operation}"
+            })
+        elif isinstance(error, httpx.HTTPStatusError):
+            status_code = error.response.status_code
+            error_info.update({
+                "error_type": "http_error", 
+                "status_code": status_code,
+                "retryable": status_code in [408, 429, 500, 502, 503, 504],
+                "message": f"HTTP {status_code} error during {operation}"
+            })
+            
+            # Add specific handling for common status codes
+            if status_code == 401:
+                error_info["error_type"] = "authentication_error"
+                error_info["retryable"] = False
+            elif status_code == 404:
+                error_info["error_type"] = "not_found"
+                error_info["retryable"] = False
+            elif status_code == 429:
+                error_info["error_type"] = "rate_limit_error"
+                retry_after = error.response.headers.get("Retry-After", "60")
+                error_info["retry_after_seconds"] = int(retry_after)
+                
+        elif isinstance(error, httpx.ConnectError):
+            error_info.update({
+                "error_type": "connection_error",
+                "retryable": True,
+                "message": f"Failed to connect to API during {operation}"
+            })
+        
+        return error_info
+    
+    def should_retry(self, error: Exception) -> bool:
+        """Determine if an error is retryable."""
+        if isinstance(error, httpx.TimeoutException):
+            return True
+        elif isinstance(error, httpx.HTTPStatusError):
+            # Retry on server errors and rate limiting
+            return error.response.status_code in [408, 429, 500, 502, 503, 504]
+        elif isinstance(error, httpx.ConnectError):
+            return True
+        return False
+    
+    def get_retry_delay(self, attempt: int, base_delay: float = 1.0) -> float:
+        """Calculate exponential backoff delay."""
+        return base_delay * (2 ** attempt)
+
+
+def with_retry_and_error_handling(max_retries: int = 3, base_delay: float = 1.0):
+    """Decorator for adding retry logic and error handling to functions."""
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            error_handler = SimpleErrorHandler(metrics)
+            last_error = None
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    start_time = datetime.now()
+                    result = await func(*args, **kwargs)
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    
+                    # Record successful request
+                    metrics.record_request(success=True, response_time=response_time)
+                    return result
+                    
+                except Exception as error:
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    last_error = error
+                    
+                    # Record failed request
+                    metrics.record_request(success=False, response_time=response_time)
+                    
+                    # Check if we should retry
+                    if attempt < max_retries and error_handler.should_retry(error):
+                        delay = error_handler.get_retry_delay(attempt, base_delay)
+                        await asyncio.sleep(delay)
+                        continue
+                    else:
+                        # No more retries, prepare error response
+                        error_info = error_handler.categorize_error(error, func.__name__)
+                        break
+            
+            # All retries exhausted, return structured error
+            return {
+                "error": True,
+                "details": error_handler.categorize_error(last_error, func.__name__),
+                "attempts_made": attempt + 1,
+                "max_retries": max_retries
+            }
+        
+        return wrapper
+    return decorator
+
+
 def create_auth_provider():
     """Create authentication provider following FastMCP patterns."""
     if not os.getenv("AUTH_ENABLED", "false").lower() == "true":
@@ -511,6 +625,45 @@ async def cleanup_expired_cache(ctx: Context = None) -> str:
     return json.dumps(result, indent=2)
 
 
+@mcp.tool(tags={"monitoring", "admin"})
+async def get_error_recovery_status(ctx: Context = None) -> str:
+    """Get error recovery and retry configuration status."""
+    if ctx:
+        ctx.info("Retrieving error recovery status")
+    
+    error_handler = SimpleErrorHandler(metrics)
+    
+    status = {
+        "configuration": {
+            "max_retries": int(os.getenv("MAX_RETRY_ATTEMPTS", "3")),
+            "base_delay_seconds": float(os.getenv("RETRY_BASE_DELAY", "1.0")),
+            "retry_enabled": True
+        },
+        "error_statistics": {
+            "total_requests": metrics.total_requests,
+            "successful_requests": metrics.successful_requests,
+            "failed_requests": metrics.failed_requests,
+            "error_rate_percent": round((metrics.failed_requests / max(1, metrics.total_requests)) * 100, 2)
+        },
+        "retryable_error_types": [
+            "timeout", 
+            "connection_error", 
+            "http_500", 
+            "http_502", 
+            "http_503", 
+            "http_504",
+            "rate_limit_error"
+        ],
+        "non_retryable_error_types": [
+            "authentication_error",
+            "not_found", 
+            "validation_error"
+        ]
+    }
+    
+    return json.dumps(status, indent=2)
+
+
 # Add elicitation tool following FastMCP patterns
 @mcp.tool(tags={"elicitation", "workflow"})
 async def create_assignment_interactive(ctx: Context) -> str:
@@ -610,37 +763,40 @@ async def metrics_route(request: Request) -> JSONResponse:
         )
 
 
-# Add resource template following FastMCP patterns
+# Add resource template following FastMCP patterns with retry logic
 @mcp.resource("bmc://assignments/{srid}")
 async def get_assignment_resource(srid: str) -> dict:
-    """Get assignment data as a structured resource with caching."""
-    try:
-        # Check cache first
-        cached_data = await cache.get("get_assignment", srid=srid)
-        if cached_data is not None:
-            return cached_data
-        
-        # Use rate limiter
-        if not await rate_limiter.acquire():
-            return {"error": f"Rate limit exceeded for assignment {srid}"}
-        
-        start_time = datetime.now()
+    """Get assignment data as a structured resource with caching and retry logic."""
+    # Check cache first
+    cached_data = await cache.get("get_assignment", srid=srid)
+    if cached_data is not None:
+        return cached_data
+    
+    # Use rate limiter
+    if not await rate_limiter.acquire():
+        return {"error": f"Rate limit exceeded for assignment {srid}"}
+    
+    # Define the API call function for retry logic
+    @with_retry_and_error_handling(
+        max_retries=int(os.getenv("MAX_RETRY_ATTEMPTS", "3")),
+        base_delay=float(os.getenv("RETRY_BASE_DELAY", "1.0"))
+    )
+    async def fetch_assignment():
         response = await http_client.get(f"/assignments/{srid}")
-        response_time = (datetime.now() - start_time).total_seconds()
         response.raise_for_status()
-        
-        data = response.json()
-        
+        return response.json()
+    
+    # Execute with retry logic
+    result = await fetch_assignment()
+    
+    # Handle successful response
+    if isinstance(result, dict) and not result.get("error"):
         # Cache the successful response
-        await cache.set("get_assignment", data, ttl=300, srid=srid)
-        metrics.record_request(success=True, response_time=response_time)
-        
-        return data
-        
-    except Exception as e:
-        response_time = (datetime.now() - start_time).total_seconds() if 'start_time' in locals() else 0
-        metrics.record_request(success=False, response_time=response_time)
-        return {"error": f"Failed to get assignment {srid}: {str(e)}"}
+        await cache.set("get_assignment", result, ttl=300, srid=srid)
+        return result
+    
+    # Return error result (already structured by retry decorator)
+    return result
 
 
 # Add prompt following FastMCP patterns
