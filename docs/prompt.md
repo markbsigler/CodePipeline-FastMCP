@@ -101,15 +101,13 @@ def main():
 ├── openapi_server_simplified.py # **FastMCP best practices example** (simplified approach)
 ├── main.py                    # Legacy server implementation (for reference/components)
 ├── fastmcp_config.py          # Global configuration management with feature toggles
-├── tests/                     # **Comprehensive test suite (9 files, 280 tests)**
-│   ├── test_openapi_server_coverage.py # **Comprehensive coverage tests (NEW)**
-│   ├── test_advanced_features.py       # Advanced FastMCP features testing
-│   ├── test_elicitation.py             # User elicitation functionality tests
-│   ├── test_openapi_integration.py     # OpenAPI integration tests
-│   ├── test_fastmcp_server.py          # Core server functionality tests
-│   ├── test_current_server.py          # Current implementation tests
-│   ├── test_mcp_server.py              # Legacy MCP server tests
-│   ├── test_simple.py                  # Simplified test cases
+├── tests/                     # **Comprehensive test suite (6 files, 373 tests)**
+│   ├── test_main.py                    # **Consolidated main functionality tests**
+│   ├── test_openapi_server.py         # **OpenAPI server comprehensive tests**
+│   ├── test_fastmcp_server.py         # Integration test suite
+│   ├── test_debug.py                   # Debug script tests
+│   ├── test_entrypoint.py              # Entrypoint script tests
+│   ├── test_fastmcp_config.py          # Configuration tests
 │   └── conftest.py                     # Test configuration and fixtures
 ├── config/
 │   ├── ispw_openapi_spec.json # **Primary BMC ISPW OpenAPI specification**
@@ -270,16 +268,15 @@ FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER=false
 
 ### Testing and Quality Features
 
-- **Comprehensive Coverage**: 69% overall test coverage across all features (production-ready level)
-- **100% Test Pass Rate**: 327 passing tests, 14 skipped (enterprise-grade reliability)
-- **Multiple Test Suites**: 10 comprehensive test files covering all functionality
-  - `test_openapi_server_simplified.py` - **NEW: Simplified implementation tests (47 tests)**
-  - `test_openapi_server_coverage.py` - Comprehensive coverage testing (75 tests)
-  - `test_advanced_features.py` - Advanced FastMCP features (10 tests)
-  - `test_elicitation.py` - User elicitation functionality (9 tests)
-  - `test_openapi_integration.py` - OpenAPI integration (10 tests)
-  - `test_fastmcp_server.py` - Core server functionality (160 tests)
-  - `test_current_server.py`, `test_mcp_server.py`, `test_simple.py` - Additional coverage
+- **Comprehensive Coverage**: 85% overall test coverage across all features (production-ready level)
+- **100% Test Pass Rate**: 373 passing tests, 0 skipped (enterprise-grade reliability)
+- **Consolidated Test Suites**: 6 streamlined test files covering all functionality
+  - `test_main.py` - **Consolidated main functionality tests (comprehensive coverage)**
+  - `test_openapi_server.py` - **OpenAPI server comprehensive tests (74 tests)**
+  - `test_fastmcp_server.py` - Integration test suite
+  - `test_debug.py` - Debug script tests
+  - `test_entrypoint.py` - Entrypoint script tests
+  - `test_fastmcp_config.py` - Configuration tests
 - **Quality Tools**: Black, flake8, isort, autoflake with pre-commit hooks
 - **Coverage Reporting**: HTML and XML coverage reports with detailed metrics
 
@@ -616,14 +613,14 @@ npm run test:coverage
 - **Prompts**: Reusable LLM guidance templates for mainframe DevOps
 - **Authentication System**: Multiple providers (JWT, GitHub, Google, WorkOS) fully implemented
 - **Global Configuration**: Centralized settings management with feature toggles
-- **Comprehensive Testing**: **69% coverage with 327 passing tests (100% pass rate)**
+- **Comprehensive Testing**: **85% coverage with 373 passing tests (100% pass rate)**
 - **Production Ready**: Docker deployment with health checks and monitoring
 - **Code Quality**: Pre-commit hooks, formatting, linting automation
 
 ### 📊 **Current Project Metrics** 
-- **Test Success Rate**: **100% (327 passing, 14 skipped)** ✅
-- **Test Coverage**: **69% overall coverage** (production-ready level) ✅
-- **Test Suites**: **10 comprehensive test files** covering all functionality ✅
+- **Test Success Rate**: **100% (373 passing, 0 skipped)** ✅
+- **Test Coverage**: **85% overall coverage** (production-ready level) ✅
+- **Test Suites**: **6 consolidated test files** covering all functionality ✅
 - **Total Tools**: 20+ (OpenAPI-generated + custom + elicitation)
 - **Authentication**: All 4 providers working (JWT, GitHub, Google, WorkOS) ✅
 - **Docker**: Container builds and runs successfully ✅

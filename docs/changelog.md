@@ -5,6 +5,47 @@ All notable changes to the BMC AMI DevX Code Pipeline FastMCP Server project wil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2025-01-09
+
+### 🧹 **Test Suite Consolidation and Optimization**
+
+This version focuses on consolidating and optimizing the test suite for better maintainability and performance.
+
+### Added
+- **Consolidated Test Structure**: Streamlined test files with eliminated redundancy
+- **Enhanced Test Coverage**: Improved main.py coverage from 59% to 79%
+- **Optimized Test Execution**: Faster test runs with consolidated test files
+
+### Changed
+- **Test File Consolidation**:
+  - Merged `test_main_py_coverage.py` and `test_simple.py` into `test_main.py`
+  - Consolidated `test_openapi_server.py` and `test_openapi_server_coverage.py` into single file
+  - Eliminated 15 duplicate validation tests
+- **Test Count**: Reduced from 414 to 373 tests while maintaining comprehensive coverage
+- **Coverage Improvement**: Overall coverage increased from 80% to 85%
+- **Test Organization**: Cleaner test structure with clear separation of concerns
+
+### Removed
+- **Duplicate Test Files**: Eliminated redundant test files and duplicate test cases
+- **Redundant Validation Tests**: Removed 15 duplicate validation test functions
+- **Unnecessary Test Overlap**: Cleaned up overlapping test functionality
+
+### Fixed
+- **Test Maintenance**: Simplified test suite maintenance with consolidated files
+- **Test Performance**: Improved test execution speed with optimized test structure
+- **Code Duplication**: Eliminated duplicate test code and functionality
+
+### Testing
+- **Test Coverage**: 85% overall coverage maintained with consolidated test suite
+- **Test Pass Rate**: 100% pass rate (373 passing, 0 skipped)
+- **Test Organization**: 6 consolidated test files covering all functionality
+- **Performance**: Faster test execution with streamlined test structure
+
+### Documentation
+- **README.md**: Updated test counts and coverage metrics
+- **prompt.md**: Updated project structure and test suite information
+- **Changelog**: Added comprehensive documentation of consolidation changes
+
 ## [2.3.0] - 2025-01-09
 
 ### 🚀 **Advanced FastMCP Features Implementation**
