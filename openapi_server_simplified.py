@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 from fastmcp import Context, FastMCP
@@ -102,9 +102,9 @@ class SimpleMetrics:
         """Get uptime in seconds."""
         return (datetime.now() - self.start_time).total_seconds()
     
-    def to_dict(self) -> Dict:
+    def to_dict(self, include_cache_stats: bool = False) -> Dict:
         """Convert metrics to dictionary."""
-        return {
+        result = {
             "total_requests": self.total_requests,
             "successful_requests": self.successful_requests,
             "failed_requests": self.failed_requests,
@@ -114,6 +114,153 @@ class SimpleMetrics:
             "uptime_seconds": round(self.get_uptime_seconds(), 2),
             "recent_response_count": len(self.response_times)
         }
+        
+        # Include cache stats if requested (will be set by the metrics tool)
+        if include_cache_stats and 'cache' in globals():
+            result["cache_stats"] = cache.get_stats()
+        
+        return result
+
+
+@dataclass
+class SimpleCacheEntry:
+    """Cache entry with TTL support."""
+    
+    data: Any
+    timestamp: datetime
+    ttl_seconds: int
+    
+    def is_expired(self) -> bool:
+        """Check if cache entry has expired."""
+        return (datetime.now() - self.timestamp).total_seconds() > self.ttl_seconds
+
+
+class SimpleCache:
+    """Simplified cache with TTL and LRU eviction following FastMCP patterns."""
+    
+    def __init__(self, max_size: int = 1000, default_ttl: int = 300):
+        self.max_size = max_size
+        self.default_ttl = default_ttl
+        self.cache: Dict[str, SimpleCacheEntry] = {}
+        self.access_order: deque = deque()
+        self.lock = asyncio.Lock()
+        
+        # Cache statistics
+        self.hits = 0
+        self.misses = 0
+        self.evictions = 0
+    
+    def _generate_key(self, method: str, **kwargs) -> str:
+        """Generate cache key from method and parameters."""
+        sorted_kwargs = sorted(kwargs.items())
+        key_parts = [method] + [f"{k}={v}" for k, v in sorted_kwargs]
+        return "|".join(key_parts)
+    
+    async def get(self, method: str, **kwargs) -> Optional[Any]:
+        """Get cached data if available and not expired."""
+        async with self.lock:
+            key = self._generate_key(method, **kwargs)
+            
+            if key not in self.cache:
+                self.misses += 1
+                return None
+            
+            entry = self.cache[key]
+            if entry.is_expired():
+                # Remove expired entry
+                del self.cache[key]
+                if key in self.access_order:
+                    self.access_order.remove(key)
+                self.misses += 1
+                return None
+            
+            # Update access order (move to end)
+            if key in self.access_order:
+                self.access_order.remove(key)
+            self.access_order.append(key)
+            
+            self.hits += 1
+            return entry.data
+    
+    async def set(self, method: str, data: Any, ttl: Optional[int] = None, **kwargs) -> None:
+        """Store data in cache with TTL."""
+        async with self.lock:
+            key = self._generate_key(method, **kwargs)
+            ttl = ttl or self.default_ttl
+            
+            # Remove existing entry if present
+            if key in self.cache:
+                if key in self.access_order:
+                    self.access_order.remove(key)
+            
+            # Add new entry
+            self.cache[key] = SimpleCacheEntry(
+                data=data,
+                timestamp=datetime.now(),
+                ttl_seconds=ttl
+            )
+            self.access_order.append(key)
+            
+            # Evict if over capacity
+            await self._evict_if_needed()
+    
+    async def _evict_if_needed(self) -> None:
+        """Evict least recently used entries if cache is over capacity."""
+        while len(self.cache) > self.max_size and self.access_order:
+            # Remove least recently used entry
+            lru_key = self.access_order.popleft()
+            if lru_key in self.cache:
+                del self.cache[lru_key]
+                self.evictions += 1
+    
+    async def clear(self) -> int:
+        """Clear all cache entries and return count of cleared entries."""
+        async with self.lock:
+            count = len(self.cache)
+            self.cache.clear()
+            self.access_order.clear()
+            return count
+    
+    async def cleanup_expired(self) -> int:
+        """Remove expired entries and return count removed."""
+        async with self.lock:
+            expired_keys = []
+            for key, entry in self.cache.items():
+                if entry.is_expired():
+                    expired_keys.append(key)
+            
+            for key in expired_keys:
+                del self.cache[key]
+                if key in self.access_order:
+                    self.access_order.remove(key)
+            
+            return len(expired_keys)
+    
+    def get_hit_rate(self) -> float:
+        """Calculate cache hit rate percentage."""
+        total = self.hits + self.misses
+        return (self.hits / total * 100) if total > 0 else 0.0
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        return {
+            "size": len(self.cache),
+            "max_size": self.max_size,
+            "default_ttl_seconds": self.default_ttl,
+            "hits": self.hits,
+            "misses": self.misses,
+            "evictions": self.evictions,
+            "hit_rate_percent": round(self.get_hit_rate(), 2),
+            "oldest_entry_age_seconds": self._get_oldest_entry_age(),
+            "expired_entries": sum(1 for entry in self.cache.values() if entry.is_expired())
+        }
+    
+    def _get_oldest_entry_age_seconds(self) -> float:
+        """Get age of oldest entry in seconds."""
+        if not self.cache:
+            return 0.0
+        oldest_timestamp = min(entry.timestamp for entry in self.cache.values())
+        return (datetime.now() - oldest_timestamp).total_seconds()
 
 
 def create_auth_provider():
@@ -164,6 +311,12 @@ rate_limiter = SimpleRateLimiter(
 )
 
 metrics = SimpleMetrics()
+
+# Initialize caching system
+cache = SimpleCache(
+    max_size=int(os.getenv("CACHE_MAX_SIZE", "1000")),
+    default_ttl=int(os.getenv("CACHE_TTL_SECONDS", "300"))
+)
 
 # Create HTTP client with connection pooling
 http_client = httpx.AsyncClient(
@@ -244,6 +397,12 @@ async def get_server_health(ctx: Context = None) -> str:
             "requests_per_minute": rate_limiter.requests_per_minute,
             "burst_size": rate_limiter.burst_size,
             "tokens_available": round(rate_limiter.tokens, 2)
+        },
+        "cache": {
+            "size": len(cache.cache),
+            "max_size": cache.max_size,
+            "hit_rate_percent": round(cache.get_hit_rate(), 2),
+            "expired_entries": sum(1 for entry in cache.cache.values() if entry.is_expired())
         }
     }
     
@@ -256,7 +415,7 @@ async def get_server_metrics(ctx: Context = None) -> str:
     if ctx:
         ctx.info("Retrieving server metrics")
     
-    return json.dumps(metrics.to_dict(), indent=2)
+    return json.dumps(metrics.to_dict(include_cache_stats=True), indent=2)
 
 
 @mcp.tool(tags={"monitoring", "admin"})
@@ -282,6 +441,74 @@ async def get_rate_limiter_status(ctx: Context = None) -> str:
     }
     
     return json.dumps(status, indent=2)
+
+
+@mcp.tool(tags={"monitoring", "admin"})
+async def get_cache_info(ctx: Context = None) -> str:
+    """Get comprehensive cache information and statistics."""
+    if ctx:
+        ctx.info("Retrieving cache information")
+    
+    cache_stats = cache.get_stats()
+    
+    # Add additional runtime information
+    cache_info = {
+        **cache_stats,
+        "configuration": {
+            "max_size": cache.max_size,
+            "default_ttl_seconds": cache.default_ttl
+        },
+        "performance": {
+            "hit_rate_percent": cache_stats["hit_rate_percent"],
+            "efficiency": "excellent" if cache_stats["hit_rate_percent"] > 80 else
+                         "good" if cache_stats["hit_rate_percent"] > 60 else
+                         "needs_improvement"
+        }
+    }
+    
+    return json.dumps(cache_info, indent=2)
+
+
+@mcp.tool(tags={"management", "admin"})
+async def clear_cache(ctx: Context = None) -> str:
+    """Clear all cache entries."""
+    if ctx:
+        ctx.info("Clearing cache")
+    
+    start_time = datetime.now()
+    cleared_count = await cache.clear()
+    operation_time = (datetime.now() - start_time).total_seconds()
+    
+    result = {
+        "success": True,
+        "cleared_entries": cleared_count,
+        "operation_time_seconds": round(operation_time, 3),
+        "cache_size_after": len(cache.cache),
+        "message": f"Successfully cleared {cleared_count} cache entries"
+    }
+    
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool(tags={"management", "admin"})
+async def cleanup_expired_cache(ctx: Context = None) -> str:
+    """Remove expired cache entries."""
+    if ctx:
+        ctx.info("Cleaning up expired cache entries")
+    
+    start_time = datetime.now()
+    removed_count = await cache.cleanup_expired()
+    operation_time = (datetime.now() - start_time).total_seconds()
+    
+    result = {
+        "success": True,
+        "removed_entries": removed_count,
+        "operation_time_seconds": round(operation_time, 3),
+        "cache_size_after": len(cache.cache),
+        "message": f"Cleaned up {removed_count} expired cache entries"
+    }
+    
+    return json.dumps(result, indent=2)
 
 
 # Add elicitation tool following FastMCP patterns
@@ -386,12 +613,33 @@ async def metrics_route(request: Request) -> JSONResponse:
 # Add resource template following FastMCP patterns
 @mcp.resource("bmc://assignments/{srid}")
 async def get_assignment_resource(srid: str) -> dict:
-    """Get assignment data as a structured resource."""
+    """Get assignment data as a structured resource with caching."""
     try:
+        # Check cache first
+        cached_data = await cache.get("get_assignment", srid=srid)
+        if cached_data is not None:
+            return cached_data
+        
+        # Use rate limiter
+        if not await rate_limiter.acquire():
+            return {"error": f"Rate limit exceeded for assignment {srid}"}
+        
+        start_time = datetime.now()
         response = await http_client.get(f"/assignments/{srid}")
+        response_time = (datetime.now() - start_time).total_seconds()
         response.raise_for_status()
-        return response.json()
+        
+        data = response.json()
+        
+        # Cache the successful response
+        await cache.set("get_assignment", data, ttl=300, srid=srid)
+        metrics.record_request(success=True, response_time=response_time)
+        
+        return data
+        
     except Exception as e:
+        response_time = (datetime.now() - start_time).total_seconds() if 'start_time' in locals() else 0
+        metrics.record_request(success=False, response_time=response_time)
         return {"error": f"Failed to get assignment {srid}: {str(e)}"}
 
 
