@@ -9,22 +9,7 @@ SERVER_PORT=${PORT:-8000}
 SERVER_HOST=${HOST:-0.0.0.0}
 LOG_LEVEL=${LOG_LEVEL:-DEBUG}
 PYTHON_CMD="python"
-
-# Implementation selection (simplified by default for new users)
-IMPLEMENTATION=${1:-simplified}
-if [ "$IMPLEMENTATION" = "complex" ] || [ "$IMPLEMENTATION" = "production" ]; then
-    SERVER_FILE="openapi_server.py"
-    IMPLEMENTATION_NAME="Complex Implementation (Production)"
-elif [ "$IMPLEMENTATION" = "simplified" ] || [ "$IMPLEMENTATION" = "simple" ]; then
-    SERVER_FILE="openapi_server_simplified.py"
-    IMPLEMENTATION_NAME="Simplified Implementation (Recommended)"
-else
-    echo "❌ Invalid implementation: $IMPLEMENTATION"
-    echo "Usage: ./scripts/dev.sh [simplified|complex]"
-    echo "  simplified (default): Uses openapi_server_simplified.py (recommended)"
-    echo "  complex:              Uses openapi_server.py (production)"
-    exit 1
-fi
+SERVER_FILE="openapi_server.py"
 
 # Check if virtual environment Python exists
 if [ -f ".venv/bin/python" ]; then
@@ -35,7 +20,6 @@ fi
 
 echo "🚀 Starting BMC AMI DevX Code Pipeline FastMCP Server (Development Mode)"
 echo "======================================================================"
-echo "🏗️  Implementation: $IMPLEMENTATION_NAME"
 echo "📁 Server File: $SERVER_FILE"
 echo "📍 Server: $SERVER_HOST:$SERVER_PORT"
 echo "🐍 Python: $PYTHON_CMD"

@@ -11,21 +11,7 @@ DOCKER_COMPOSE_FILE="docker-compose.yml"
 HEALTH_ENDPOINT="http://localhost:8080/health"
 HEALTH_TIMEOUT=60
 BACKUP_TAG="backup-$(date +%Y%m%d-%H%M%S)"
-
-# Implementation selection (complex by default for production stability)
-IMPLEMENTATION=${FASTMCP_IMPLEMENTATION:-complex}
-if [ "$IMPLEMENTATION" = "complex" ] || [ "$IMPLEMENTATION" = "production" ]; then
-    SERVER_FILE="openapi_server.py"
-    IMPLEMENTATION_NAME="Complex Implementation (Production)"
-elif [ "$IMPLEMENTATION" = "simplified" ] || [ "$IMPLEMENTATION" = "simple" ]; then
-    SERVER_FILE="openapi_server_simplified.py"
-    IMPLEMENTATION_NAME="Simplified Implementation"
-else
-    echo "❌ Invalid implementation: $IMPLEMENTATION"
-    echo "Set FASTMCP_IMPLEMENTATION to 'simplified' or 'complex' (default)"
-    echo "Example: FASTMCP_IMPLEMENTATION=simplified ./scripts/deploy.sh"
-    exit 1
-fi
+SERVER_FILE="openapi_server.py"
 
 echo "🚀 BMC AMI DevX Code Pipeline MCP Server Deployment"
 echo "==================================================="
@@ -40,7 +26,6 @@ if [ "$DEPLOYMENT_MODE" != "compose" ] && [ "$DEPLOYMENT_MODE" != "docker" ]; th
 fi
 
 echo "📋 Deployment mode: $DEPLOYMENT_MODE"
-echo "🏗️  Implementation: $IMPLEMENTATION_NAME"
 echo "📁 Server file: $SERVER_FILE"
 
 # Pre-deployment checks
@@ -54,12 +39,8 @@ fi
 
 echo "✅ Docker is available"
 
-# Check required files (dynamic based on implementation)
-if [ "$IMPLEMENTATION" = "complex" ] || [ "$IMPLEMENTATION" = "production" ]; then
-    REQUIRED_FILES=("Dockerfile" "openapi_server.py" "fastmcp_config.py" "requirements.txt" "config/ispw_openapi_spec.json")
-else
-    REQUIRED_FILES=("Dockerfile" "openapi_server_simplified.py" "requirements.txt" "config/openapi.json")
-fi
+# Check required files
+REQUIRED_FILES=("Dockerfile" "openapi_server.py" "requirements.txt" "config/openapi.json")
 for file in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$file" ]; then
         echo "❌ Required file missing: $file"

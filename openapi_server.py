@@ -1,1441 +1,838 @@
 #!/usr/bin/env python3
 """
-BMC AMI DevX Code Pipeline MCP Server with OpenAPI Integration
-
-This server leverages FastMCP's from_openapi() functionality to automatically
-generate MCP tools from the BMC ISPW OpenAPI specification, providing a more
-maintainable and comprehensive integration.
+Simplified BMC AMI DevX Code Pipeline MCP Server following FastMCP Best Practices
 """
 
 import asyncio
 import json
-import logging
 import os
-import sys
-from datetime import datetime, timezone
+from collections import deque
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 import httpx
 from fastmcp import Context, FastMCP
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.auth.providers.github import GitHubProvider
 from fastmcp.server.auth.providers.google import GoogleProvider
-from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.auth.providers.workos import WorkOSProvider
-from fastmcp.server.elicitation import (
-    AcceptedElicitation,
-    CancelledElicitation,
-    DeclinedElicitation,
-)
-
-# Add the current directory to Python path for imports
-sys.path.insert(0, str(Path(__file__).parent))
-
-# Local imports after path setup
-from fastmcp_config import (
-    get_caching_config,
-    get_fastmcp_config,
-    get_monitoring_config,
-    get_rate_limiting_config,
-    get_server_config,
-    get_tag_config,
-    validate_config,
-)
-from main import (
-    ErrorHandler,
-    HealthChecker,
-    IntelligentCache,
-    MCPServerError,
-    Metrics,
-    RateLimiter,
-    Settings,
-)
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from fastmcp.server.elicitation import AcceptedElicitation, DeclinedElicitation
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 
-class OpenAPIMCPServer:
-    """BMC AMI DevX Code Pipeline MCP Server with OpenAPI Integration."""
+class SimpleRateLimiter:
+    """Simplified token bucket rate limiter following FastMCP patterns."""
+    
+    def __init__(self, requests_per_minute: int = 60, burst_size: int = 10):
+        self.requests_per_minute = requests_per_minute
+        self.burst_size = burst_size
+        self.tokens = burst_size
+        self.last_refill = datetime.now()
+        self.lock = asyncio.Lock()
+    
+    async def acquire(self) -> bool:
+        """Acquire a token for making a request."""
+        async with self.lock:
+            now = datetime.now()
+            time_passed = (now - self.last_refill).total_seconds()
+            
+            # Refill tokens based on time passed
+            tokens_to_add = (time_passed / 60.0) * self.requests_per_minute
+            self.tokens = min(self.burst_size, self.tokens + tokens_to_add)
+            self.last_refill = now
+            
+            if self.tokens >= 1.0:
+                self.tokens -= 1.0
+                # Round to avoid floating-point precision issues
+                if abs(self.tokens - round(self.tokens)) < 1e-10:
+                    self.tokens = round(self.tokens)
+                return True
+            return False
+    
+    async def wait_for_token(self) -> None:
+        """Wait until a token is available."""
+        while not await self.acquire():
+            wait_time = 60.0 / self.requests_per_minute
+            await asyncio.sleep(wait_time)
 
-    def __init__(self):
-        """Initialize the OpenAPI MCP Server."""
-        # Load global configuration
-        self.config = get_fastmcp_config()
-        self.settings = Settings.from_env()
 
-        # Validate configuration
-        validation = validate_config()
-        if not validation["valid"]:
-            logger.warning(f"Configuration issues found: {validation['issues']}")
+@dataclass
+class SimpleMetrics:
+    """Simplified metrics collection for monitoring."""
+    
+    # Request metrics
+    total_requests: int = 0
+    successful_requests: int = 0
+    failed_requests: int = 0
+    rate_limited_requests: int = 0
+    
+    # Response times
+    response_times: deque = field(default_factory=lambda: deque(maxlen=100))
+    
+    # System metrics
+    start_time: datetime = field(default_factory=datetime.now)
+    
+    def record_request(self, success: bool = True, response_time: float = 0.0):
+        """Record a request with timing."""
+        self.total_requests += 1
+        if success:
+            self.successful_requests += 1
+        else:
+            self.failed_requests += 1
+        
+        if response_time > 0:
+            self.response_times.append(response_time)
+    
+    def record_rate_limit(self):
+        """Record a rate limited request."""
+        self.rate_limited_requests += 1
+    
+    def get_avg_response_time(self) -> float:
+        """Calculate average response time."""
+        if not self.response_times:
+            return 0.0
+        return sum(self.response_times) / len(self.response_times)
+    
+    def get_success_rate(self) -> float:
+        """Calculate success rate percentage."""
+        total = self.successful_requests + self.failed_requests
+        if total > 0:
+            return round((self.successful_requests / total * 100), 2)
+        return 100.0
+    
+    def get_uptime_seconds(self) -> float:
+        """Get uptime in seconds."""
+        return (datetime.now() - self.start_time).total_seconds()
+    
+    def to_dict(self, include_cache_stats: bool = False) -> Dict:
+        """Convert metrics to dictionary."""
+        result = {
+            "total_requests": self.total_requests,
+            "successful_requests": self.successful_requests,
+            "failed_requests": self.failed_requests,
+            "rate_limited_requests": self.rate_limited_requests,
+            "success_rate_percent": round(self.get_success_rate(), 2),
+            "avg_response_time_seconds": round(self.get_avg_response_time(), 3),
+            "uptime_seconds": round(self.get_uptime_seconds(), 2),
+            "recent_response_count": len(self.response_times)
+        }
+        
+        # Include cache stats if requested (will be set by the metrics tool)
+        if include_cache_stats and 'cache' in globals():
+            result["cache_stats"] = cache.get_stats()
+        
+        return result
 
-        # Initialize components with global configuration and feature toggles
-        rate_config = get_rate_limiting_config()
-        self.rate_limiter = (
-            RateLimiter(rate_config["requests_per_minute"], rate_config["burst_size"])
-            if rate_config["enabled"] and self.config.get("rate_limit_enabled", True)
-            else None
-        )
 
-        cache_config = get_caching_config()
-        self.cache = (
-            IntelligentCache(
-                max_size=cache_config["max_size"],
-                default_ttl=cache_config["default_ttl"],
-            )
-            if cache_config["enabled"] and self.config.get("cache_enabled", True)
-            else None
-        )
+@dataclass
+class SimpleCacheEntry:
+    """Cache entry with TTL support."""
+    
+    data: Any
+    timestamp: datetime
+    ttl_seconds: int
+    
+    def is_expired(self) -> bool:
+        """Check if cache entry has expired."""
+        return (datetime.now() - self.timestamp).total_seconds() > self.ttl_seconds
 
-        self.metrics = (
-            Metrics()
-            if get_monitoring_config()["enabled"]
-            and self.config.get("monitoring_enabled", True)
-            else None
-        )
-        self.error_handler = ErrorHandler(self.settings, self.metrics)
 
-        # Initialize HTTP client with connection pooling and rate limiting
-        self.http_client = httpx.AsyncClient(
-            base_url=self.settings.api_base_url,
-            timeout=httpx.Timeout(self.settings.api_timeout),
-            limits=httpx.Limits(
-                max_keepalive_connections=self.settings.connection_pool_size,
-                max_connections=self.settings.connection_pool_size * 2,
-            ),
-            headers={
-                "Authorization": f"Bearer {os.getenv('API_TOKEN', '')}",
-                "Content-Type": "application/json",
-                "User-Agent": "BMC-AMI-DevX-MCP-Server/2.2.0",
-            },
-        )
-
-        # Initialize MCP server
-        self.server = self._create_server()
-
-    def _create_server(self) -> FastMCP:
-        """Create the FastMCP server with OpenAPI integration."""
-        try:
-            # Load OpenAPI specification
-            openapi_spec_path = Path("config/openapi.json")
-            if not openapi_spec_path.exists():
-                raise FileNotFoundError(
-                    f"OpenAPI specification not found at {openapi_spec_path}"
-                )
-
-            with open(openapi_spec_path, "r") as f:
-                openapi_spec = json.load(f)
-
-            logger.info(
-                f"Loaded OpenAPI specification: "
-                f"{openapi_spec['info']['title']} v{openapi_spec['info']['version']}"
-            )
-
-            # Get server configuration
-            server_config = get_server_config()
-            tag_config = get_tag_config()
-
-            # Create server with OpenAPI integration and advanced features
-            server = FastMCP(
-                name=server_config["name"],
-                version=server_config["version"],
-                instructions="""
-                This MCP server provides comprehensive BMC AMI DevX Code Pipeline
-                integration with ISPW operations. All tools are automatically generated
-                from the BMC ISPW OpenAPI specification, ensuring complete API coverage
-                and maintainability.
-
-                Available operations include:
-                - Assignment management (create, read, update, delete, generate,
-                  promote, deploy)
-                - Task management (list, details)
-                - Release management (create, read, deploy)
-                - Set management (list, deploy)
-                - Package management (list, details)
-
-                All operations support comprehensive error handling, rate limiting,
-                caching,
-                and monitoring capabilities.
-
-                Tools are organized by tags:
-                - 'public': Available to all users
-                - 'admin': Administrative functions
-                - 'monitoring': System monitoring and metrics
-                - 'management': Server management operations
-                - 'api': BMC API operations
-                - 'assignments': Assignment-related operations
-                - 'releases': Release-related operations
-                - 'packages': Package-related operations
-                - 'operations': Operational commands (generate, promote, deploy)
-                """,
-                auth=self._create_auth_provider(),
-                include_tags=tag_config["include_tags"],
-                exclude_tags=tag_config["exclude_tags"],
-                on_duplicate_tools="error",
-                include_fastmcp_meta=server_config["include_fastmcp_meta"],
-                mask_error_details=server_config["mask_error_details"],
-                log_level=server_config["log_level"],
-            )
-
-            # Generate tools from OpenAPI specification
-            openapi_server = FastMCP.from_openapi(
-                openapi_spec=openapi_spec,
-                client=self.http_client,
-                name="BMC ISPW API Tools",
-            )
-
-            # Mount the OpenAPI-generated server
-            server.mount(openapi_server, prefix="ispw")
-
-            # Add custom monitoring and management tools
-            self._add_custom_tools(server)
-
-            # Add custom routes for health checks and status
-            self._add_custom_routes(server)
-
-            # Add resource templates for parameterized data access
-            self._add_resource_templates(server)
-
-            # Add prompts for reusable LLM guidance
-            self._add_prompts(server)
-
-            logger.info("OpenAPI MCP Server created successfully")
-            return server
-
-        except Exception as e:
-            logger.error(f"Failed to create OpenAPI MCP Server: {e}")
-            raise MCPServerError(f"Failed to initialize OpenAPI MCP Server: {e}")
-
-    def _create_auth_provider(self):
-        """Create authentication provider based on settings."""
-        if not self.settings.auth_enabled or not self.settings.auth_provider:
-            return None
-
-        try:
-            provider = self.settings.auth_provider.lower()
-
-            if (
-                provider in ["jwt", "jwks"]
-                or "JWTVerifier" in self.settings.auth_provider
-            ):
-                # For JWT, we need either public_key (secret for symmetric) or JWKS URI
-                jwt_secret = getattr(self.settings, "jwt_secret", None)
-                jwt_jwks_uri = getattr(self.settings, "jwt_jwks_uri", None) or getattr(
-                    self.settings, "auth_jwks_uri", None
-                )
-                jwt_issuer = getattr(self.settings, "jwt_issuer", None) or getattr(
-                    self.settings, "auth_issuer", None
-                )
-                jwt_audience = getattr(self.settings, "jwt_audience", None) or getattr(
-                    self.settings, "auth_audience", None
-                )
-                jwt_algorithm = getattr(self.settings, "jwt_algorithm", None)
-
-                # Only use values that are not None or MagicMock objects
-                public_key = (
-                    jwt_secret
-                    if jwt_secret is not None and not hasattr(jwt_secret, "_mock_name")
-                    else None
-                )
-                jwks_uri = (
-                    jwt_jwks_uri
-                    if jwt_jwks_uri is not None
-                    and not hasattr(jwt_jwks_uri, "_mock_name")
-                    else None
-                )
-                issuer = (
-                    jwt_issuer
-                    if jwt_issuer is not None and not hasattr(jwt_issuer, "_mock_name")
-                    else None
-                )
-                audience = (
-                    jwt_audience
-                    if jwt_audience is not None
-                    and not hasattr(jwt_audience, "_mock_name")
-                    else None
-                )
-                algorithm = (
-                    jwt_algorithm
-                    if jwt_algorithm is not None
-                    and not hasattr(jwt_algorithm, "_mock_name")
-                    else "HS256"
-                )
-
-                return JWTVerifier(
-                    public_key=public_key,
-                    jwks_uri=jwks_uri,
-                    issuer=issuer,
-                    audience=audience,
-                    algorithm=algorithm,
-                )
-            elif (
-                provider == "github" or "GitHubProvider" in self.settings.auth_provider
-            ):
-                github_client_id = getattr(
-                    self.settings, "github_client_id", None
-                ) or os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_ID")
-                github_client_secret = getattr(
-                    self.settings, "github_client_secret", None
-                ) or os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_SECRET")
-
-                # Filter out MagicMock objects
-                client_id = (
-                    github_client_id
-                    if github_client_id is not None
-                    and not hasattr(github_client_id, "_mock_name")
-                    else None
-                )
-                client_secret = (
-                    github_client_secret
-                    if github_client_secret is not None
-                    and not hasattr(github_client_secret, "_mock_name")
-                    else None
-                )
-
-                if client_id and client_secret:
-                    # Construct base URL, handling MagicMock objects
-                    host = (
-                        self.settings.host
-                        if hasattr(self.settings, "host")
-                        and not hasattr(self.settings.host, "_mock_name")
-                        else "localhost"
-                    )
-                    port = (
-                        self.settings.port
-                        if hasattr(self.settings, "port")
-                        and not hasattr(self.settings.port, "_mock_name")
-                        else 8080
-                    )
-                    return GitHubProvider(
-                        client_id=client_id,
-                        client_secret=client_secret,
-                        base_url=f"http://{host}:{port}",
-                    )
-                else:
-                    logger.warning(
-                        "GitHub provider requires client_id and client_secret"
-                    )
-                    return None
-
-            elif (
-                provider == "google" or "GoogleProvider" in self.settings.auth_provider
-            ):
-                google_client_id = getattr(
-                    self.settings, "google_client_id", None
-                ) or os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID")
-                google_client_secret = getattr(
-                    self.settings, "google_client_secret", None
-                ) or os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET")
-
-                # Filter out MagicMock objects
-                client_id = (
-                    google_client_id
-                    if google_client_id is not None
-                    and not hasattr(google_client_id, "_mock_name")
-                    else None
-                )
-                client_secret = (
-                    google_client_secret
-                    if google_client_secret is not None
-                    and not hasattr(google_client_secret, "_mock_name")
-                    else None
-                )
-
-                if client_id and client_secret:
-                    # Construct base URL, handling MagicMock objects
-                    host = (
-                        self.settings.host
-                        if hasattr(self.settings, "host")
-                        and not hasattr(self.settings.host, "_mock_name")
-                        else "localhost"
-                    )
-                    port = (
-                        self.settings.port
-                        if hasattr(self.settings, "port")
-                        and not hasattr(self.settings.port, "_mock_name")
-                        else 8080
-                    )
-                    return GoogleProvider(
-                        client_id=client_id,
-                        client_secret=client_secret,
-                        base_url=f"http://{host}:{port}",
-                    )
-                else:
-                    logger.warning(
-                        "Google provider requires client_id and client_secret"
-                    )
-                    return None
-
-            elif (
-                provider == "workos" or "WorkOSProvider" in self.settings.auth_provider
-            ):
-                workos_client_id = getattr(
-                    self.settings, "workos_client_id", None
-                ) or os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID")
-                workos_client_secret = getattr(
-                    self.settings, "workos_client_secret", None
-                ) or os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET")
-                workos_domain = getattr(
-                    self.settings, "workos_domain", None
-                ) or os.getenv("FASTMCP_SERVER_AUTH_WORKOS_DOMAIN")
-
-                # Filter out MagicMock objects
-                client_id = (
-                    workos_client_id
-                    if workos_client_id is not None
-                    and not hasattr(workos_client_id, "_mock_name")
-                    else None
-                )
-                client_secret = (
-                    workos_client_secret
-                    if workos_client_secret is not None
-                    and not hasattr(workos_client_secret, "_mock_name")
-                    else None
-                )
-                authkit_domain = (
-                    workos_domain
-                    if workos_domain is not None
-                    and not hasattr(workos_domain, "_mock_name")
-                    else None
-                )
-
-                if client_id and client_secret:
-                    # Construct base URL, handling MagicMock objects
-                    host = (
-                        self.settings.host
-                        if hasattr(self.settings, "host")
-                        and not hasattr(self.settings.host, "_mock_name")
-                        else "localhost"
-                    )
-                    port = (
-                        self.settings.port
-                        if hasattr(self.settings, "port")
-                        and not hasattr(self.settings.port, "_mock_name")
-                        else 8080
-                    )
-                    return WorkOSProvider(
-                        client_id=client_id,
-                        client_secret=client_secret,
-                        authkit_domain=authkit_domain,
-                        base_url=f"http://{host}:{port}",
-                    )
-                else:
-                    logger.warning(
-                        "WorkOS provider requires client_id and client_secret"
-                    )
-                    return None
-            else:
-                logger.warning(f"Unknown auth provider: {self.settings.auth_provider}")
+class SimpleCache:
+    """Simplified cache with TTL and LRU eviction following FastMCP patterns."""
+    
+    def __init__(self, max_size: int = 1000, default_ttl: int = 300):
+        self.max_size = max_size
+        self.default_ttl = default_ttl
+        self.cache: Dict[str, SimpleCacheEntry] = {}
+        self.access_order: deque = deque()
+        self.lock = asyncio.Lock()
+        
+        # Cache statistics
+        self.hits = 0
+        self.misses = 0
+        self.evictions = 0
+    
+    def _generate_key(self, method: str, **kwargs) -> str:
+        """Generate cache key from method and parameters."""
+        sorted_kwargs = sorted(kwargs.items())
+        key_parts = [method] + [f"{k}={v}" for k, v in sorted_kwargs]
+        return "|".join(key_parts)
+    
+    async def get(self, method: str, **kwargs) -> Optional[Any]:
+        """Get cached data if available and not expired."""
+        async with self.lock:
+            key = self._generate_key(method, **kwargs)
+            
+            if key not in self.cache:
+                self.misses += 1
                 return None
-        except Exception as e:
-            logger.error(f"Failed to create auth provider: {e}")
-            return None
+            
+            entry = self.cache[key]
+            if entry.is_expired():
+                # Remove expired entry
+                del self.cache[key]
+                if key in self.access_order:
+                    self.access_order.remove(key)
+                self.misses += 1
+                return None
+            
+            # Update access order (move to end)
+            if key in self.access_order:
+                self.access_order.remove(key)
+            self.access_order.append(key)
+            
+            self.hits += 1
+            return entry.data
+    
+    async def set(self, method: str, data: Any, ttl: Optional[int] = None, **kwargs) -> None:
+        """Store data in cache with TTL."""
+        async with self.lock:
+            key = self._generate_key(method, **kwargs)
+            ttl = ttl or self.default_ttl
+            
+            # Remove existing entry if present
+            if key in self.cache:
+                if key in self.access_order:
+                    self.access_order.remove(key)
+            
+            # Add new entry
+            self.cache[key] = SimpleCacheEntry(
+                data=data,
+                timestamp=datetime.now(),
+                ttl_seconds=ttl
+            )
+            self.access_order.append(key)
+            
+            # Evict if over capacity
+            await self._evict_if_needed()
+    
+    async def _evict_if_needed(self) -> None:
+        """Evict least recently used entries if cache is over capacity."""
+        while len(self.cache) > self.max_size and self.access_order:
+            # Remove least recently used entry
+            lru_key = self.access_order.popleft()
+            if lru_key in self.cache:
+                del self.cache[lru_key]
+                self.evictions += 1
+    
+    async def clear(self) -> int:
+        """Clear all cache entries and return count of cleared entries."""
+        async with self.lock:
+            count = len(self.cache)
+            self.cache.clear()
+            self.access_order.clear()
+            return count
+    
+    async def cleanup_expired(self) -> int:
+        """Remove expired entries and return count removed."""
+        async with self.lock:
+            expired_keys = []
+            for key, entry in self.cache.items():
+                if entry.is_expired():
+                    expired_keys.append(key)
+            
+            for key in expired_keys:
+                del self.cache[key]
+                if key in self.access_order:
+                    self.access_order.remove(key)
+            
+            return len(expired_keys)
+    
+    def get_hit_rate(self) -> float:
+        """Calculate cache hit rate percentage."""
+        total = self.hits + self.misses
+        return (self.hits / total * 100) if total > 0 else 0.0
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        return {
+            "size": len(self.cache),
+            "max_size": self.max_size,
+            "default_ttl_seconds": self.default_ttl,
+            "hits": self.hits,
+            "misses": self.misses,
+            "evictions": self.evictions,
+            "hit_rate_percent": round(self.get_hit_rate(), 2),
+            "oldest_entry_age_seconds": self._get_oldest_entry_age_seconds(),
+            "expired_entries": sum(1 for entry in self.cache.values() if entry.is_expired())
+        }
+    
+    def _get_oldest_entry_age_seconds(self) -> float:
+        """Get age of oldest entry in seconds."""
+        if not self.cache:
+            return 0.0
+        oldest_timestamp = min(entry.timestamp for entry in self.cache.values())
+        return (datetime.now() - oldest_timestamp).total_seconds()
 
-    def _add_custom_tools(self, server: FastMCP):
-        """Add custom monitoring and management tools."""
 
-        @server.tool(tags={"monitoring", "public", "admin"})
-        async def get_server_metrics(ctx: Context = None) -> str:
-            """Get comprehensive server metrics and performance data."""
-            try:
-                if ctx:
-                    await ctx.info("Retrieving server metrics")
+class SimpleErrorHandler:
+    """Simplified error handling and recovery system following FastMCP patterns."""
+    
+    def __init__(self, metrics: SimpleMetrics):
+        self.metrics = metrics
+    
+    def categorize_error(self, error: Exception, operation: str) -> Dict[str, Any]:
+        """Categorize error and create structured response."""
+        error_info = {
+            "operation": operation,
+            "timestamp": datetime.now().isoformat(),
+            "error_type": "unknown",
+            "retryable": False,
+            "message": str(error)
+        }
+        
+        if isinstance(error, httpx.TimeoutException):
+            error_info.update({
+                "error_type": "timeout",
+                "retryable": True,
+                "message": f"Request timed out during {operation}"
+            })
+        elif isinstance(error, httpx.HTTPStatusError):
+            status_code = error.response.status_code
+            error_info.update({
+                "error_type": "http_error", 
+                "status_code": status_code,
+                "retryable": status_code in [408, 429, 500, 502, 503, 504],
+                "message": f"HTTP {status_code} error during {operation}"
+            })
+            
+            # Add specific handling for common status codes
+            if status_code == 401:
+                error_info["error_type"] = "authentication_error"
+                error_info["retryable"] = False
+            elif status_code == 404:
+                error_info["error_type"] = "not_found"
+                error_info["retryable"] = False
+            elif status_code == 429:
+                error_info["error_type"] = "rate_limit_error"
+                retry_after = error.response.headers.get("Retry-After", "60")
+                error_info["retry_after_seconds"] = int(retry_after)
+                
+        elif isinstance(error, httpx.ConnectError):
+            error_info.update({
+                "error_type": "connection_error",
+                "retryable": True,
+                "message": f"Failed to connect to API during {operation}"
+            })
+        
+        return error_info
+    
+    def should_retry(self, error: Exception) -> bool:
+        """Determine if an error is retryable."""
+        if isinstance(error, httpx.TimeoutException):
+            return True
+        elif isinstance(error, httpx.HTTPStatusError):
+            # Retry on server errors and rate limiting
+            return error.response.status_code in [408, 429, 500, 502, 503, 504]
+        elif isinstance(error, httpx.ConnectError):
+            return True
+        return False
+    
+    def get_retry_delay(self, attempt: int, base_delay: float = 1.0) -> float:
+        """Calculate exponential backoff delay."""
+        return base_delay * (2 ** attempt)
 
-                # Update cache size in metrics
-                self.metrics.cache_size = len(self.cache.cache)
 
-                metrics_data = self.metrics.to_dict()
-
-                # Add cache information
-                metrics_data["cache"] = {
-                    "size": len(self.cache.cache),
-                    "max_size": self.cache.max_size,
-                    "hit_rate": self.metrics.get_cache_hit_rate(),
-                    "keys": list(self.cache.cache.keys())[:10],  # Show first 10 keys
-                }
-
-                # Add rate limiter information
-                metrics_data["rate_limiter"] = {
-                    "tokens": self.rate_limiter.tokens,
-                    "requests_per_minute": self.rate_limiter.requests_per_minute,
-                    "burst_size": self.rate_limiter.burst_size,
-                }
-
-                return json.dumps(metrics_data, indent=2)
-
-            except Exception as e:
-                error_response = self.error_handler.handle_general_error(
-                    e, "get_server_metrics"
-                )
-                # Ensure error_response is JSON serializable
-                if isinstance(error_response, dict):
-                    return json.dumps(error_response, indent=2)
-                else:
-                    return json.dumps({"error": True, "message": str(e)}, indent=2)
-
-        @server.tool(tags={"monitoring", "public", "admin"})
-        async def get_health_status(ctx: Context = None) -> str:
-            """Get comprehensive health status of the server and BMC API."""
-            try:
-                if ctx:
-                    await ctx.info("Checking server health status")
-
-                health_checker = HealthChecker(self.http_client, self.settings)
-                health_data = await health_checker.check_health()
-
-                return json.dumps(health_data, indent=2)
-
-            except Exception as e:
-                error_response = self.error_handler.handle_general_error(
-                    e, "get_health_status"
-                )
-                # Ensure error_response is JSON serializable
-                if isinstance(error_response, dict):
-                    return json.dumps(error_response, indent=2)
-                else:
-                    return json.dumps({"error": True, "message": str(e)}, indent=2)
-
-        @server.tool(tags={"management", "public", "admin"})
-        async def get_server_settings(ctx: Context = None) -> str:
-            """Get current server configuration settings."""
-            try:
-                if ctx:
-                    await ctx.info("Retrieving server settings")
-
-                # Create a safe settings dict (exclude sensitive data)
-                safe_settings = {
-                    "api_base_url": self.settings.api_base_url,
-                    "api_timeout": self.settings.api_timeout,
-                    "auth_enabled": self.settings.auth_enabled,
-                    "auth_provider": self.settings.auth_provider,
-                    "rate_limit_requests_per_minute": (
-                        self.settings.rate_limit_requests_per_minute
-                    ),
-                    "rate_limit_burst_size": self.settings.rate_limit_burst_size,
-                    "cache_max_size": self.settings.cache_max_size,
-                    "cache_ttl_seconds": self.settings.cache_ttl_seconds,
-                    "connection_pool_size": self.settings.connection_pool_size,
-                    "enable_metrics": self.settings.enable_metrics,
-                    "enable_detailed_errors": self.settings.enable_detailed_errors,
-                    "log_level": self.settings.log_level,
-                }
-
-                return json.dumps(safe_settings, indent=2)
-
-            except Exception as e:
-                error_response = self.error_handler.handle_general_error(
-                    e, "get_server_settings"
-                )
-                # Ensure error_response is JSON serializable
-                if isinstance(error_response, dict):
-                    return json.dumps(error_response, indent=2)
-                else:
-                    return json.dumps({"error": True, "message": str(e)}, indent=2)
-
-        @server.tool(tags={"management", "public", "admin"})
-        async def clear_cache(ctx: Context = None) -> str:
-            """Clear the server cache."""
-            try:
-                if ctx:
-                    await ctx.info("Clearing server cache")
-
-                cache_size_before = len(self.cache.cache)
-                self.cache.cache.clear()
-                self.cache.access_order.clear()
-
-                result = {
-                    "success": True,
-                    "message": (
-                        f"Cache cleared successfully. "
-                        f"Removed {cache_size_before} entries."
-                    ),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-
-                return json.dumps(result, indent=2)
-
-            except Exception as e:
-                error_response = self.error_handler.handle_general_error(
-                    e, "clear_cache"
-                )
-                # Ensure error_response is JSON serializable
-                if isinstance(error_response, dict):
-                    return json.dumps(error_response, indent=2)
-                else:
-                    return json.dumps({"error": True, "message": str(e)}, indent=2)
-
-        @server.tool(tags={"management", "public", "admin"})
-        async def get_cache_info(ctx: Context = None) -> str:
-            """Get detailed cache information."""
-            try:
-                if ctx:
-                    await ctx.info("Retrieving cache information")
-
-                cache_info = {
-                    "size": len(self.cache.cache),
-                    "max_size": self.cache.max_size,
-                    "hit_rate": self.metrics.get_cache_hit_rate(),
-                    "keys": list(self.cache.cache.keys()),
-                    "access_order": list(self.cache.access_order),
-                    "entries": [],
-                }
-
-                # Add detailed entry information
-                for key, entry in self.cache.cache.items():
-                    cache_info["entries"].append(
-                        {
-                            "key": key,
-                            "data_type": type(entry.data).__name__,
-                            "created": entry.timestamp.isoformat(),
-                            "ttl_seconds": entry.ttl_seconds,
-                            "is_expired": entry.is_expired(),
-                        }
-                    )
-
-                return json.dumps(cache_info, indent=2)
-
-            except Exception as e:
-                error_response = self.error_handler.handle_general_error(
-                    e, "get_cache_info"
-                )
-                # Ensure error_response is JSON serializable
-                if isinstance(error_response, dict):
-                    return json.dumps(error_response, indent=2)
-                else:
-                    return json.dumps({"error": True, "message": str(e)}, indent=2)
-
-        # Elicitation-enabled tools for interactive BMC workflows
-        @server.tool(tags={"elicitation", "workflow", "admin"})
-        async def create_assignment_interactive(ctx: Context) -> str:
-            """Create a new assignment with interactive user input collection."""
-            try:
-                if not ctx:
-                    return json.dumps(
-                        {"error": True, "message": "Context required for elicitation"}
-                    )
-
-                await ctx.info("Starting interactive assignment creation...")
-
-                # Step 1: Get assignment title
-                title_result = await ctx.elicit(
-                    "What is the title of the assignment?", response_type=str
-                )
-
-                if isinstance(title_result, AcceptedElicitation):
-                    title = title_result.data
-                elif isinstance(title_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Assignment creation cancelled - title required",
-                        }
-                    )
-                elif isinstance(title_result, CancelledElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Assignment creation cancelled by user",
-                        }
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 2: Get assignment description
-                desc_result = await ctx.elicit(
-                    "Please provide a description for the assignment:",
-                    response_type=str,
-                )
-
-                if isinstance(desc_result, AcceptedElicitation):
-                    description = desc_result.data
-                elif isinstance(desc_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": (
-                                "Assignment creation cancelled - description required"
-                            ),
-                        }
-                    )
-                elif isinstance(desc_result, CancelledElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Assignment creation cancelled by user",
-                        }
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 3: Get SRID
-                srid_result = await ctx.elicit(
-                    "What is the SRID (System Reference ID) for this assignment?",
-                    response_type=str,
-                )
-
-                if isinstance(srid_result, AcceptedElicitation):
-                    srid = srid_result.data
-                elif isinstance(srid_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Assignment creation cancelled - SRID required",
-                        }
-                    )
-                elif isinstance(srid_result, CancelledElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Assignment creation cancelled by user",
-                        }
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 4: Get priority level
-                priority_result = await ctx.elicit(
-                    "What priority level should this assignment have?",
-                    response_type=["low", "medium", "high", "critical"],
-                )
-
-                if isinstance(priority_result, AcceptedElicitation):
-                    priority = priority_result.data
-                elif isinstance(priority_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Assignment creation cancelled - priority required",
-                        }
-                    )
-                elif isinstance(priority_result, CancelledElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Assignment creation cancelled by user",
-                        }
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 5: Confirm creation
-                confirm_result = await ctx.elicit(
-                    f"Confirm assignment creation:\n"
-                    f"Title: {title}\n"
-                    f"Description: {description}\n"
-                    f"SRID: {srid}\n"
-                    f"Priority: {priority}\n\n"
-                    f"Proceed with creation?",
-                    response_type=None,
-                )
-
-                if isinstance(confirm_result, AcceptedElicitation):
-                    # Here you would make the actual API call to create the assignment
-                    assignment_data = {
-                        "title": title,
-                        "description": description,
-                        "srid": srid,
-                        "priority": priority,
-                        "status": "created",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    }
-
-                    return json.dumps(
-                        {
-                            "success": True,
-                            "message": "Assignment created successfully",
-                            "assignment": assignment_data,
-                        },
-                        indent=2,
-                    )
-                elif isinstance(confirm_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Assignment creation cancelled by user",
-                        }
-                    )
-                elif isinstance(confirm_result, CancelledElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Assignment creation cancelled by user",
-                        }
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-            except Exception as e:
-                error_response = self.error_handler.handle_general_error(
-                    e, "create_assignment_interactive"
-                )
-                if isinstance(error_response, dict):
-                    return json.dumps(error_response, indent=2)
-                else:
-                    return json.dumps({"error": True, "message": str(e)}, indent=2)
-
-        @server.tool(tags={"elicitation", "workflow", "admin"})
-        async def deploy_release_interactive(ctx: Context) -> str:
-            """Deploy a release with interactive confirmation and parameter collection."""
-            try:
-                if not ctx:
-                    return json.dumps(
-                        {"error": True, "message": "Context required for elicitation"}
-                    )
-
-                await ctx.info("Starting interactive release deployment...")
-
-                # Step 1: Get release ID
-                release_result = await ctx.elicit(
-                    "What is the release ID you want to deploy?", response_type=str
-                )
-
-                if isinstance(release_result, AcceptedElicitation):
-                    release_id = release_result.data
-                elif isinstance(release_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Deployment cancelled - release ID required",
-                        }
-                    )
-                elif isinstance(release_result, CancelledElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Deployment cancelled by user"}
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 2: Get deployment environment
-                env_result = await ctx.elicit(
-                    "Which environment should this be deployed to?",
-                    response_type=["development", "staging", "production", "test"],
-                )
-
-                if isinstance(env_result, AcceptedElicitation):
-                    environment = env_result.data
-                elif isinstance(env_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Deployment cancelled - environment required",
-                        }
-                    )
-                elif isinstance(env_result, CancelledElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Deployment cancelled by user"}
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 3: Get deployment strategy
-                strategy_result = await ctx.elicit(
-                    "What deployment strategy should be used?",
-                    response_type=["blue-green", "rolling", "canary", "immediate"],
-                )
-
-                if isinstance(strategy_result, AcceptedElicitation):
-                    strategy = strategy_result.data
-                elif isinstance(strategy_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Deployment cancelled - strategy required",
-                        }
-                    )
-                elif isinstance(strategy_result, CancelledElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Deployment cancelled by user"}
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 4: Get approval for production deployments
-                if environment == "production":
-                    approval_result = await ctx.elicit(
-                        f"⚠️  PRODUCTION DEPLOYMENT WARNING ⚠️\n\n"
-                        f"Release: {release_id}\n"
-                        f"Environment: {environment}\n"
-                        f"Strategy: {strategy}\n\n"
-                        f"This will deploy to PRODUCTION. Are you sure you want to proceed?",
-                        response_type=None,
-                    )
-
-                    if isinstance(approval_result, AcceptedElicitation):
-                        pass  # Continue
-                    elif isinstance(approval_result, DeclinedElicitation):
-                        return json.dumps(
-                            {
-                                "error": True,
-                                "message": "Production deployment cancelled - approval required",
-                            }
-                        )
-                    elif isinstance(approval_result, CancelledElicitation):
-                        return json.dumps(
-                            {
-                                "error": True,
-                                "message": "Production deployment cancelled by user",
-                            }
-                        )
+def with_retry_and_error_handling(max_retries: int = 3, base_delay: float = 1.0):
+    """Decorator for adding retry logic and error handling to functions."""
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            error_handler = SimpleErrorHandler(metrics)
+            last_error = None
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    start_time = datetime.now()
+                    result = await func(*args, **kwargs)
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    
+                    # Record successful request
+                    metrics.record_request(success=True, response_time=response_time)
+                    return result
+                    
+                except Exception as error:
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    last_error = error
+                    
+                    # Record failed request
+                    metrics.record_request(success=False, response_time=response_time)
+                    
+                    # Check if we should retry
+                    if attempt < max_retries and error_handler.should_retry(error):
+                        delay = error_handler.get_retry_delay(attempt, base_delay)
+                        await asyncio.sleep(delay)
+                        continue
                     else:
-                        return json.dumps(
-                            {"error": True, "message": "Invalid response type"}
-                        )
-
-                # Step 5: Final confirmation
-                confirm_result = await ctx.elicit(
-                    f"Confirm deployment:\n"
-                    f"Release ID: {release_id}\n"
-                    f"Environment: {environment}\n"
-                    f"Strategy: {strategy}\n\n"
-                    f"Proceed with deployment?",
-                    response_type=None,
-                )
-
-                if isinstance(confirm_result, AcceptedElicitation):
-                    # Here you would make the actual API call to deploy the release
-                    deployment_data = {
-                        "release_id": release_id,
-                        "environment": environment,
-                        "strategy": strategy,
-                        "status": "deploying",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    }
-
-                    return json.dumps(
-                        {
-                            "success": True,
-                            "message": f"Release {release_id} deployment initiated",
-                            "deployment": deployment_data,
-                        },
-                        indent=2,
-                    )
-                elif isinstance(confirm_result, DeclinedElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Deployment cancelled by user"}
-                    )
-                elif isinstance(confirm_result, CancelledElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Deployment cancelled by user"}
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-            except Exception as e:
-                error_response = self.error_handler.handle_general_error(
-                    e, "deploy_release_interactive"
-                )
-                if isinstance(error_response, dict):
-                    return json.dumps(error_response, indent=2)
-                else:
-                    return json.dumps({"error": True, "message": str(e)}, indent=2)
-
-        @server.tool(tags={"elicitation", "workflow", "admin"})
-        async def troubleshoot_assignment_interactive(ctx: Context) -> str:
-            """Troubleshoot an assignment with interactive diagnostic steps."""
-            try:
-                if not ctx:
-                    return json.dumps(
-                        {"error": True, "message": "Context required for elicitation"}
-                    )
-
-                await ctx.info("Starting interactive assignment troubleshooting...")
-
-                # Step 1: Get assignment ID
-                assignment_result = await ctx.elicit(
-                    "What is the assignment ID you want to troubleshoot?",
-                    response_type=str,
-                )
-
-                if isinstance(assignment_result, AcceptedElicitation):
-                    assignment_id = assignment_result.data
-                elif isinstance(assignment_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Troubleshooting cancelled - assignment ID required",
-                        }
-                    )
-                elif isinstance(assignment_result, CancelledElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Troubleshooting cancelled by user"}
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 2: Get issue description
-                issue_result = await ctx.elicit(
-                    "Please describe the issue you're experiencing with this assignment:",
-                    response_type=str,
-                )
-
-                if isinstance(issue_result, AcceptedElicitation):
-                    issue_description = issue_result.data
-                elif isinstance(issue_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Troubleshooting cancelled - issue description required",
-                        }
-                    )
-                elif isinstance(issue_result, CancelledElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Troubleshooting cancelled by user"}
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 3: Get error level
-                error_level_result = await ctx.elicit(
-                    "What is the severity level of this issue?",
-                    response_type=["low", "medium", "high", "critical"],
-                )
-
-                if isinstance(error_level_result, AcceptedElicitation):
-                    error_level = error_level_result.data
-                elif isinstance(error_level_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Troubleshooting cancelled - error level required",
-                        }
-                    )
-                elif isinstance(error_level_result, CancelledElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Troubleshooting cancelled by user"}
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 4: Get diagnostic preferences
-                diagnostic_result = await ctx.elicit(
-                    "What type of diagnostic information would you like to collect?",
-                    response_type=["basic", "detailed", "comprehensive"],
-                )
-
-                if isinstance(diagnostic_result, AcceptedElicitation):
-                    diagnostic_level = diagnostic_result.data
-                elif isinstance(diagnostic_result, DeclinedElicitation):
-                    return json.dumps(
-                        {
-                            "error": True,
-                            "message": "Troubleshooting cancelled - diagnostic level required",
-                        }
-                    )
-                elif isinstance(diagnostic_result, CancelledElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Troubleshooting cancelled by user"}
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-                # Step 5: Confirm troubleshooting
-                confirm_result = await ctx.elicit(
-                    f"Confirm troubleshooting session:\n"
-                    f"Assignment ID: {assignment_id}\n"
-                    f"Issue: {issue_description}\n"
-                    f"Severity: {error_level}\n"
-                    f"Diagnostic Level: {diagnostic_level}\n\n"
-                    f"Start troubleshooting?",
-                    response_type=None,
-                )
-
-                if isinstance(confirm_result, AcceptedElicitation):
-                    # Here you would perform the actual troubleshooting
-                    troubleshooting_data = {
-                        "assignment_id": assignment_id,
-                        "issue_description": issue_description,
-                        "error_level": error_level,
-                        "diagnostic_level": diagnostic_level,
-                        "status": "troubleshooting",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "recommendations": [
-                            "Check assignment logs for errors",
-                            "Verify assignment dependencies",
-                            "Review assignment configuration",
-                            "Check system resources",
-                        ],
-                    }
-
-                    return json.dumps(
-                        {
-                            "success": True,
-                            "message": f"Troubleshooting session started for assignment {assignment_id}",
-                            "troubleshooting": troubleshooting_data,
-                        },
-                        indent=2,
-                    )
-                elif isinstance(confirm_result, DeclinedElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Troubleshooting cancelled by user"}
-                    )
-                elif isinstance(confirm_result, CancelledElicitation):
-                    return json.dumps(
-                        {"error": True, "message": "Troubleshooting cancelled by user"}
-                    )
-                else:
-                    return json.dumps(
-                        {"error": True, "message": "Invalid response type"}
-                    )
-
-            except Exception as e:
-                error_response = self.error_handler.handle_general_error(
-                    e, "troubleshoot_assignment_interactive"
-                )
-                if isinstance(error_response, dict):
-                    return json.dumps(error_response, indent=2)
-                else:
-                    return json.dumps({"error": True, "message": str(e)}, indent=2)
-
-    def _add_custom_routes(self, server: FastMCP):
-        """Add custom HTTP routes for health checks and status endpoints."""
-        from starlette.requests import Request
-        from starlette.responses import JSONResponse, PlainTextResponse
-
-        @server.custom_route("/health", methods=["GET"])
-        async def health_check_route(request: Request) -> JSONResponse:
-            """Health check endpoint for load balancers and monitoring."""
-            try:
-                health_checker = HealthChecker(self.http_client, self.settings)
-                health_data = await health_checker.check_health()
-                return JSONResponse(health_data)
-            except Exception as e:
-                return JSONResponse(
-                    {"status": "unhealthy", "error": str(e)}, status_code=503
-                )
-
-        @server.custom_route("/status", methods=["GET"])
-        async def status_route(request: Request) -> JSONResponse:
-            """Detailed status endpoint with server information."""
-            try:
-                # Update cache size in metrics
-                self.metrics.cache_size = len(self.cache.cache)
-
-                status_data = {
-                    "server": {
-                        "name": "BMC AMI DevX Code Pipeline MCP Server (OpenAPI)",
-                        "version": "2.2.0",
-                        "status": "running",
-                        "uptime": "active",
-                    },
-                    "metrics": self.metrics.to_dict(),
-                    "cache": {
-                        "size": len(self.cache.cache),
-                        "max_size": self.cache.max_size,
-                        "hit_rate": self.metrics.get_cache_hit_rate(),
-                    },
-                    "rate_limiter": {
-                        "tokens": self.rate_limiter.tokens,
-                        "requests_per_minute": self.rate_limiter.requests_per_minute,
-                        "burst_size": self.rate_limiter.burst_size,
-                    },
-                    "settings": {
-                        "api_base_url": self.settings.api_base_url,
-                        "auth_enabled": self.settings.auth_enabled,
-                        "monitoring_enabled": self.settings.enable_metrics,
-                    },
-                }
-                return JSONResponse(status_data)
-            except Exception as e:
-                return JSONResponse(
-                    {"error": "Failed to get status", "message": str(e)},
-                    status_code=500,
-                )
-
-        @server.custom_route("/metrics", methods=["GET"])
-        async def metrics_route(request: Request) -> JSONResponse:
-            """Prometheus-style metrics endpoint."""
-            try:
-                # Update cache size in metrics
-                self.metrics.cache_size = len(self.cache.cache)
-
-                metrics_data = self.metrics.to_dict()
-                return JSONResponse(metrics_data)
-            except Exception as e:
-                return JSONResponse(
-                    {"error": "Failed to get metrics", "message": str(e)},
-                    status_code=500,
-                )
-
-        @server.custom_route("/ready", methods=["GET"])
-        async def readiness_route(request: Request) -> PlainTextResponse:
-            """Readiness probe for Kubernetes deployments."""
-            try:
-                # Check if server is ready to accept requests
-                if self.settings.api_base_url and self.rate_limiter.tokens > 0:
-                    return PlainTextResponse("OK")
-                else:
-                    return PlainTextResponse("Not Ready", status_code=503)
-            except Exception:
-                return PlainTextResponse("Not Ready", status_code=503)
-
-    def _add_resource_templates(self, server: FastMCP):
-        """Add resource templates for parameterized data access."""
-
-        @server.resource("bmc://assignments/{srid}")
-        def get_assignments_resource(srid: str) -> dict:
-            """Resource template for accessing assignments by SRID."""
+                        # No more retries, prepare error response
+                        error_info = error_handler.categorize_error(error, func.__name__)
+                        break
+            
+            # All retries exhausted, return structured error
             return {
-                "srid": srid,
-                "description": f"Assignments for SRID {srid}",
-                "endpoint": f"/ispw/{srid}/assignments",
-                "methods": ["GET", "POST"],
-                "parameters": {
-                    "level": "Assignment level (DEV, INT, ACC, PRD)",
-                    "assignmentId": "Assignment ID filter",
-                },
+                "error": True,
+                "details": error_handler.categorize_error(last_error, func.__name__),
+                "attempts_made": attempt + 1,
+                "max_retries": max_retries
             }
-
-        @server.resource("bmc://assignments/{srid}/{assignment_id}")
-        def get_assignment_details_resource(srid: str, assignment_id: str) -> dict:
-            """Resource template for accessing specific assignment details."""
-            return {
-                "srid": srid,
-                "assignment_id": assignment_id,
-                "description": f"Assignment {assignment_id} details for SRID {srid}",
-                "endpoint": f"/ispw/{srid}/assignments/{assignment_id}",
-                "methods": ["GET"],
-                "related_endpoints": [
-                    f"/ispw/{srid}/assignments/{assignment_id}/tasks",
-                    f"/ispw/{srid}/assignments/{assignment_id}/generate",
-                    f"/ispw/{srid}/assignments/{assignment_id}/promote",
-                    f"/ispw/{srid}/assignments/{assignment_id}/deploy",
-                ],
-            }
-
-        @server.resource("bmc://releases/{srid}")
-        def get_releases_resource(srid: str) -> dict:
-            """Resource template for accessing releases by SRID."""
-            return {
-                "srid": srid,
-                "description": f"Releases for SRID {srid}",
-                "endpoint": f"/ispw/{srid}/releases",
-                "methods": ["GET", "POST"],
-                "parameters": {"releaseId": "Release ID filter"},
-            }
-
-        @server.resource("bmc://packages/{srid}")
-        def get_packages_resource(srid: str) -> dict:
-            """Resource template for accessing packages by SRID."""
-            return {
-                "srid": srid,
-                "description": f"Packages for SRID {srid}",
-                "endpoint": f"/ispw/{srid}/packages",
-                "methods": ["GET"],
-                "parameters": {"packageId": "Package ID filter"},
-            }
-
-        @server.resource("bmc://server/status")
-        def get_server_status_resource() -> dict:
-            """Resource template for server status information."""
-            return {
-                "description": "Current server status and health information",
-                "endpoints": {
-                    "health": "/health",
-                    "status": "/status",
-                    "metrics": "/metrics",
-                    "ready": "/ready",
-                },
-                "features": [
-                    "OpenAPI integration",
-                    "Rate limiting",
-                    "Caching",
-                    "Monitoring",
-                    "Error handling",
-                ],
-            }
-
-    def _add_prompts(self, server: FastMCP):
-        """Add prompts for reusable LLM guidance templates."""
-
-        @server.prompt
-        def analyze_assignment_status(assignment_data: dict) -> str:
-            """Create a prompt for analyzing assignment status and providing recommendations."""
-            assignment_id = assignment_data.get("assignmentId", "Unknown")
-            status = assignment_data.get("status", "Unknown")
-            level = assignment_data.get("level", "Unknown")
-            owner = assignment_data.get("owner", "Unknown")
-
-            return f"""
-            Analyze the following BMC ISPW assignment and provide recommendations:
-
-            Assignment ID: {assignment_id}
-            Status: {status}
-            Level: {level}
-            Owner: {owner}
-
-            Please provide:
-            1. Current status assessment
-            2. Next recommended actions
-            3. Potential issues or blockers
-            4. Best practices for this assignment type
-            5. Timeline recommendations based on the current level
-
-            Consider BMC ISPW best practices and typical development workflows.
-            """
-
-        @server.prompt
-        def deployment_planning(release_data: dict) -> str:
-            """Create a prompt for deployment planning and risk assessment."""
-            release_id = release_data.get("releaseId", "Unknown")
-            application = release_data.get("application", "Unknown")
-            status = release_data.get("status", "Unknown")
-
-            return f"""
-            Create a deployment plan for the following BMC ISPW release:
-
-            Release ID: {release_id}
-            Application: {application}
-            Status: {status}
-
-            Please provide:
-            1. Pre-deployment checklist
-            2. Risk assessment and mitigation strategies
-            3. Rollback plan
-            4. Testing requirements
-            5. Communication plan for stakeholders
-            6. Monitoring and validation steps
-
-            Consider mainframe deployment best practices and BMC ISPW workflows.
-            """
-
-        @server.prompt
-        def troubleshooting_guide(error_data: dict) -> str:
-            """Create a prompt for troubleshooting BMC ISPW issues."""
-            error_type = error_data.get("error_type", "Unknown")
-            error_message = error_data.get("message", "No message provided")
-            operation = error_data.get("operation", "Unknown operation")
-
-            return f"""
-            Troubleshoot the following BMC ISPW issue:
-
-            Error Type: {error_type}
-            Operation: {operation}
-            Error Message: {error_message}
-
-            Please provide:
-            1. Root cause analysis
-            2. Step-by-step troubleshooting guide
-            3. Common solutions for this error type
-            4. Prevention strategies
-            5. Escalation criteria
-            6. Documentation references
-
-            Focus on BMC ISPW-specific troubleshooting and mainframe environment considerations.
-            """
-
-        @server.prompt
-        def code_review_guidelines(assignment_data: dict) -> str:
-            """Create a prompt for code review guidelines based on assignment type."""
-            assignment_id = assignment_data.get("assignmentId", "Unknown")
-            level = assignment_data.get("level", "Unknown")
-            application = assignment_data.get("application", "Unknown")
-
-            return f"""
-            Provide code review guidelines for the following BMC ISPW assignment:
-
-            Assignment ID: {assignment_id}
-            Level: {level}
-            Application: {application}
-
-            Please provide:
-            1. Code review checklist specific to this level
-            2. Security considerations
-            3. Performance requirements
-            4. Testing requirements
-            5. Documentation standards
-            6. Approval criteria
-            7. Common issues to watch for
-
-            Tailor the guidelines to the specific level ({level}) and application ({application}).
-            """
-
-    async def start(
-        self, transport: str = "http", host: str = "127.0.0.1", port: int = 8000
-    ):
-        """Start the MCP server."""
-        try:
-            logger.info(
-                f"Starting BMC AMI DevX Code Pipeline MCP Server (OpenAPI) on {host}:{port}"
-            )
-            logger.info(f"Transport: {transport}")
-            logger.info(f"API Base URL: {self.settings.api_base_url}")
-            logger.info(
-                f"Authentication: {'Enabled' if self.settings.auth_enabled else 'Disabled'}"
-            )
-            logger.info(
-                f"Rate Limiting: {self.settings.rate_limit_requests_per_minute} requests/min, {self.settings.rate_limit_burst_size} burst size"
-            )
-            logger.info(
-                f"Caching: {self.settings.cache_max_size} max entries, {self.settings.cache_ttl_seconds}s TTL"
-            )
-
-            # Start the server
-            await self.server.run_async(transport=transport, host=host, port=port)
-
-        except Exception as e:
-            logger.error(f"Failed to start MCP server: {e}")
-            raise MCPServerError(f"Failed to start MCP server: {e}")
-
-    async def stop(self):
-        """Stop the MCP server and cleanup resources."""
-        try:
-            logger.info("Stopping BMC AMI DevX Code Pipeline MCP Server (OpenAPI)")
-
-            # Close HTTP client
-            await self.http_client.aclose()
-
-            # Log final metrics
-            final_metrics = self.metrics.to_dict()
-            logger.info(f"Final metrics: {json.dumps(final_metrics, indent=2)}")
-
-        except Exception as e:
-            logger.error(f"Error during server shutdown: {e}")
+        
+        return wrapper
+    return decorator
 
 
-async def main():
-    """Main entry point for the OpenAPI MCP Server."""
-    server = None
+def create_auth_provider():
+    """Create authentication provider following FastMCP patterns."""
+    if not os.getenv("AUTH_ENABLED", "false").lower() == "true":
+        return None
+    
+    auth_provider = os.getenv("AUTH_PROVIDER", "").lower()
+    
+    if auth_provider == "jwt":
+        return JWTVerifier(
+            jwks_uri=os.getenv("FASTMCP_AUTH_JWKS_URI"),
+            issuer=os.getenv("FASTMCP_AUTH_ISSUER"), 
+            audience=os.getenv("FASTMCP_AUTH_AUDIENCE")
+        )
+    elif auth_provider == "github":
+        return GitHubProvider(
+            client_id=os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_ID"),
+            client_secret=os.getenv("FASTMCP_SERVER_AUTH_GITHUB_CLIENT_SECRET")
+        )
+    elif auth_provider == "google":
+        return GoogleProvider(
+            client_id=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID"),
+            client_secret=os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET")
+        )
+    elif auth_provider == "workos":
+        return WorkOSProvider(
+            client_id=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID"),
+            client_secret=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET"),
+            authkit_domain=os.getenv("FASTMCP_SERVER_AUTH_AUTHKIT_DOMAIN")
+        )
+    
+    return None
+
+
+# Load OpenAPI specification
+openapi_spec_path = Path("config/openapi.json")
+if not openapi_spec_path.exists():
+    raise FileNotFoundError(f"OpenAPI specification not found at {openapi_spec_path}")
+
+with open(openapi_spec_path, "r") as f:
+    openapi_spec = json.load(f)
+
+# Initialize rate limiting and metrics
+rate_limiter = SimpleRateLimiter(
+    requests_per_minute=int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "60")),
+    burst_size=int(os.getenv("RATE_LIMIT_BURST_SIZE", "10"))
+)
+
+metrics = SimpleMetrics()
+
+# Initialize caching system
+cache = SimpleCache(
+    max_size=int(os.getenv("CACHE_MAX_SIZE", "1000")),
+    default_ttl=int(os.getenv("CACHE_TTL_SECONDS", "300"))
+)
+
+# Create HTTP client with connection pooling
+http_client = httpx.AsyncClient(
+    base_url=os.getenv("API_BASE_URL", "https://devx.bmc.com/code-pipeline/api/v1"),
+    timeout=httpx.Timeout(int(os.getenv("API_TIMEOUT", "30"))),
+    limits=httpx.Limits(
+        max_keepalive_connections=int(os.getenv("CONNECTION_POOL_SIZE", "20")),
+        max_connections=int(os.getenv("CONNECTION_POOL_SIZE", "20")) * 2,
+    ),
+    headers={
+        "Authorization": f"Bearer {os.getenv('API_TOKEN', '')}",
+        "Content-Type": "application/json",
+        "User-Agent": "BMC-AMI-DevX-MCP-Server/2.2.0",
+    }
+)
+
+# Create main FastMCP server following best practices
+mcp = FastMCP(
+    name="BMC AMI DevX Code Pipeline MCP Server",
+    version="2.2.0",
+    instructions="""
+    This MCP server provides comprehensive BMC AMI DevX Code Pipeline integration
+    with ISPW operations. All tools are automatically generated from the BMC ISPW
+    OpenAPI specification, ensuring complete API coverage and maintainability.
+    """,
+    auth=create_auth_provider(),
+    include_tags={"public", "api", "monitoring", "management"},
+    exclude_tags={"internal", "deprecated"},
+    # Use FastMCP's built-in global settings via environment variables
+)
+
+# Create OpenAPI-generated tools server
+openapi_server = FastMCP.from_openapi(
+    openapi_spec=openapi_spec,
+    client=http_client,
+    name="BMC ISPW API Tools"
+)
+
+# Mount OpenAPI server following FastMCP composition pattern
+mcp.mount(openapi_server, prefix="ispw")
+
+
+# Add custom monitoring tools following FastMCP patterns
+@mcp.tool(tags={"monitoring", "public"})
+async def get_server_health(ctx: Context = None) -> str:
+    """Get comprehensive server health status."""
+    if ctx:
+        ctx.info("Checking server health status")
+    
+    start_time = datetime.now()
+    
     try:
-        # Create and start the server
-        server = OpenAPIMCPServer()
-        await server.start()
-
-    except KeyboardInterrupt:
-        logger.info("Received interrupt signal, shutting down...")
+        # Use rate limiter for health check
+        if not await rate_limiter.acquire():
+            metrics.record_rate_limit()
+            bmc_status = "rate_limited"
+            response_time = 0.0
+        else:
+            # Test BMC API connectivity
+            response = await http_client.get("/health")
+            response_time = (datetime.now() - start_time).total_seconds()
+            bmc_status = "healthy" if response.status_code == 200 else "unhealthy"
+            metrics.record_request(success=response.status_code == 200, response_time=response_time)
+            
     except Exception as e:
-        logger.error(f"Server error: {e}")
-        sys.exit(1)
-    finally:
-        if server:
-            await server.stop()
+        response_time = (datetime.now() - start_time).total_seconds()
+        bmc_status = "unreachable"
+        metrics.record_request(success=False, response_time=response_time)
+    
+    health_data = {
+        "status": "healthy",
+        "name": mcp.name,
+        "version": "2.2.0", 
+        "bmc_api_status": bmc_status,
+        "response_time_seconds": round(response_time, 3),
+        "tools_count": len(await mcp.get_tools()),
+        "rate_limiter": {
+            "requests_per_minute": rate_limiter.requests_per_minute,
+            "burst_size": rate_limiter.burst_size,
+            "tokens_available": round(rate_limiter.tokens, 2)
+        },
+        "cache": {
+            "size": len(cache.cache),
+            "max_size": cache.max_size,
+            "hit_rate_percent": round(cache.get_hit_rate(), 2),
+            "expired_entries": sum(1 for entry in cache.cache.values() if entry.is_expired())
+        }
+    }
+    
+    return json.dumps(health_data, indent=2)
+
+
+@mcp.tool(tags={"monitoring", "admin"})
+async def get_server_metrics(ctx: Context = None) -> str:
+    """Get server performance metrics."""
+    if ctx:
+        ctx.info("Retrieving server metrics")
+    
+    return json.dumps(metrics.to_dict(include_cache_stats=True), indent=2)
+
+
+@mcp.tool(tags={"monitoring", "admin"})
+async def get_rate_limiter_status(ctx: Context = None) -> str:
+    """Get current rate limiter status and configuration."""
+    if ctx:
+        ctx.info("Checking rate limiter status")
+    
+    status = {
+        "configuration": {
+            "requests_per_minute": rate_limiter.requests_per_minute,
+            "burst_size": rate_limiter.burst_size
+        },
+        "current_state": {
+            "tokens_available": round(rate_limiter.tokens, 2),
+            "last_refill": rate_limiter.last_refill.isoformat(),
+            "time_until_next_token": max(0, 60.0 / rate_limiter.requests_per_minute) if rate_limiter.tokens < 1 else 0
+        },
+        "metrics": {
+            "rate_limited_requests": metrics.rate_limited_requests,
+            "rate_limit_percentage": round((metrics.rate_limited_requests / max(1, metrics.total_requests)) * 100, 2)
+        }
+    }
+    
+    return json.dumps(status, indent=2)
+
+
+@mcp.tool(tags={"monitoring", "admin"})
+async def get_cache_info(ctx: Context = None) -> str:
+    """Get comprehensive cache information and statistics."""
+    if ctx:
+        ctx.info("Retrieving cache information")
+    
+    cache_stats = cache.get_stats()
+    
+    # Add additional runtime information
+    cache_info = {
+        **cache_stats,
+        "configuration": {
+            "max_size": cache.max_size,
+            "default_ttl_seconds": cache.default_ttl
+        },
+        "performance": {
+            "hit_rate_percent": cache_stats["hit_rate_percent"],
+            "efficiency": "excellent" if cache_stats["hit_rate_percent"] > 80 else
+                         "good" if cache_stats["hit_rate_percent"] > 60 else
+                         "needs_improvement"
+        }
+    }
+    
+    return json.dumps(cache_info, indent=2)
+
+
+@mcp.tool(tags={"management", "admin"})
+async def clear_cache(ctx: Context = None) -> str:
+    """Clear all cache entries."""
+    if ctx:
+        ctx.info("Clearing cache")
+    
+    start_time = datetime.now()
+    cleared_count = await cache.clear()
+    operation_time = (datetime.now() - start_time).total_seconds()
+    
+    result = {
+        "success": True,
+        "cleared_entries": cleared_count,
+        "operation_time_seconds": round(operation_time, 3),
+        "cache_size_after": len(cache.cache),
+        "message": f"Successfully cleared {cleared_count} cache entries"
+    }
+    
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool(tags={"management", "admin"})
+async def cleanup_expired_cache(ctx: Context = None) -> str:
+    """Remove expired cache entries."""
+    if ctx:
+        ctx.info("Cleaning up expired cache entries")
+    
+    start_time = datetime.now()
+    removed_count = await cache.cleanup_expired()
+    operation_time = (datetime.now() - start_time).total_seconds()
+    
+    result = {
+        "success": True,
+        "removed_entries": removed_count,
+        "operation_time_seconds": round(operation_time, 3),
+        "cache_size_after": len(cache.cache),
+        "message": f"Cleaned up {removed_count} expired cache entries"
+    }
+    
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool(tags={"monitoring", "admin"})
+async def get_error_recovery_status(ctx: Context = None) -> str:
+    """Get error recovery and retry configuration status."""
+    if ctx:
+        ctx.info("Retrieving error recovery status")
+    
+    error_handler = SimpleErrorHandler(metrics)
+    
+    status = {
+        "configuration": {
+            "max_retries": int(os.getenv("MAX_RETRY_ATTEMPTS", "3")),
+            "base_delay_seconds": float(os.getenv("RETRY_BASE_DELAY", "1.0")),
+            "retry_enabled": True
+        },
+        "error_statistics": {
+            "total_requests": metrics.total_requests,
+            "successful_requests": metrics.successful_requests,
+            "failed_requests": metrics.failed_requests,
+            "error_rate_percent": round((metrics.failed_requests / max(1, metrics.total_requests)) * 100, 2)
+        },
+        "retryable_error_types": [
+            "timeout", 
+            "connection_error", 
+            "http_500", 
+            "http_502", 
+            "http_503", 
+            "http_504",
+            "rate_limit_error"
+        ],
+        "non_retryable_error_types": [
+            "authentication_error",
+            "not_found", 
+            "validation_error"
+        ]
+    }
+    
+    return json.dumps(status, indent=2)
+
+
+# Add elicitation tool following FastMCP patterns
+@mcp.tool(tags={"elicitation", "workflow"})
+async def create_assignment_interactive(ctx: Context) -> str:
+    """Interactively create a new BMC ISPW assignment with user elicitation."""
+    start_time = datetime.now()
+    
+    try:
+        # Get assignment details through elicitation
+        title_result = await ctx.elicit(
+            "What is the assignment title?", 
+            response_type=str
+        )
+        
+        if isinstance(title_result, DeclinedElicitation):
+            return "Assignment creation cancelled by user"
+        
+        title = title_result.data
+        
+        description_result = await ctx.elicit(
+            "Provide assignment description:", 
+            response_type=str
+        )
+        
+        if isinstance(description_result, DeclinedElicitation):
+            return "Assignment creation cancelled by user"
+        
+        description = description_result.data
+        
+        # Check rate limiter before making API call
+        if not await rate_limiter.acquire():
+            metrics.record_rate_limit()
+            return json.dumps({
+                "error": True,
+                "message": "Rate limit exceeded. Please try again later.",
+                "rate_limit_info": {
+                    "requests_per_minute": rate_limiter.requests_per_minute,
+                    "retry_after_seconds": 60.0 / rate_limiter.requests_per_minute
+                }
+            }, indent=2)
+        
+        # Create assignment via BMC API
+        assignment_data = {
+            "title": title,
+            "description": description,
+            "level": "DEV"
+        }
+        
+        response = await http_client.post("/assignments", json=assignment_data)
+        response_time = (datetime.now() - start_time).total_seconds()
+        response.raise_for_status()
+        
+        result = response.json()
+        metrics.record_request(success=True, response_time=response_time)
+        
+        return json.dumps({
+            "success": True, 
+            "assignment": result,
+            "message": f"Assignment '{title}' created successfully",
+            "response_time_seconds": round(response_time, 3)
+        }, indent=2)
+        
+    except Exception as e:
+        response_time = (datetime.now() - start_time).total_seconds()
+        metrics.record_request(success=False, response_time=response_time)
+        
+        return json.dumps({
+            "error": True,
+            "message": f"Failed to create assignment: {str(e)}",
+            "response_time_seconds": round(response_time, 3)
+        }, indent=2)
+
+
+# Add custom health check route following FastMCP patterns  
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check_route(request: Request) -> JSONResponse:
+    """Health check endpoint for load balancers."""
+    try:
+        health_data = await get_server_health()
+        return JSONResponse(json.loads(health_data))
+    except Exception as e:
+        return JSONResponse(
+            {"status": "unhealthy", "error": str(e)}, 
+            status_code=503
+        )
+
+
+@mcp.custom_route("/metrics", methods=["GET"])  
+async def metrics_route(request: Request) -> JSONResponse:
+    """Metrics endpoint for monitoring."""
+    try:
+        metrics_data = await get_server_metrics()
+        return JSONResponse(json.loads(metrics_data))
+    except Exception as e:
+        return JSONResponse(
+            {"error": str(e)}, 
+            status_code=500
+        )
+
+
+# Add resource template following FastMCP patterns with retry logic
+@mcp.resource("bmc://assignments/{srid}")
+async def get_assignment_resource(srid: str) -> dict:
+    """Get assignment data as a structured resource with caching and retry logic."""
+    # Check cache first
+    cached_data = await cache.get("get_assignment", srid=srid)
+    if cached_data is not None:
+        return cached_data
+    
+    # Use rate limiter
+    if not await rate_limiter.acquire():
+        return {"error": f"Rate limit exceeded for assignment {srid}"}
+    
+    # Define the API call function for retry logic
+    @with_retry_and_error_handling(
+        max_retries=int(os.getenv("MAX_RETRY_ATTEMPTS", "3")),
+        base_delay=float(os.getenv("RETRY_BASE_DELAY", "1.0"))
+    )
+    async def fetch_assignment():
+        response = await http_client.get(f"/assignments/{srid}")
+        response.raise_for_status()
+        return response.json()
+    
+    # Execute with retry logic
+    result = await fetch_assignment()
+    
+    # Handle successful response
+    if isinstance(result, dict) and not result.get("error"):
+        # Cache the successful response
+        await cache.set("get_assignment", result, ttl=300, srid=srid)
+        return result
+    
+    # Return error result (already structured by retry decorator)
+    return result
+
+
+# Add prompt following FastMCP patterns
+@mcp.prompt
+def analyze_assignment_status(assignment_data: dict) -> str:
+    """Generate analysis prompt for assignment status."""
+    assignment_id = assignment_data.get("assignmentId", "Unknown")
+    status = assignment_data.get("status", "Unknown")
+    level = assignment_data.get("level", "Unknown")
+    
+    return f"""
+    Analyze the following BMC ISPW assignment status:
+    
+    Assignment ID: {assignment_id}
+    Status: {status}
+    Level: {level}
+    
+    Please provide:
+    1. Status interpretation and implications
+    2. Recommended next actions
+    3. Potential issues or risks
+    4. Timeline considerations
+    5. Dependencies to check
+    """
 
 
 if __name__ == "__main__":
-    # Run the server
-    asyncio.run(main())
+    # Follow FastMCP standard server running pattern
+    mcp.run(
+        transport="http",
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", "8080")),
+        # FastMCP automatically uses FASTMCP_LOG_LEVEL environment variable
+    )

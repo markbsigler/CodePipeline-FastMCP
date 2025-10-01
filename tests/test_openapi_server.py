@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Comprehensive test coverage for openapi_server_simplified.py
+Comprehensive test coverage for openapi_server.py
 
-This test suite covers all enterprise features implemented in the simplified version:
+This test suite covers all enterprise features implemented in the FastMCP server:
 - Rate limiting with token bucket algorithm
 - Caching with LRU/TTL eviction
 - Metrics collection and monitoring  
@@ -22,11 +22,11 @@ import pytest
 from fastmcp.server.elicitation import AcceptedElicitation, DeclinedElicitation
 
 
-# Import the simplified server components
+# Import the server components
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from openapi_server_simplified import (
+from openapi_server import (
     SimpleRateLimiter, 
     SimpleMetrics, 
     SimpleCacheEntry, 
@@ -678,7 +678,7 @@ class TestAuthProvider:
             "FASTMCP_AUTH_ISSUER": "test-issuer",
             "FASTMCP_AUTH_AUDIENCE": "test-audience"
         }):
-            with patch('openapi_server_simplified.JWTVerifier') as mock_jwt:
+            with patch('openapi_server.JWTVerifier') as mock_jwt:
                 provider = create_auth_provider()
                 mock_jwt.assert_called_once()
     
@@ -690,7 +690,7 @@ class TestAuthProvider:
             "FASTMCP_SERVER_AUTH_GITHUB_CLIENT_ID": "test-client-id",
             "FASTMCP_SERVER_AUTH_GITHUB_CLIENT_SECRET": "test-secret"
         }):
-            with patch('openapi_server_simplified.GitHubProvider') as mock_github:
+            with patch('openapi_server.GitHubProvider') as mock_github:
                 provider = create_auth_provider()
                 mock_github.assert_called_once()
 
@@ -736,15 +736,15 @@ class TestIntegration:
             with patch('builtins.open', create=True) as mock_open:
                 mock_open.return_value.__enter__.return_value.read.return_value = json.dumps(mock_openapi_spec)
                 
-                # Import the simplified server module
-                import openapi_server_simplified
+                # Import the server module
+                import openapi_server
                 
                 # Test that components are initialized
-                assert hasattr(openapi_server_simplified, 'rate_limiter')
-                assert hasattr(openapi_server_simplified, 'metrics')
-                assert hasattr(openapi_server_simplified, 'cache')
-                assert hasattr(openapi_server_simplified, 'http_client')
-                assert hasattr(openapi_server_simplified, 'mcp')
+                assert hasattr(openapi_server, 'rate_limiter')
+                assert hasattr(openapi_server, 'metrics')
+                assert hasattr(openapi_server, 'cache')
+                assert hasattr(openapi_server, 'http_client')
+                assert hasattr(openapi_server, 'mcp')
 
 
 if __name__ == "__main__":

@@ -533,35 +533,34 @@ EOF
 
 ### Step 3: Core Implementation
 
-Choose your implementation approach:
+The project now uses a **unified FastMCP implementation** following best practices:
 
-#### **Option A: Production Implementation (Current)**
-1. **openapi_server.py**: Full-featured FastMCP server with OpenAPI integration
-2. **fastmcp_config.py**: Comprehensive global configuration management system
-3. **Complex authentication**: Multi-provider support with custom configuration
-4. **Advanced monitoring**: Rate limiting, caching, metrics, health checks
-5. **Enterprise features**: Error recovery, connection pooling, background tasks
+#### **Production FastMCP Server** ⭐
+1. **openapi_server.py**: Production-ready FastMCP server with comprehensive enterprise features
+2. **68% test coverage**: 47 comprehensive tests covering all functionality
+3. **Enterprise feature parity**: Rate limiting, caching, metrics, error recovery, retry logic
+4. **FastMCP best practices**: Direct instantiation, built-in auth providers, `FASTMCP_*` environment variables
+5. **42% code reduction**: Maintainable implementation (833 lines) with full functionality
+6. **Production ready**: Comprehensive testing, Docker support, deployment automation
 
-#### **Option B: Simplified Implementation (FastMCP Best Practices) - RECOMMENDED** ⭐
-1. **openapi_server_simplified.py**: Production-ready FastMCP server with enterprise features
-2. **68% test coverage**: 47 comprehensive tests covering all enterprise functionality
-3. **Full feature parity**: Rate limiting, caching, metrics, error recovery, retry logic
-4. **Built-in authentication**: Uses FastMCP's native provider patterns
-5. **42% less code**: Same functionality (833 vs 1441 lines) with better maintainability
-6. **Best practices alignment**: Direct FastMCP patterns, `FASTMCP_*` environment variables
+This implementation demonstrates the optimal way to build FastMCP servers with enterprise-grade reliability.
 
-#### **Common Components (Both Approaches)**
-1. **test_advanced_features.py**: Test suite for advanced FastMCP features
-2. **test_elicitation.py**: Test suite for user elicitation functionality
-3. **test_openapi_integration.py**: Test suite for OpenAPI integration
-4. **config/ispw_openapi_spec.json**: BMC ISPW OpenAPI specification
+#### **Supporting Components**
+1. **test_openapi_server.py**: Comprehensive test suite for the main server (47 tests)
+2. **test_advanced_features.py**: Test suite for advanced FastMCP features
+3. **test_elicitation.py**: Test suite for user elicitation functionality
+4. **test_openapi_integration.py**: Test suite for OpenAPI integration
+4. **config/openapi.json**: BMC OpenAPI specification for tool generation
 5. **Dockerfile**: Multi-stage Docker build for production deployment
 6. **docker-compose.yml**: Container orchestration configuration
+7. **entrypoint.py**: Unified container entry point
 
-#### **Recommendation**
-- **New Projects**: Start with `openapi_server_simplified.py` for FastMCP best practices alignment
-- **Existing Projects**: Use `openapi_server.py` for full enterprise features
-- **Learning**: Study both implementations to understand different FastMCP patterns
+#### **Architecture Benefits**
+- **Simplified Maintenance**: Single codebase, easier debugging and testing
+- **FastMCP Alignment**: Follows official best practices and patterns
+- **Enterprise Ready**: Full feature set with production-grade reliability
+- **Developer Friendly**: Easier onboarding, better documentation, cleaner code
+- **Future Proof**: Built on latest FastMCP patterns for long-term sustainability
 
 ### Step 4: Development Setup
 
@@ -577,13 +576,8 @@ python test_advanced_features.py
 python test_elicitation.py
 python test_openapi_integration.py
 
-# Start development server (choose your implementation)
-
-# Option A: Full production implementation  
+# Start development server
 python openapi_server.py
-
-# Option B: Simplified FastMCP best practices implementation
-python openapi_server_simplified.py
 ```
 
 ### Step 5: Validation

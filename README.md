@@ -199,27 +199,23 @@ resp = httpx.get("http://localhost:8080/mcp/get_users", headers={"Authorization"
 print(resp.json())
 ```
 
-## Implementation Options
+## FastMCP Architecture
 
-This project offers **two production-ready implementations** to suit different requirements:
+This server implements a **production-ready FastMCP implementation** following best practices:
 
-### 🌟 **Simplified Implementation (Recommended)**
-- **File**: `openapi_server_simplified.py` 
-- **Lines of Code**: 833 lines (42% reduction vs complex)
-- **Test Coverage**: 68% with 47 comprehensive tests
-- **Features**: Full enterprise feature parity with simplified FastMCP patterns
-- **Benefits**: Easier maintenance, faster onboarding, better FastMCP alignment
-- **Best For**: New deployments, FastMCP best practices, long-term maintainability
+### 🌟 **Unified Implementation**
+- **Simplified FastMCP Patterns**: Direct instantiation, built-in auth providers
+- **Enterprise Features**: Rate limiting, caching, metrics, error recovery
+- **68% Test Coverage**: 47 comprehensive tests ensuring reliability
+- **42% Code Reduction**: Maintainable codebase (833 lines vs previous 1,441)
+- **FastMCP Best Practices**: Full alignment with official recommendations
 
-### 🏭 **Complex Implementation (Production)**
-- **File**: `openapi_server.py`
-- **Lines of Code**: 1,441 lines (full-featured)
-- **Test Coverage**: 58% with comprehensive test suite
-- **Features**: All enterprise features with complex configuration system
-- **Benefits**: Maximum flexibility, extensive configuration options, proven stability
-- **Best For**: Existing deployments, custom configuration requirements
-
-Both implementations provide identical functionality and API compatibility. Choose based on your team's preferences and maintenance requirements.
+### 🏗️ **Enterprise Features**
+- **Rate Limiting**: Token bucket algorithm with configurable burst capacity
+- **LRU/TTL Caching**: Intelligent caching with comprehensive management
+- **Real-time Metrics**: Response times, success rates, uptime tracking
+- **Error Recovery**: Exponential backoff retry with smart categorization
+- **Connection Pooling**: Optimized HTTP client performance
 
 ## Quick Start
 
