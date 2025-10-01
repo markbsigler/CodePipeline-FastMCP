@@ -44,8 +44,11 @@ class SimpleRateLimiter:
             self.tokens = min(self.burst_size, self.tokens + tokens_to_add)
             self.last_refill = now
             
-            if self.tokens >= 1:
-                self.tokens -= 1
+            if self.tokens >= 1.0:
+                self.tokens -= 1.0
+                # Round to avoid floating-point precision issues
+                if abs(self.tokens - round(self.tokens)) < 1e-10:
+                    self.tokens = round(self.tokens)
                 return True
             return False
     
@@ -96,7 +99,9 @@ class SimpleMetrics:
     def get_success_rate(self) -> float:
         """Calculate success rate percentage."""
         total = self.successful_requests + self.failed_requests
-        return (self.successful_requests / total * 100) if total > 0 else 100.0
+        if total > 0:
+            return round((self.successful_requests / total * 100), 2)
+        return 100.0
     
     def get_uptime_seconds(self) -> float:
         """Get uptime in seconds."""
@@ -251,7 +256,7 @@ class SimpleCache:
             "misses": self.misses,
             "evictions": self.evictions,
             "hit_rate_percent": round(self.get_hit_rate(), 2),
-            "oldest_entry_age_seconds": self._get_oldest_entry_age(),
+            "oldest_entry_age_seconds": self._get_oldest_entry_age_seconds(),
             "expired_entries": sum(1 for entry in self.cache.values() if entry.is_expired())
         }
     
