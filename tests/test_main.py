@@ -727,3 +727,84 @@ class TestMainPyCoverage:
         # and is not accessible from outside the function
         pass
 
+
+class TestInputValidation:
+    """Test input validation functions."""
+
+    def test_validate_srid(self):
+        """Test SRID validation."""
+        # Valid SRIDs
+        assert main.validate_srid("TEST123") == "TEST123"
+        assert main.validate_srid("A1") == "A1"
+        assert main.validate_srid("12345678") == "12345678"
+
+        # Invalid SRIDs
+        with pytest.raises(ValueError, match="SRID is required"):
+            main.validate_srid("")
+
+        with pytest.raises(ValueError, match="SRID must be 1-8 alphanumeric"):
+            main.validate_srid("TOOLONG123")
+
+        with pytest.raises(ValueError, match="SRID must be 1-8 alphanumeric"):
+            main.validate_srid("test@123")
+
+    def test_validate_assignment_id(self):
+        """Test assignment ID validation."""
+        # Valid assignment IDs
+        assert main.validate_assignment_id("ASSIGN-001") == "ASSIGN-001"
+        assert main.validate_assignment_id("TASK_123") == "TASK_123"
+        assert main.validate_assignment_id("A1B2C3") == "A1B2C3"
+
+        # Invalid assignment IDs
+        with pytest.raises(ValueError, match="Assignment ID is required"):
+            main.validate_assignment_id("")
+
+        with pytest.raises(ValueError, match="Assignment ID must be 1-20"):
+            main.validate_assignment_id("A" * 21)
+
+        with pytest.raises(ValueError, match="Assignment ID must be 1-20"):
+            main.validate_assignment_id("test@123")
+
+    def test_validate_release_id(self):
+        """Test release ID validation."""
+        # Valid release IDs
+        assert main.validate_release_id("REL-001") == "REL-001"
+        assert main.validate_release_id("RELEASE_123") == "RELEASE_123"
+
+        # Invalid release IDs
+        with pytest.raises(ValueError, match="Release ID is required"):
+            main.validate_release_id("")
+
+        with pytest.raises(ValueError, match="Release ID must be 1-20"):
+            main.validate_release_id("R" * 21)
+
+    def test_validate_level(self):
+        """Test level validation."""
+        # Valid levels
+        assert main.validate_level("DEV") == "DEV"
+        assert main.validate_level("test") == "TEST"
+        assert main.validate_level("PROD") == "PROD"
+
+        # Invalid levels
+        with pytest.raises(ValueError, match="Level must be one of"):
+            main.validate_level("INVALID")
+
+        # Empty level should return as-is
+        assert main.validate_level("") == ""
+        assert main.validate_level(None) is None
+
+    def test_validate_environment(self):
+        """Test environment validation."""
+        # Valid environments
+        assert main.validate_environment("DEV") == "DEV"
+        assert main.validate_environment("stage") == "STAGE"
+        assert main.validate_environment("PROD") == "PROD"
+
+        # Invalid environments
+        with pytest.raises(ValueError, match="Environment must be one of"):
+            main.validate_environment("INVALID")
+
+        # Empty environment should return as-is
+        assert main.validate_environment("") == ""
+        assert main.validate_environment(None) is None
+
