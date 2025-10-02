@@ -59,9 +59,9 @@ CONFIG_COVERAGE_RESULT=$?
 echo "=============================="
 echo ""
 
-# Generate comprehensive coverage report
+# Generate comprehensive coverage report (excluding deprecated main.py)
 echo "📈 Generating comprehensive coverage report..."
-$PYTHON_CMD -m pytest tests/ --cov=main --cov=openapi_server --cov=fastmcp_config --cov=entrypoint --cov=debug --cov-report=html --cov-report=xml --cov-report=term-missing -v
+$PYTHON_CMD -m pytest tests/ --cov=openapi_server --cov=fastmcp_config --cov=entrypoint --cov=debug --cov=lib --cov=observability --cov-report=html --cov-report=xml --cov-report=term-missing -v
 
 # Check coverage threshold
 echo "🎯 Checking coverage threshold..."

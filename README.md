@@ -29,11 +29,11 @@ A **production-ready FastMCP 2.12.2** Model Context Protocol (MCP) server for **
 - **Real-time Updates**: Streaming build and deployment status via FastMCP Context
 - **Mainframe DevOps**: Complete CI/CD pipeline integration with validation
 
-### 🧪 **Testing & Quality** 
+### 🧪 **Testing & Quality**
 - **Comprehensive Test Suite**: 373 passing tests with 85% coverage (enterprise-grade reliability)
 - **Consolidated Test Structure**: Streamlined test files with eliminated redundancy
 - **Input Validation Tests**: Complete validation function coverage
-- **Retry Logic Tests**: Exponential backoff and error handling validation  
+- **Retry Logic Tests**: Exponential backoff and error handling validation
 - **Server Integration Tests**: FastMCP server creation and configuration
 - **Error Handling Tests**: Validation error message testing
 - **Enterprise Feature Tests**: Rate limiting, caching, metrics, error recovery
@@ -267,11 +267,17 @@ pre-commit install
 ### Run FastMCP Server
 
 ```bash
-# Development mode (no authentication)
-AUTH_ENABLED=false python main.py
+# Development mode (no authentication) - RECOMMENDED
+AUTH_ENABLED=false python openapi_server.py
 
-# Production mode (with authentication)
-python main.py
+# Production mode (with authentication) - RECOMMENDED
+python openapi_server.py
+
+# Alternative: Use npm scripts
+npm run dev
+
+# Alternative: Use development script
+./scripts/dev.sh
 ```
 
 The server will start on `http://localhost:8080` with the following endpoints:
@@ -279,6 +285,8 @@ The server will start on `http://localhost:8080` with the following endpoints:
 - **MCP Endpoint**: `http://localhost:8080/mcp/` (Streamable HTTP transport)
 - **Health Check**: `http://localhost:8080/health`
 - **Available Tools**: Auto-generated from BMC AMI DevX Code Pipeline OpenAPI spec
+
+> **⚠️ DEPRECATION NOTICE**: `main.py` is deprecated and will be removed in a future version. Please use `openapi_server.py` as the primary server. All components have been moved to the `lib/` package for better organization. See the [Migration Guide](docs/main-py-migration-guide.md) for complete migration instructions.
 
 ### Docker Deployment
 

@@ -1019,3 +1019,33 @@ class TestOpenAPIServerCoverage:
 
             # This test verifies the module can be executed
             assert True
+
+    def test_advanced_features_availability(self):
+        """Test advanced features availability flag."""
+        # Test that ADVANCED_FEATURES_AVAILABLE is a boolean
+        assert isinstance(openapi_server.ADVANCED_FEATURES_AVAILABLE, bool)
+
+        # Test that the flag affects component selection
+        if openapi_server.ADVANCED_FEATURES_AVAILABLE:
+            # Should have access to advanced components
+            assert hasattr(openapi_server, "settings")
+            assert hasattr(openapi_server, "cache")
+            assert hasattr(openapi_server, "metrics")
+        else:
+            # Should fall back to simple components
+            assert hasattr(openapi_server, "SimpleRateLimiter")
+            assert hasattr(openapi_server, "SimpleMetrics")
+
+    def test_server_initialization_components(self):
+        """Test server initialization and component setup."""
+        # Test that all required server components exist
+        assert hasattr(openapi_server, "mcp")
+        assert hasattr(openapi_server, "start_time")
+
+        # Test that start_time is a datetime
+        from datetime import datetime
+
+        assert isinstance(openapi_server.start_time, datetime)
+
+        # Test that MCP server is properly configured
+        assert openapi_server.mcp is not None

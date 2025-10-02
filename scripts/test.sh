@@ -78,9 +78,9 @@ fi
 echo "🔬 Running comprehensive test suite..."
 echo "=================================="
 
-# Test 1: Main application tests
-echo "📋 Running main application tests..."
-$PYTHON_CMD -m pytest tests/test_main.py --cov=main --cov-report=term-missing --cov-append -v
+# Test 1: Main application tests (deprecated - main.py is deprecated)
+echo "📋 Running main application tests (deprecated)..."
+$PYTHON_CMD -m pytest tests/test_main.py --cov-report=term-missing --cov-append -v
 MAIN_TEST_RESULT=$?
 
 # Test 2: OpenAPI server tests
@@ -90,7 +90,7 @@ OPENAPI_TEST_RESULT=$?
 
 # Test 3: FastMCP server integration tests
 echo "📋 Running FastMCP server integration tests..."
-$PYTHON_CMD -m pytest tests/test_fastmcp_server.py --cov=main --cov=openapi_server --cov-report=term-missing --cov-append -v
+$PYTHON_CMD -m pytest tests/test_fastmcp_server.py --cov=openapi_server --cov-report=term-missing --cov-append -v
 FASTMCP_TEST_RESULT=$?
 
 # Test 4: Configuration tests
@@ -138,7 +138,7 @@ $PYTHON_CMD -m coverage html
 if [ -f ".coverage" ]; then
     COVERAGE_PERCENT=$($PYTHON_CMD -c "import coverage; cov = coverage.Coverage(); cov.load(); print(f'{cov.report():.1f}')" 2>/dev/null || echo "N/A")
     echo "📊 Overall Coverage: $COVERAGE_PERCENT%"
-    
+
     if [ -d "htmlcov" ]; then
         echo "📁 HTML Coverage Report: htmlcov/index.html"
     fi
