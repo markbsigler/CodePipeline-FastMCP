@@ -836,7 +836,17 @@ async def cleanup_expired_cache(ctx: Context = None) -> str:
         ctx.info("Cleaning up expired cache entries")
 
     start_time = datetime.now()
-    removed_count = await cache.cleanup_expired()
+
+    # Handle both IntelligentCache and SimpleCache
+    if hasattr(cache, "cleanup_expired"):
+        # IntelligentCache - synchronous method, need to count manually
+        initial_size = len(cache.cache)
+        cache.cleanup_expired()
+        removed_count = initial_size - len(cache.cache)
+    else:
+        # SimpleCache fallback
+        removed_count = 0
+
     operation_time = (datetime.now() - start_time).total_seconds()
 
     result = {

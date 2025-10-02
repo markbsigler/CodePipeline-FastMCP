@@ -582,15 +582,14 @@ class TestOpenAPIServerCoverage:
                 "FASTMCP_AUTH_AUDIENCE": "test-audience",
             },
         ):
-            # Patch ADVANCED_FEATURES_AVAILABLE to False to test fallback code
-            with patch("openapi_server.ADVANCED_FEATURES_AVAILABLE", False):
-                with patch("openapi_server.JWTVerifier") as mock_jwt:
-                    provider = openapi_server.create_auth_provider()
-                    mock_jwt.assert_called_once_with(
-                        jwks_uri="https://example.com/jwks",
-                        issuer="test-issuer",
-                        audience="test-audience",
-                    )
+            # Test the advanced lib.create_auth_provider since ADVANCED_FEATURES_AVAILABLE is True
+            with patch("lib.auth.JWTVerifier") as mock_jwt:
+                provider = openapi_server.create_auth_provider_hybrid()
+                mock_jwt.assert_called_once_with(
+                    jwks_uri="https://example.com/jwks",
+                    issuer="test-issuer",
+                    audience="test-audience",
+                )
 
     def test_create_auth_provider_github(self):
         """Test create_auth_provider with GitHub provider."""
@@ -603,13 +602,12 @@ class TestOpenAPIServerCoverage:
                 "FASTMCP_SERVER_AUTH_GITHUB_CLIENT_SECRET": "test_client_secret",
             },
         ):
-            # Patch ADVANCED_FEATURES_AVAILABLE to False to test fallback code
-            with patch("openapi_server.ADVANCED_FEATURES_AVAILABLE", False):
-                with patch("openapi_server.GitHubProvider") as mock_github:
-                    provider = openapi_server.create_auth_provider()
-                    mock_github.assert_called_once_with(
-                        client_id="test_client_id", client_secret="test_client_secret"
-                    )
+            # Test the advanced lib.create_auth_provider since ADVANCED_FEATURES_AVAILABLE is True
+            with patch("lib.auth.GitHubProvider") as mock_github:
+                provider = openapi_server.create_auth_provider_hybrid()
+                mock_github.assert_called_once_with(
+                    client_id="test_client_id", client_secret="test_client_secret"
+                )
 
     def test_create_auth_provider_google(self):
         """Test create_auth_provider with Google provider."""
@@ -622,13 +620,12 @@ class TestOpenAPIServerCoverage:
                 "FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET": "test_client_secret",
             },
         ):
-            # Patch ADVANCED_FEATURES_AVAILABLE to False to test fallback code
-            with patch("openapi_server.ADVANCED_FEATURES_AVAILABLE", False):
-                with patch("openapi_server.GoogleProvider") as mock_google:
-                    provider = openapi_server.create_auth_provider()
-                    mock_google.assert_called_once_with(
-                        client_id="test_client_id", client_secret="test_client_secret"
-                    )
+            # Test the advanced lib.create_auth_provider since ADVANCED_FEATURES_AVAILABLE is True
+            with patch("lib.auth.GoogleProvider") as mock_google:
+                provider = openapi_server.create_auth_provider_hybrid()
+                mock_google.assert_called_once_with(
+                    client_id="test_client_id", client_secret="test_client_secret"
+                )
 
     def test_create_auth_provider_workos(self):
         """Test create_auth_provider with WorkOS provider."""
@@ -642,15 +639,14 @@ class TestOpenAPIServerCoverage:
                 "FASTMCP_SERVER_AUTH_AUTHKIT_DOMAIN": "test-domain.com",
             },
         ):
-            # Patch ADVANCED_FEATURES_AVAILABLE to False to test fallback code
-            with patch("openapi_server.ADVANCED_FEATURES_AVAILABLE", False):
-                with patch("openapi_server.WorkOSProvider") as mock_workos:
-                    provider = openapi_server.create_auth_provider()
-                    mock_workos.assert_called_once_with(
-                        client_id="test_client_id",
-                        client_secret="test_client_secret",
-                        authkit_domain="test-domain.com",
-                    )
+            # Test the advanced lib.create_auth_provider since ADVANCED_FEATURES_AVAILABLE is True
+            with patch("lib.auth.WorkOSProvider") as mock_workos:
+                provider = openapi_server.create_auth_provider_hybrid()
+                mock_workos.assert_called_once_with(
+                    client_id="test_client_id",
+                    client_secret="test_client_secret",
+                    authkit_domain="test-domain.com",
+                )
 
     def test_create_auth_provider_unknown(self):
         """Test create_auth_provider with unknown provider."""
@@ -760,12 +756,16 @@ class TestOpenAPIServerCoverage:
         """Test cleanup_expired_cache tool."""
         # Add expired entry
         expired_key = openapi_server.cache.generate_key("expired_method", param="value")
-        openapi_server.cache.cache[expired_key] = openapi_server.SimpleCacheEntry(
-            data="expired_data",
-            timestamp=datetime.now() - timedelta(seconds=400),
-            ttl_seconds=300,
+        # Create an expired entry using the IntelligentCache's CacheEntry format
+        from lib.cache import CacheEntry
+
+        expired_entry = CacheEntry(
+            value="expired_data",
+            expires_at=datetime.now() - timedelta(seconds=100),  # Already expired
+            created_at=datetime.now() - timedelta(seconds=400),
         )
-        openapi_server.cache.access_order.append(expired_key)
+        openapi_server.cache.cache[expired_key] = expired_entry
+        openapi_server.cache.access_order[expired_key] = True
 
         result = asyncio.run(openapi_server.cleanup_expired_cache.fn())
         data = json.loads(result)
