@@ -4,10 +4,22 @@ Observability Package for FastMCP Server
 
 This package provides comprehensive observability features including:
 - OpenTelemetry configuration and initialization
-- Distributed tracing for FastMCP operations
-- Metrics collection and export
-- Prometheus integration
-- Grafana dashboard support
+- Distributed tracing for FastMCP operations  
+- Metrics collection and export (legacy + OTEL)
+- Prometheus integration and exporters
+- Grafana dashboards and alerting rules
+
+## Package Structure
+```
+observability/
+├── config/           # OpenTelemetry configuration and initialization
+├── metrics/          # Hybrid metrics (legacy + OTEL) collection  
+├── tracing/          # Distributed tracing for FastMCP operations
+├── exporters/        # Metrics exporters (Prometheus, OTLP, etc.)
+├── dashboards/       # Grafana dashboard configurations
+├── alerting/         # Prometheus/Grafana alerting rules
+└── tests/           # Observability integration tests
+```
 
 The observability package follows the project's organizational best practices
 and integrates seamlessly with the existing configuration system.

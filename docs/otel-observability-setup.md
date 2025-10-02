@@ -212,7 +212,7 @@ python main.py
 1. **Import Dashboard**:
    ```bash
    # Copy dashboard to Grafana
-   cp grafana/dashboards/fastmcp-overview.json /var/lib/grafana/dashboards/
+   cp observability/dashboards/fastmcp-overview.json /var/lib/grafana/dashboards/
    ```
 
 2. **Configure Data Source**:
@@ -246,7 +246,7 @@ The FastMCP overview dashboard includes:
 
 ### **Prometheus Alerting Rules**
 
-The alerting rules are defined in `grafana/alerting/fastmcp-alerts.yml`:
+The alerting rules are defined in `observability/alerting/fastmcp-alerts.yml`:
 
 #### **Critical Alerts**
 - **FastMCPServerDown** - Server unavailable
