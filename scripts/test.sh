@@ -80,32 +80,32 @@ echo "=================================="
 
 # Test 1: Main application tests
 echo "📋 Running main application tests..."
-$PYTHON_CMD -m pytest tests/test_main.py -v
+$PYTHON_CMD -m pytest tests/test_main.py --cov=main --cov-report=term-missing --cov-append -v
 MAIN_TEST_RESULT=$?
 
 # Test 2: OpenAPI server tests
 echo "📋 Running OpenAPI server tests..."
-$PYTHON_CMD -m pytest tests/test_openapi_server.py -v
+$PYTHON_CMD -m pytest tests/test_openapi_server.py --cov=openapi_server --cov-report=term-missing --cov-append -v
 OPENAPI_TEST_RESULT=$?
 
 # Test 3: FastMCP server integration tests
 echo "📋 Running FastMCP server integration tests..."
-$PYTHON_CMD -m pytest tests/test_fastmcp_server.py -v
+$PYTHON_CMD -m pytest tests/test_fastmcp_server.py --cov=main --cov=openapi_server --cov-report=term-missing --cov-append -v
 FASTMCP_TEST_RESULT=$?
 
 # Test 4: Configuration tests
 echo "📋 Running configuration tests..."
-$PYTHON_CMD -m pytest tests/test_fastmcp_config.py -v
+$PYTHON_CMD -m pytest tests/test_fastmcp_config.py --cov=fastmcp_config --cov-report=term-missing --cov-append -v
 CONFIG_TEST_RESULT=$?
 
 # Test 5: Entrypoint tests
 echo "📋 Running entrypoint tests..."
-$PYTHON_CMD -m pytest tests/test_entrypoint.py -v
+$PYTHON_CMD -m pytest tests/test_entrypoint.py --cov=entrypoint --cov-report=term-missing --cov-append -v
 ENTRYPOINT_TEST_RESULT=$?
 
 # Test 6: Debug utility tests
 echo "📋 Running debug utility tests..."
-$PYTHON_CMD -m pytest tests/test_debug.py -v
+$PYTHON_CMD -m pytest tests/test_debug.py --cov=debug --cov-report=term-missing --cov-append -v
 DEBUG_TEST_RESULT=$?
 
 # Test 7: OTEL integration tests (if available)
@@ -127,6 +127,22 @@ echo "  Configuration: $([ $CONFIG_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || e
 echo "  Entrypoint: $([ $ENTRYPOINT_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  Debug Utilities: $([ $DEBUG_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  OTEL Integration: $([ $OTEL_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+
+# Generate final coverage report
+echo ""
+echo "📈 Generating comprehensive coverage report..."
+$PYTHON_CMD -m coverage report --show-missing
+$PYTHON_CMD -m coverage html
+
+# Display coverage summary
+if [ -f ".coverage" ]; then
+    COVERAGE_PERCENT=$($PYTHON_CMD -c "import coverage; cov = coverage.Coverage(); cov.load(); print(f'{cov.report():.1f}')" 2>/dev/null || echo "N/A")
+    echo "📊 Overall Coverage: $COVERAGE_PERCENT%"
+    
+    if [ -d "htmlcov" ]; then
+        echo "📁 HTML Coverage Report: htmlcov/index.html"
+    fi
+fi
 
 # Determine overall result
 if [ $MAIN_TEST_RESULT -eq 0 ] && [ $OPENAPI_TEST_RESULT -eq 0 ] && [ $FASTMCP_TEST_RESULT -eq 0 ] && [ $CONFIG_TEST_RESULT -eq 0 ] && [ $ENTRYPOINT_TEST_RESULT -eq 0 ] && [ $DEBUG_TEST_RESULT -eq 0 ] && [ $OTEL_TEST_RESULT -eq 0 ]; then

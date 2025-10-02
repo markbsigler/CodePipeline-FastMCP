@@ -11,6 +11,8 @@ HEALTH_ENDPOINT="http://$SERVER_HOST:$SERVER_PORT/health"
 STATUS_ENDPOINT="http://$SERVER_HOST:$SERVER_PORT/status"
 METRICS_ENDPOINT="http://$SERVER_HOST:$SERVER_PORT/metrics"
 MCP_CAPABILITIES_ENDPOINT="http://$SERVER_HOST:$SERVER_PORT/mcp/capabilities"
+OPENAPI_ENDPOINT="http://$SERVER_HOST:$SERVER_PORT/openapi.json"
+PROMETHEUS_ENDPOINT="http://$SERVER_HOST:$SERVER_PORT/metrics"
 
 echo "🏥 BMC AMI DevX Code Pipeline FastMCP Server Health Check"
 echo "========================================================"
@@ -66,6 +68,12 @@ METRICS_RESULT=$?
 
 check_endpoint "$MCP_CAPABILITIES_ENDPOINT" "MCP Capabilities" ""
 MCP_RESULT=$?
+
+check_endpoint "$OPENAPI_ENDPOINT" "OpenAPI Specification" ""
+OPENAPI_RESULT=$?
+
+check_endpoint "$PROMETHEUS_ENDPOINT" "Prometheus Metrics" ""
+PROMETHEUS_RESULT=$?
 
 echo ""
 
@@ -129,18 +137,28 @@ fi
 echo "🎯 Overall Health Status:"
 echo "------------------------"
 
-if [ $HEALTH_RESULT -eq 0 ] && [ $STATUS_RESULT -eq 0 ] && [ $METRICS_RESULT -eq 0 ] && [ $MCP_RESULT -eq 0 ]; then
+if [ $HEALTH_RESULT -eq 0 ] && [ $STATUS_RESULT -eq 0 ] && [ $METRICS_RESULT -eq 0 ] && [ $MCP_RESULT -eq 0 ] && [ $OPENAPI_RESULT -eq 0 ] && [ $PROMETHEUS_RESULT -eq 0 ]; then
     echo "✅ ALL SYSTEMS OPERATIONAL"
     echo ""
     echo "🚀 Server is ready for production use!"
     echo "📋 Available endpoints:"
-    echo "  Health:    $HEALTH_ENDPOINT"
-    echo "  Status:    $STATUS_ENDPOINT"
-    echo "  Metrics:   $METRICS_ENDPOINT"
-    echo "  MCP:       $MCP_CAPABILITIES_ENDPOINT"
+    echo "  Health:         $HEALTH_ENDPOINT"
+    echo "  Status:         $STATUS_ENDPOINT"
+    echo "  Metrics:        $METRICS_ENDPOINT"
+    echo "  MCP:            $MCP_CAPABILITIES_ENDPOINT"
+    echo "  OpenAPI Spec:   $OPENAPI_ENDPOINT"
+    echo "  Prometheus:     $PROMETHEUS_ENDPOINT"
     exit 0
 else
     echo "❌ SOME SYSTEMS FAILING"
+    echo ""
+    echo "🔧 System Status:"
+    echo "  Health:         $([ $HEALTH_RESULT -eq 0 ] && echo "✅ OK" || echo "❌ FAILED")"
+    echo "  Status:         $([ $STATUS_RESULT -eq 0 ] && echo "✅ OK" || echo "❌ FAILED")"
+    echo "  Metrics:        $([ $METRICS_RESULT -eq 0 ] && echo "✅ OK" || echo "❌ FAILED")"
+    echo "  MCP:            $([ $MCP_RESULT -eq 0 ] && echo "✅ OK" || echo "❌ FAILED")"
+    echo "  OpenAPI:        $([ $OPENAPI_RESULT -eq 0 ] && echo "✅ OK" || echo "❌ FAILED")"
+    echo "  Prometheus:     $([ $PROMETHEUS_RESULT -eq 0 ] && echo "✅ OK" || echo "❌ FAILED")"
     echo ""
     echo "🔧 Troubleshooting steps:"
     echo "  1. Check if server is running: ps aux | grep openapi_server"

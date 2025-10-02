@@ -190,6 +190,20 @@ else
     echo "⚠️  MCP capabilities endpoint not responding"
 fi
 
+# Test observability endpoints
+echo "📊 Testing observability endpoints..."
+if curl -s --max-time 5 "http://localhost:8080/metrics" >/dev/null; then
+    echo "✅ Prometheus metrics endpoint accessible"
+else
+    echo "⚠️  Prometheus metrics endpoint not responding"
+fi
+
+if curl -s --max-time 5 "http://localhost:8080/openapi.json" >/dev/null; then
+    echo "✅ OpenAPI specification endpoint accessible"
+else
+    echo "⚠️  OpenAPI specification endpoint not responding"
+fi
+
 # Show container status
 echo "📊 Container status:"
 if [ "$DEPLOYMENT_MODE" = "compose" ]; then
@@ -210,12 +224,13 @@ echo "==================================================="
 echo "🎉 Deployment completed successfully!"
 echo ""
 echo "📋 Service Information:"
-echo "  Health Check:     $HEALTH_ENDPOINT"
-echo "  Status Endpoint:  http://localhost:8080/status"
-echo "  Metrics Endpoint: http://localhost:8080/metrics"
-echo "  MCP Capabilities: http://localhost:8080/mcp/capabilities"
-echo "  Container Mode:   $DEPLOYMENT_MODE"
-echo "  Image:           $IMAGE_NAME:latest"
+echo "  Health Check:       $HEALTH_ENDPOINT"
+echo "  Status Endpoint:    http://localhost:8080/status"
+echo "  Metrics Endpoint:   http://localhost:8080/metrics"
+echo "  OpenAPI Spec:       http://localhost:8080/openapi.json"
+echo "  MCP Capabilities:   http://localhost:8080/mcp/capabilities"
+echo "  Container Mode:     $DEPLOYMENT_MODE"
+echo "  Image:             $IMAGE_NAME:latest"
 echo ""
 echo "📚 Management commands:"
 echo "  View logs:        docker-compose logs -f (or docker logs -f $CONTAINER_NAME)"
