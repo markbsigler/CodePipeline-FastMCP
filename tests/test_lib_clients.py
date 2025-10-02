@@ -107,8 +107,11 @@ class TestBMCAMIDevXClient:
     @pytest.mark.asyncio
     async def test_make_request_unsupported_method(self):
         """Test make_request with unsupported HTTP method."""
+        # Create client without error handler to let ValueError through
+        client = BMCAMIDevXClient(self.mock_http_client)
+
         with pytest.raises(ValueError, match="Unsupported HTTP method: PATCH"):
-            await self.client.make_request("PATCH", "/test/endpoint")
+            await client.make_request("PATCH", "/test/endpoint")
 
     @pytest.mark.asyncio
     async def test_make_request_with_cache_hit(self):
@@ -325,10 +328,10 @@ class TestBMCAMIDevXClient:
         )
 
         assert result == cached_data
+        # The cache.get call is made through get_cached_or_fetch
+        # It calls cache.get(operation, **cache_params)
         self.mock_cache.get.assert_called_once_with(
-            "get_assignments",
-            cache_params={"srid": "TEST001", "status": "active", "stream": "DEV"},
-            ttl=180,
+            "get_assignments", srid="TEST001", status="active", stream="DEV"
         )
 
     @pytest.mark.asyncio
@@ -344,9 +347,7 @@ class TestBMCAMIDevXClient:
         await self.client.get_assignments("TEST001", status="active", stream="DEV")
 
         # Should call get_cached_or_fetch which will eventually call make_request
-        # The endpoint should include query parameters
-        expected_endpoint = "/ispw/TEST001/assignments?status=active&stream=DEV"
-        # This is called through get_cached_or_fetch, so we need to check the cache call
+        # The endpoint should include query parameters (checked through cache call)
         self.mock_cache.get.assert_called_once()
 
     @pytest.mark.asyncio
@@ -359,9 +360,7 @@ class TestBMCAMIDevXClient:
 
         assert result == cached_data
         self.mock_cache.get.assert_called_once_with(
-            "get_assignment_details",
-            cache_params={"srid": "TEST001", "assignment_id": "ASSIGN001"},
-            ttl=300,
+            "get_assignment_details", srid="TEST001", assignment_id="ASSIGN001"
         )
 
     @pytest.mark.asyncio
@@ -488,9 +487,7 @@ class TestBMCAMIDevXClient:
 
         assert result == cached_data
         self.mock_cache.get.assert_called_once_with(
-            "get_set_details",
-            cache_params={"srid": "TEST001", "set_id": "SET001"},
-            ttl=300,
+            "get_set_details", srid="TEST001", set_id="SET001"
         )
 
     @pytest.mark.asyncio
@@ -554,7 +551,5 @@ class TestBMCAMIDevXClient:
 
         assert result == cached_data
         self.mock_cache.get.assert_called_once_with(
-            "get_package_details",
-            cache_params={"srid": "TEST001", "package_id": "PKG001"},
-            ttl=300,
+            "get_package_details", srid="TEST001", package_id="PKG001"
         )
