@@ -6,7 +6,7 @@ set -e
 
 # Configuration
 SERVER_LOG=server_test.log
-SERVER_PORT=${PORT:-8000}  # Use PORT env var or default to 8000 (matches main.py default)
+SERVER_PORT=${PORT:-8080}  # Use PORT env var or default to 8080 (matches openapi_server.py default)
 SERVER_HOST=127.0.0.1
 HEALTH_ENDPOINT="http://${SERVER_HOST}:${SERVER_PORT}/health"
 STARTUP_TIMEOUT=30
@@ -78,40 +78,58 @@ fi
 echo "🔬 Running comprehensive test suite..."
 echo "=================================="
 
-# Test 1: Advanced features tests
-echo "📋 Running advanced features tests..."
-$PYTHON_CMD test_advanced_features.py
-ADVANCED_TEST_RESULT=$?
+# Test 1: Main application tests
+echo "📋 Running main application tests..."
+$PYTHON_CMD -m pytest tests/test_main.py -v
+MAIN_TEST_RESULT=$?
 
-# Test 2: Elicitation tests
-echo "📋 Running elicitation tests..."
-$PYTHON_CMD test_elicitation.py
-ELICITATION_TEST_RESULT=$?
-
-# Test 3: OpenAPI integration tests
-echo "📋 Running OpenAPI integration tests..."
-$PYTHON_CMD test_openapi_integration.py
+# Test 2: OpenAPI server tests
+echo "📋 Running OpenAPI server tests..."
+$PYTHON_CMD -m pytest tests/test_openapi_server.py -v
 OPENAPI_TEST_RESULT=$?
 
-# Test 4: Legacy tests (if they exist)
-echo "📋 Running legacy tests..."
-if [ -f "test_mcp_server.py" ]; then
-    $PYTHON_CMD -m pytest test_mcp_server.py -v
-    LEGACY_TEST_RESULT=$?
+# Test 3: FastMCP server integration tests
+echo "📋 Running FastMCP server integration tests..."
+$PYTHON_CMD -m pytest tests/test_fastmcp_server.py -v
+FASTMCP_TEST_RESULT=$?
+
+# Test 4: Configuration tests
+echo "📋 Running configuration tests..."
+$PYTHON_CMD -m pytest tests/test_fastmcp_config.py -v
+CONFIG_TEST_RESULT=$?
+
+# Test 5: Entrypoint tests
+echo "📋 Running entrypoint tests..."
+$PYTHON_CMD -m pytest tests/test_entrypoint.py -v
+ENTRYPOINT_TEST_RESULT=$?
+
+# Test 6: Debug utility tests
+echo "📋 Running debug utility tests..."
+$PYTHON_CMD -m pytest tests/test_debug.py -v
+DEBUG_TEST_RESULT=$?
+
+# Test 7: OTEL integration tests (if available)
+echo "📋 Running OTEL integration tests..."
+if [ -f "observability/tests/test_integration.py" ]; then
+    $PYTHON_CMD observability/tests/test_integration.py
+    OTEL_TEST_RESULT=$?
 else
-    echo "ℹ️  No legacy tests found, skipping"
-    LEGACY_TEST_RESULT=0
+    echo "ℹ️  No OTEL integration tests found, skipping"
+    OTEL_TEST_RESULT=0
 fi
 
 echo "=================================="
 echo "📊 Test Results Summary:"
-echo "  Advanced Features: $([ $ADVANCED_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
-echo "  Elicitation Tests: $([ $ELICITATION_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
-echo "  OpenAPI Integration: $([ $OPENAPI_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
-echo "  Legacy Tests: $([ $LEGACY_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Main Application: $([ $MAIN_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  OpenAPI Server: $([ $OPENAPI_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  FastMCP Integration: $([ $FASTMCP_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Configuration: $([ $CONFIG_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Entrypoint: $([ $ENTRYPOINT_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Debug Utilities: $([ $DEBUG_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  OTEL Integration: $([ $OTEL_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 
 # Determine overall result
-if [ $ADVANCED_TEST_RESULT -eq 0 ] && [ $ELICITATION_TEST_RESULT -eq 0 ] && [ $OPENAPI_TEST_RESULT -eq 0 ] && [ $LEGACY_TEST_RESULT -eq 0 ]; then
+if [ $MAIN_TEST_RESULT -eq 0 ] && [ $OPENAPI_TEST_RESULT -eq 0 ] && [ $FASTMCP_TEST_RESULT -eq 0 ] && [ $CONFIG_TEST_RESULT -eq 0 ] && [ $ENTRYPOINT_TEST_RESULT -eq 0 ] && [ $DEBUG_TEST_RESULT -eq 0 ] && [ $OTEL_TEST_RESULT -eq 0 ]; then
     echo "🎉 ALL TESTS PASSED!"
     TEST_RESULT=0
 else

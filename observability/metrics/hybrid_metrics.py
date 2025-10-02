@@ -521,6 +521,95 @@ class HybridMetrics:
         # Legacy metrics
         self.legacy.cache_size = size
     
+    @property
+    def cache_hits(self) -> int:
+        return self.legacy.cache_hits
+
+    @cache_hits.setter
+    def cache_hits(self, value: int):
+        self.legacy.cache_hits = value
+
+    @property
+    def bmc_api_calls(self) -> int:
+        return self.legacy.bmc_api_calls
+
+    @bmc_api_calls.setter
+    def bmc_api_calls(self, value: int):
+        self.legacy.bmc_api_calls = value
+
+    @property
+    def bmc_api_errors(self) -> int:
+        return self.legacy.bmc_api_errors
+
+    @bmc_api_errors.setter
+    def bmc_api_errors(self, value: int):
+        self.legacy.bmc_api_errors = value
+
+    @property
+    def endpoint_errors(self) -> dict:
+        return self.legacy.endpoint_errors
+
+    @endpoint_errors.setter
+    def endpoint_errors(self, value: dict):
+        self.legacy.endpoint_errors = value
+
+    @property
+    def response_times(self):
+        return self.legacy.response_times
+
+    @response_times.setter
+    def response_times(self, value):
+        self.legacy.response_times = value
+
+    @property
+    def min_response_time(self) -> float:
+        return self.legacy.min_response_time
+
+    @min_response_time.setter
+    def min_response_time(self, value: float):
+        self.legacy.min_response_time = value
+
+    @property
+    def max_response_time(self) -> float:
+        return self.legacy.max_response_time
+
+    @max_response_time.setter
+    def max_response_time(self, value: float):
+        self.legacy.max_response_time = value
+
+    @property
+    def avg_response_time(self) -> float:
+        return self.legacy.avg_response_time
+
+    @avg_response_time.setter
+    def avg_response_time(self, value: float):
+        self.legacy.avg_response_time = value
+
+    @property
+    def bmc_api_response_times(self):
+        return self.legacy.bmc_api_response_times
+
+    @bmc_api_response_times.setter
+    def bmc_api_response_times(self, value):
+        self.legacy.bmc_api_response_times = value
+
+    @property
+    def start_time(self):
+        return self.legacy.start_time
+
+    @start_time.setter
+    def start_time(self, value):
+        self.legacy.start_time = value
+
+    def update_response_time(self, response_time: float):
+        self.legacy.update_response_time(response_time)
+
+    def get_cache_hit_rate(self) -> float:
+        return self.legacy.get_cache_hit_rate()
+
+    def get_success_rate(self) -> float:
+        return self.legacy.get_success_rate()
+
     def update_bmc_response_time(self, response_time: float):
         """Update BMC API response time."""
         self.legacy.update_bmc_response_time(response_time)

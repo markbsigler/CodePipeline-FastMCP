@@ -28,6 +28,15 @@ class TestMainPyCoverage:
         # Reset global instances
         main.settings = main.Settings()
         main.metrics = main.initialize_metrics()
+        
+        # Reset metrics counters to ensure clean state
+        main.metrics.cache_hits = 0
+        main.metrics.cache_misses = 0
+        main.metrics.bmc_api_calls = 0
+        main.metrics.total_requests = 0
+        main.metrics.successful_requests = 0
+        main.metrics.failed_requests = 0
+        
         main.cache = main.IntelligentCache()
         main.error_handler = main.ErrorHandler(main.settings, main.metrics)
         main.bmc_client = main.BMCAMIDevXClient(

@@ -857,17 +857,12 @@ class BMCAMIDevXClient:
         if not self.cache or not settings.enable_caching:
             return await fetch_func()
 
-        # Try to get from cache
+        # Try to get from cache (cache handles metrics updates)
         cached_data = await self.cache.get(method, **kwargs)
         if cached_data is not None:
-            if self.metrics:
-                self.metrics.cache_hits += 1
             return cached_data
 
-        # Cache miss - fetch from API
-        if self.metrics:
-            self.metrics.cache_misses += 1
-
+        # Cache miss - fetch from API (cache already recorded the miss)
         data = await fetch_func()
 
         # Cache the result

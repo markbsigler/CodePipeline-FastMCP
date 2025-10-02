@@ -510,9 +510,9 @@ class TestMonitoring:
 
     def test_metrics_initialization(self):
         """Test metrics initialization."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         assert metrics.total_requests == 0
         assert metrics.successful_requests == 0
         assert metrics.failed_requests == 0
@@ -522,9 +522,9 @@ class TestMonitoring:
 
     def test_metrics_update_response_time(self):
         """Test response time metrics updates."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.update_response_time(1.5)
         metrics.update_response_time(2.0)
         metrics.update_response_time(0.5)
@@ -536,9 +536,9 @@ class TestMonitoring:
 
     def test_metrics_success_rate(self):
         """Test success rate calculation."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.successful_requests = 80
         metrics.failed_requests = 20
 
@@ -546,9 +546,9 @@ class TestMonitoring:
 
     def test_metrics_cache_hit_rate(self):
         """Test cache hit rate calculation."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.cache_hits = 75
         metrics.cache_misses = 25
 
@@ -556,9 +556,9 @@ class TestMonitoring:
 
     def test_metrics_to_dict(self):
         """Test metrics serialization to dictionary."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.total_requests = 100
         metrics.successful_requests = 90
         metrics.failed_requests = 10
@@ -776,7 +776,7 @@ class TestErrorHandling:
         from main import ErrorHandler, Metrics, Settings
 
         settings = Settings()
-        metrics = Metrics()
+        metrics = initialize_metrics()
         error_handler = ErrorHandler(settings, metrics)
 
         assert error_handler.settings == settings
@@ -1048,7 +1048,7 @@ class TestErrorHandling:
         from main import BMCAPIError, ErrorHandler, Metrics, Settings
 
         settings = Settings()
-        metrics = Metrics()
+        metrics = initialize_metrics()
         error_handler = ErrorHandler(settings, metrics)
 
         bmc_error = BMCAPIError("Test error", status_code=500)
@@ -1211,7 +1211,7 @@ class TestErrorHandling:
         from main import BMCAPIError, ErrorHandler, Metrics, Settings
 
         settings = Settings()
-        metrics = Metrics()
+        metrics = initialize_metrics()
         error_handler = ErrorHandler(settings, metrics)
 
         bmc_error = BMCAPIError("Test error", status_code=500)
@@ -1454,9 +1454,9 @@ class TestMetricsComprehensive:
         """Test Metrics class initialization."""
         from collections import deque
 
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         assert metrics.total_requests == 0
         assert metrics.successful_requests == 0
         assert metrics.failed_requests == 0
@@ -1470,9 +1470,9 @@ class TestMetricsComprehensive:
 
     def test_metrics_update_response_time(self):
         """Test Metrics response time updates."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.update_bmc_response_time(1.0)
         metrics.update_bmc_response_time(2.0)
         metrics.update_bmc_response_time(3.0)
@@ -1482,9 +1482,9 @@ class TestMetricsComprehensive:
 
     def test_metrics_success_rate(self):
         """Test Metrics success rate calculation."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.successful_requests = 8
         metrics.failed_requests = 2
 
@@ -1492,9 +1492,9 @@ class TestMetricsComprehensive:
 
     def test_metrics_cache_hit_rate(self):
         """Test Metrics cache hit rate calculation."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.cache_hits = 7
         metrics.cache_misses = 3
 
@@ -1502,9 +1502,9 @@ class TestMetricsComprehensive:
 
     def test_metrics_to_dict(self):
         """Test Metrics to_dict serialization."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.total_requests = 10
         metrics.successful_requests = 8
         metrics.failed_requests = 2
@@ -1674,7 +1674,7 @@ class TestBMCClientMethodsComprehensive:
     @pytest.mark.asyncio
     async def test_bmc_client_with_metrics(self, mock_httpx_client):
         """Test BMCAMIDevXClient with metrics integration."""
-        from main import Metrics
+        from main import initialize_metrics
 
         mock_response = unittest.mock.MagicMock()
         mock_response.json.return_value = {"assignments": [{"id": "ASSIGN-001"}]}
@@ -1684,7 +1684,7 @@ class TestBMCClientMethodsComprehensive:
         mock_client_instance.request.return_value = mock_response
         mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         client = BMCAMIDevXClient(mock_client_instance, metrics=metrics)
 
         result = await client.get_assignments("TEST123")
@@ -1881,9 +1881,9 @@ class TestAdditionalCoverage:
 
     def test_metrics_update_response_time(self):
         """Test Metrics update_response_time method."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.update_response_time(1.5)
         metrics.update_response_time(2.5)
         metrics.update_response_time(3.5)
@@ -1895,9 +1895,9 @@ class TestAdditionalCoverage:
 
     def test_metrics_get_success_rate(self):
         """Test Metrics get_success_rate method."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.successful_requests = 8
         metrics.failed_requests = 2
 
@@ -1906,9 +1906,9 @@ class TestAdditionalCoverage:
 
     def test_metrics_get_cache_hit_rate(self):
         """Test Metrics get_cache_hit_rate method."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.cache_hits = 7
         metrics.cache_misses = 3
 
@@ -1917,9 +1917,9 @@ class TestAdditionalCoverage:
 
     def test_metrics_get_cache_hit_rate_zero_total(self):
         """Test Metrics get_cache_hit_rate with zero total."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.cache_hits = 0
         metrics.cache_misses = 0
 
@@ -1928,9 +1928,9 @@ class TestAdditionalCoverage:
 
     def test_metrics_get_success_rate_zero_total(self):
         """Test Metrics get_success_rate with zero total."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
         metrics.successful_requests = 0
         metrics.failed_requests = 0
 
@@ -2375,9 +2375,9 @@ class TestAdditionalFunctionality:
 
     def test_metrics_update_bmc_response_time(self):
         """Test Metrics update_bmc_response_time method."""
-        from main import Metrics
+        from main import initialize_metrics
 
-        metrics = Metrics()
+        metrics = initialize_metrics()
 
         # Update BMC response times
         metrics.update_bmc_response_time(1.5)
@@ -2604,7 +2604,7 @@ class TestAdditionalFunctionality:
         assert result.status_code == 200
         assert result.json() == {"data": "test"}
         mock_metrics.bmc_api_calls += 1
-        mock_metrics.update_bmc_response_time.assert_called_once()
+        mock_metrics.record_bmc_api_call.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_bmc_client_make_request_http_error(self):
@@ -3220,7 +3220,7 @@ class TestBMCClientAdvanced:
         assert result.status_code == 200
         assert result.json() == {"data": "test"}
         mock_rate_limiter.wait_for_token.assert_called_once()
-        mock_metrics.update_bmc_response_time.assert_called_once()
+        mock_metrics.record_bmc_api_call.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_bmc_client_make_request_rate_limited(
