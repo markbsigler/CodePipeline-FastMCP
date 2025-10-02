@@ -1,0 +1,241 @@
+groups:
+  - name: fastmcp-server-alerts
+    interval: 30s
+    rules:
+      # High-level service alerts
+      - alert: FastMCPServerDown
+        expr: up{job="fastmcp-server"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: fastmcp-server
+          component: server
+        annotations:
+          summary: "FastMCP server is down"
+          description: "FastMCP server instance {{ $labels.instance }} has been down for more than 1 minute"
+          runbook_url: "https://docs.example.com/runbooks/fastmcp-server-down"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      - alert: FastMCPHighErrorRate
+        expr: rate(fastmcp_requests_total{status_class!="2xx"}[5m]) / rate(fastmcp_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          component: http
+        annotations:
+          summary: "FastMCP server error rate is high"
+          description: "Error rate is {{ $value | humanizePercentage }} for instance {{ $labels.instance }} over the last 5 minutes"
+          runbook_url: "https://docs.example.com/runbooks/fastmcp-high-error-rate"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      - alert: FastMCPCriticalErrorRate
+        expr: rate(fastmcp_requests_total{status_class!="2xx"}[5m]) / rate(fastmcp_requests_total[5m]) > 0.20
+        for: 1m
+        labels:
+          severity: critical
+          service: fastmcp-server
+          component: http
+        annotations:
+          summary: "FastMCP server critical error rate"
+          description: "Critical error rate of {{ $value | humanizePercentage }} for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/fastmcp-critical-error-rate"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      # Performance alerts
+      - alert: FastMCPHighLatency
+        expr: histogram_quantile(0.95, rate(fastmcp_request_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          component: performance
+        annotations:
+          summary: "FastMCP server latency is high"
+          description: "95th percentile latency is {{ $value }}s for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/fastmcp-high-latency"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      - alert: FastMCPCriticalLatency
+        expr: histogram_quantile(0.95, rate(fastmcp_request_duration_seconds_bucket[5m])) > 5.0
+        for: 2m
+        labels:
+          severity: critical
+          service: fastmcp-server
+          component: performance
+        annotations:
+          summary: "FastMCP server latency is critical"
+          description: "95th percentile latency is {{ $value }}s for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/fastmcp-critical-latency"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      # BMC API alerts
+      - alert: FastMCPBMCAPIDown
+        expr: rate(fastmcp_bmc_api_calls_total{success="false"}[5m]) / rate(fastmcp_bmc_api_calls_total[5m]) > 0.5
+        for: 1m
+        labels:
+          severity: critical
+          service: fastmcp-server
+          component: bmc-api
+        annotations:
+          summary: "BMC API is experiencing high failure rate"
+          description: "BMC API failure rate is {{ $value | humanizePercentage }} for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/bmc-api-down"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      - alert: FastMCPBMCAPIHighLatency
+        expr: histogram_quantile(0.95, rate(fastmcp_bmc_api_duration_seconds_bucket[5m])) > 10.0
+        for: 5m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          component: bmc-api
+        annotations:
+          summary: "BMC API latency is high"
+          description: "BMC API 95th percentile latency is {{ $value }}s for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/bmc-api-high-latency"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      # Cache performance alerts
+      - alert: FastMCPCacheHitRateLow
+        expr: rate(fastmcp_cache_operations_total{result="hit"}[5m]) / rate(fastmcp_cache_operations_total[5m]) < 0.5
+        for: 10m
+        labels:
+          severity: info
+          service: fastmcp-server
+          component: cache
+        annotations:
+          summary: "FastMCP cache hit rate is low"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/cache-hit-rate-low"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      - alert: FastMCPCacheHitRateCritical
+        expr: rate(fastmcp_cache_operations_total{result="hit"}[5m]) / rate(fastmcp_cache_operations_total[5m]) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          component: cache
+        annotations:
+          summary: "FastMCP cache hit rate is critically low"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/cache-hit-rate-critical"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      # Rate limiting alerts
+      - alert: FastMCPHighRateLimiting
+        expr: rate(fastmcp_rate_limit_events_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          component: rate-limiter
+        annotations:
+          summary: "High rate limiting activity detected"
+          description: "Rate limiting events are occurring at {{ $value }} events/sec for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/high-rate-limiting"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      # Authentication alerts
+      - alert: FastMCPAuthFailureRate
+        expr: rate(fastmcp_auth_attempts_total{success="false"}[5m]) / rate(fastmcp_auth_attempts_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          component: authentication
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failure rate is {{ $value | humanizePercentage }} for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/auth-failure-rate"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      # Tool execution alerts
+      - alert: FastMCPToolExecutionFailures
+        expr: rate(fastmcp_tool_executions_total{success="false"}[5m]) / rate(fastmcp_tool_executions_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          component: tools
+        annotations:
+          summary: "High tool execution failure rate"
+          description: "Tool execution failure rate is {{ $value | humanizePercentage }} for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/tool-execution-failures"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      # Resource usage alerts
+      - alert: FastMCPHighMemoryUsage
+        expr: fastmcp_system_memory_usage_bytes > 1073741824  # 1GB
+        for: 10m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          component: resources
+        annotations:
+          summary: "FastMCP server memory usage is high"
+          description: "Memory usage is {{ $value | humanizeBytes }} for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/high-memory-usage"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      - alert: FastMCPHighCPUUsage
+        expr: fastmcp_system_cpu_usage_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          component: resources
+        annotations:
+          summary: "FastMCP server CPU usage is high"
+          description: "CPU usage is {{ $value }}% for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/high-cpu-usage"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+      # Elicitation workflow alerts
+      - alert: FastMCPElicitationFailureRate
+        expr: rate(fastmcp_elicitation_workflows_total{success="false"}[5m]) / rate(fastmcp_elicitation_workflows_total[5m]) > 0.2
+        for: 10m
+        labels:
+          severity: info
+          service: fastmcp-server
+          component: elicitation
+        annotations:
+          summary: "High elicitation workflow failure rate"
+          description: "Elicitation workflow failure rate is {{ $value | humanizePercentage }} for instance {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/elicitation-failures"
+          grafana_url: "https://grafana.example.com/d/fastmcp-overview"
+
+  # SLO-based alerts
+  - name: fastmcp-slo-alerts
+    interval: 60s
+    rules:
+      - alert: FastMCPSLOAvailabilityBreach
+        expr: |
+          (
+            1 - (
+              sum(rate(fastmcp_requests_total{status_class="2xx"}[30d])) /
+              sum(rate(fastmcp_requests_total[30d]))
+            )
+          ) > 0.001  # 99.9% SLO breach (0.1% error budget)
+        for: 5m
+        labels:
+          severity: critical
+          service: fastmcp-server
+          slo: availability
+        annotations:
+          summary: "FastMCP availability SLO breach"
+          description: "Availability SLO (99.9%) has been breached. Current availability: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.example.com/runbooks/slo-availability-breach"
+
+      - alert: FastMCPSLOLatencyBreach
+        expr: histogram_quantile(0.95, rate(fastmcp_request_duration_seconds_bucket[7d])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: fastmcp-server
+          slo: latency
+        annotations:
+          summary: "FastMCP latency SLO breach"
+          description: "Latency SLO (95% < 500ms) has been breached. Current P95: {{ $value }}s"
+          runbook_url: "https://docs.example.com/runbooks/slo-latency-breach"
