@@ -732,79 +732,146 @@ class TestInputValidation:
     """Test input validation functions."""
 
     def test_validate_srid(self):
-        """Test SRID validation."""
+        """Test SRID validation with comprehensive edge cases."""
         # Valid SRIDs
         assert main.validate_srid("TEST123") == "TEST123"
         assert main.validate_srid("A1") == "A1"
         assert main.validate_srid("12345678") == "12345678"
+        assert main.validate_srid("A") == "A"  # Single character
+        assert main.validate_srid("ABC123") == "ABC123"
 
-        # Invalid SRIDs
+        # Invalid SRIDs - empty string
         with pytest.raises(ValueError, match="SRID is required"):
             main.validate_srid("")
 
+        # Invalid SRIDs - too long
         with pytest.raises(ValueError, match="SRID must be 1-8 alphanumeric"):
             main.validate_srid("TOOLONG123")
+        with pytest.raises(ValueError, match="SRID must be 1-8 alphanumeric"):
+            main.validate_srid("123456789")  # 9 characters
 
+        # Invalid SRIDs - special characters
         with pytest.raises(ValueError, match="SRID must be 1-8 alphanumeric"):
             main.validate_srid("test@123")
+        with pytest.raises(ValueError, match="SRID must be 1-8 alphanumeric"):
+            main.validate_srid("A@B")
+
+        # Invalid SRIDs - None and non-string
+        with pytest.raises(ValueError, match="SRID is required and must be a string"):
+            main.validate_srid(None)
+        with pytest.raises(ValueError, match="SRID is required and must be a string"):
+            main.validate_srid(123)
 
     def test_validate_assignment_id(self):
-        """Test assignment ID validation."""
+        """Test assignment ID validation with comprehensive edge cases."""
         # Valid assignment IDs
         assert main.validate_assignment_id("ASSIGN-001") == "ASSIGN-001"
         assert main.validate_assignment_id("TASK_123") == "TASK_123"
         assert main.validate_assignment_id("A1B2C3") == "A1B2C3"
+        assert main.validate_assignment_id("A") == "A"  # Single character
+        assert main.validate_assignment_id("12345678901234567890") == "12345678901234567890"  # Max length (20)
+        assert main.validate_assignment_id("ABC123XYZ") == "ABC123XYZ"
 
-        # Invalid assignment IDs
+        # Invalid assignment IDs - empty string
         with pytest.raises(ValueError, match="Assignment ID is required"):
             main.validate_assignment_id("")
 
+        # Invalid assignment IDs - too long
         with pytest.raises(ValueError, match="Assignment ID must be 1-20"):
             main.validate_assignment_id("A" * 21)
+        with pytest.raises(ValueError, match="Assignment ID must be 1-20"):
+            main.validate_assignment_id("123456789012345678901")  # 21 characters
 
+        # Invalid assignment IDs - special characters
         with pytest.raises(ValueError, match="Assignment ID must be 1-20"):
             main.validate_assignment_id("test@123")
+        with pytest.raises(ValueError, match="Assignment ID must be 1-20"):
+            main.validate_assignment_id("A@B")
+
+        # Invalid assignment IDs - None and non-string
+        with pytest.raises(ValueError, match="Assignment ID is required and must be a string"):
+            main.validate_assignment_id(None)
+        with pytest.raises(ValueError, match="Assignment ID is required and must be a string"):
+            main.validate_assignment_id(123)
 
     def test_validate_release_id(self):
-        """Test release ID validation."""
+        """Test release ID validation with comprehensive edge cases."""
         # Valid release IDs
         assert main.validate_release_id("REL-001") == "REL-001"
         assert main.validate_release_id("RELEASE_123") == "RELEASE_123"
+        assert main.validate_release_id("R") == "R"  # Single character
+        assert main.validate_release_id("12345678901234567890") == "12345678901234567890"  # Max length (20)
 
-        # Invalid release IDs
+        # Invalid release IDs - empty string
         with pytest.raises(ValueError, match="Release ID is required"):
             main.validate_release_id("")
 
+        # Invalid release IDs - too long
         with pytest.raises(ValueError, match="Release ID must be 1-20"):
             main.validate_release_id("R" * 21)
+        with pytest.raises(ValueError, match="Release ID must be 1-20"):
+            main.validate_release_id("123456789012345678901")  # 21 characters
+
+        # Invalid release IDs - special characters
+        with pytest.raises(ValueError, match="Release ID must be 1-20"):
+            main.validate_release_id("REL@001")
+
+        # Invalid release IDs - None and non-string
+        with pytest.raises(ValueError, match="Release ID is required and must be a string"):
+            main.validate_release_id(None)
+        with pytest.raises(ValueError, match="Release ID is required and must be a string"):
+            main.validate_release_id(123)
 
     def test_validate_level(self):
-        """Test level validation."""
-        # Valid levels
+        """Test level validation with comprehensive edge cases."""
+        # Valid levels (case insensitive)
         assert main.validate_level("DEV") == "DEV"
+        assert main.validate_level("dev") == "DEV"
         assert main.validate_level("test") == "TEST"
+        assert main.validate_level("TEST") == "TEST"
+        assert main.validate_level("stage") == "STAGE"
         assert main.validate_level("PROD") == "PROD"
+        assert main.validate_level("uat") == "UAT"
+        assert main.validate_level("qa") == "QA"
 
         # Invalid levels
         with pytest.raises(ValueError, match="Level must be one of"):
             main.validate_level("INVALID")
+        with pytest.raises(ValueError, match="Level must be one of"):
+            main.validate_level("DEVELOPMENT")
+        with pytest.raises(ValueError, match="Level must be one of"):
+            main.validate_level("PRODUCTION")
 
-        # Empty level should return as-is
+        # Empty level and None should return as-is
         assert main.validate_level("") == ""
         assert main.validate_level(None) is None
 
+        # Non-string input should be handled gracefully
+        result = main.validate_level("dev")  # This should work
+        assert result == "DEV"
+
     def test_validate_environment(self):
-        """Test environment validation."""
-        # Valid environments
+        """Test environment validation with comprehensive edge cases."""
+        # Valid environments (case insensitive)
         assert main.validate_environment("DEV") == "DEV"
+        assert main.validate_environment("dev") == "DEV"
+        assert main.validate_environment("TEST") == "TEST"
         assert main.validate_environment("stage") == "STAGE"
         assert main.validate_environment("PROD") == "PROD"
+        assert main.validate_environment("uat") == "UAT"
+        assert main.validate_environment("qa") == "QA"
 
         # Invalid environments
         with pytest.raises(ValueError, match="Environment must be one of"):
             main.validate_environment("INVALID")
+        with pytest.raises(ValueError, match="Environment must be one of"):
+            main.validate_environment("PRODUCTION")
 
-        # Empty environment should return as-is
+        # Empty environment and None should return as-is
         assert main.validate_environment("") == ""
         assert main.validate_environment(None) is None
+
+        # Non-string input should be handled gracefully
+        result = main.validate_environment("prod")  # This should work
+        assert result == "PROD"
 
