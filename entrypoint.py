@@ -22,7 +22,7 @@ def main():
 
     print("🚀 BMC AMI DevX Code Pipeline FastMCP Server")
     print("=" * 50)
-    print(f"📁 Server File: {server_file}")
+    print("📁 Server File:", server_file)
     print(f"🏗️  FastMCP with Enterprise Features:")
     print("   ✅ Rate limiting with token bucket algorithm")
     print("   ✅ LRU/TTL caching with comprehensive management")

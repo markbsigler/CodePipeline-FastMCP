@@ -23,18 +23,19 @@ from fastmcp.server.elicitation import DeclinedElicitation
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-# Import advanced components from main.py and observability
+# Import advanced components from lib package and observability
 try:
-    from main import (
+    from lib import (
         BMCAMIDevXClient,
         ErrorHandler,
         HealthChecker,
         IntelligentCache,
         RateLimiter,
         Settings,
+        create_auth_provider,
+        initialize_metrics,
     )
-    from main import create_auth_provider as main_create_auth_provider
-    from observability import initialize_metrics, initialize_otel
+    from observability import initialize_otel
 
     ADVANCED_FEATURES_AVAILABLE = True
 except ImportError as e:
@@ -439,10 +440,10 @@ def with_retry_and_error_handling(max_retries: int = 3, base_delay: float = 1.0)
     return decorator
 
 
-def create_auth_provider():
+def create_auth_provider_hybrid():
     """Create authentication provider with hybrid support for advanced features."""
     if ADVANCED_FEATURES_AVAILABLE:
-        return main_create_auth_provider()
+        return create_auth_provider()
 
     # Fallback to simple auth provider
     if not os.getenv("AUTH_ENABLED", "false").lower() == "true":
@@ -492,7 +493,7 @@ if ADVANCED_FEATURES_AVAILABLE:
     # Initialize OpenTelemetry observability
     tracer, meter = initialize_otel()
 
-    # Use advanced components from main.py
+    # Use advanced components from lib package
     settings = Settings.from_env()
 
     # Global hybrid metrics instance (OTEL + legacy)
@@ -545,7 +546,7 @@ if ADVANCED_FEATURES_AVAILABLE and settings:
             max_connections=settings.connection_pool_size * 2,
         ),
         headers={
-            "Authorization": f"Bearer {os.getenv('API_TOKEN', '')}",
+            "Authorization": f"Bearer {settings.api_token or os.getenv('API_TOKEN', '')}",
             "Content-Type": "application/json",
             "User-Agent": "BMC-AMI-DevX-MCP-Server/2.2.0",
         },
@@ -569,7 +570,7 @@ else:
             max_connections=int(os.getenv("CONNECTION_POOL_SIZE", "20")) * 2,
         ),
         headers={
-            "Authorization": f"Bearer {os.getenv('API_TOKEN', '')}",
+            "Authorization": f"Bearer {settings.api_token or os.getenv('API_TOKEN', '')}",
             "Content-Type": "application/json",
             "User-Agent": "BMC-AMI-DevX-MCP-Server/2.2.0",
         },
@@ -594,7 +595,7 @@ mcp = FastMCP(
     - Interactive user elicitation workflows
     - Production-ready monitoring endpoints
     """,
-    auth=create_auth_provider(),
+    auth=create_auth_provider_hybrid(),
     include_tags={"public", "api", "monitoring", "management"},
     exclude_tags={"internal", "deprecated"},
     # Use FastMCP's built-in global settings via environment variables

@@ -759,9 +759,7 @@ class TestOpenAPIServerCoverage:
     def test_cleanup_expired_cache(self):
         """Test cleanup_expired_cache tool."""
         # Add expired entry
-        expired_key = openapi_server.cache._generate_key(
-            "expired_method", param="value"
-        )
+        expired_key = openapi_server.cache.generate_key("expired_method", param="value")
         openapi_server.cache.cache[expired_key] = openapi_server.SimpleCacheEntry(
             data="expired_data",
             timestamp=datetime.now() - timedelta(seconds=400),

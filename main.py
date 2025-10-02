@@ -1,11 +1,29 @@
 #!/usr/bin/env python3
 """
-BMC AMI DevX Code Pipeline MCP Server
-Real FastMCP 2.x server for BMC AMI DevX Code Pipeline integration.
+DEPRECATED: BMC AMI DevX Code Pipeline MCP Server
+
+⚠️  WARNING: This file is DEPRECATED and will be removed in a future version.
+
+    Please use openapi_server.py as the primary server instead.
+    All components have been moved to the lib/ package for better organization.
+
+    Migration path:
+    - Server functionality: Use openapi_server.py
+    - Components: Import from lib/ package
+    - Tools: Auto-generated from OpenAPI spec in openapi_server.py
 
 Enhanced with OpenTelemetry observability for distributed tracing,
 metrics collection, and comprehensive monitoring.
 """
+
+import warnings
+
+warnings.warn(
+    "main.py is deprecated. Use openapi_server.py as the primary server. "
+    "Components are now available in the lib/ package.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import asyncio
 import json
@@ -443,7 +461,7 @@ class ErrorHandler:
 
             try:
                 response_data = error.response.json()
-            except:
+            except Exception:
                 response_data = {"raw_response": str(error.response.text)}
 
             if status_code == 401:
