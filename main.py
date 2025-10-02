@@ -13,7 +13,7 @@ import os
 import re
 import time
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -23,9 +23,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # OpenTelemetry imports
 from observability import (
-    initialize_otel, get_tracer, get_meter,
-    HybridMetrics, get_metrics, initialize_metrics,
-    get_fastmcp_tracer, get_elicitation_tracer, trace_tool_execution, trace_bmc_operation
+    HybridMetrics,
+    get_fastmcp_tracer,
+    get_metrics,
+    initialize_metrics,
+    initialize_otel,
+    trace_tool_execution,
 )
 
 
@@ -327,12 +330,12 @@ class IntelligentCache:
         """Get cached data if available and not expired."""
         tracer = get_fastmcp_tracer()
         key = self._generate_key(method, **kwargs)
-        
+
         async with tracer.trace_cache_operation("get", key, method):
             async with self.lock:
                 if key not in self.cache:
                     # Record cache miss
-                    if hasattr(metrics, 'record_cache_operation'):
+                    if hasattr(metrics, "record_cache_operation"):
                         metrics.record_cache_operation("get", False, method)
                     return None
 
@@ -343,7 +346,7 @@ class IntelligentCache:
                     if key in self.access_order:
                         self.access_order.remove(key)
                     # Record cache miss (expired)
-                    if hasattr(metrics, 'record_cache_operation'):
+                    if hasattr(metrics, "record_cache_operation"):
                         metrics.record_cache_operation("get", False, method)
                     return None
 
@@ -353,9 +356,9 @@ class IntelligentCache:
                 self.access_order.append(key)
 
                 # Record cache hit
-                if hasattr(metrics, 'record_cache_operation'):
+                if hasattr(metrics, "record_cache_operation"):
                     metrics.record_cache_operation("get", True, method)
-                
+
                 return entry.data
 
     async def set(
@@ -364,7 +367,7 @@ class IntelligentCache:
         """Cache data with TTL."""
         tracer = get_fastmcp_tracer()
         key = self._generate_key(method, **kwargs)
-        
+
         async with tracer.trace_cache_operation("set", key, method):
             async with self.lock:
                 ttl = ttl or self.default_ttl
@@ -382,9 +385,9 @@ class IntelligentCache:
 
                 # Evict if over capacity
                 await self._evict_if_needed()
-                
+
                 # Update cache size metrics
-                if hasattr(metrics, 'update_cache_size'):
+                if hasattr(metrics, "update_cache_size"):
                     metrics.update_cache_size(len(self.cache))
 
     async def _evict_if_needed(self) -> None:
@@ -814,7 +817,7 @@ class BMCAMIDevXClient:
         """Make an HTTP request with rate limiting, monitoring, caching, and enhanced error handling."""
         start_time = time.time()
         operation = f"{method} {url}"
-        
+
         # Get tracer for BMC API calls
         tracer = get_fastmcp_tracer()
 
@@ -825,19 +828,24 @@ class BMCAMIDevXClient:
 
                 # Make the request
                 response = await self.client.request(method, url, **kwargs)
-                
+
                 # Add response details to span
                 if span:
                     span.set_attribute("http.status_code", response.status_code)
-                    span.set_attribute("http.response_size", len(response.content) if response.content else 0)
+                    span.set_attribute(
+                        "http.response_size",
+                        len(response.content) if response.content else 0,
+                    )
 
                 # Update metrics (both legacy and OTEL)
                 if self.metrics:
                     response_time = time.time() - start_time
                     success = response.status_code < 400
-                    
+
                     # Record in hybrid metrics (handles both OTEL and legacy)
-                    self.metrics.record_bmc_api_call(operation, success, response_time, response.status_code)
+                    self.metrics.record_bmc_api_call(
+                        operation, success, response_time, response.status_code
+                    )
 
                 return response
 
@@ -1088,9 +1096,8 @@ server = FastMCP(
 @server.tool
 async def get_metrics(ctx: Context = None) -> str:
     """Get server metrics and performance statistics."""
-    return await trace_tool_execution(
-        "get_metrics", {}, _get_metrics_impl, ctx
-    )
+    return await trace_tool_execution("get_metrics", {}, _get_metrics_impl, ctx)
+
 
 async def _get_metrics_impl(ctx: Context = None) -> str:
     """Implementation of get_metrics with tracing."""
@@ -1112,6 +1119,7 @@ async def get_health_status(ctx: Context = None) -> str:
     return await trace_tool_execution(
         "get_health_status", {}, _get_health_status_impl, ctx
     )
+
 
 async def _get_health_status_impl(ctx: Context = None) -> str:
     """Implementation of get_health_status with tracing."""
