@@ -11,7 +11,7 @@ import logging
 from typing import Dict, Any, Optional
 from prometheus_client import CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST, Info, Gauge, Counter
 from starlette.responses import Response
-from otel_config import get_otel_config
+from ..config.otel_config import get_otel_config
 
 logger = logging.getLogger(__name__)
 

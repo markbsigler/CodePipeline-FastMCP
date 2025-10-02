@@ -16,7 +16,7 @@ from opentelemetry.trace import Status, StatusCode, Span
 from opentelemetry.propagate import inject, extract
 from fastmcp import Context
 from fastmcp.server.elicitation import AcceptedElicitation, DeclinedElicitation, CancelledElicitation
-from otel_config import get_tracer, is_tracing_enabled
+from ..config.otel_config import get_tracer, is_tracing_enabled
 
 logger = logging.getLogger(__name__)
 

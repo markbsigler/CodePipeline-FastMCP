@@ -27,7 +27,7 @@ class TestMainPyCoverage:
         """Setup for each test method."""
         # Reset global instances
         main.settings = main.Settings()
-        main.metrics = main.Metrics()
+        main.metrics = main.initialize_metrics()
         main.cache = main.IntelligentCache()
         main.error_handler = main.ErrorHandler(main.settings, main.metrics)
         main.bmc_client = main.BMCAMIDevXClient(
@@ -88,7 +88,7 @@ class TestMainPyCoverage:
 
     def test_metrics_update_response_time_empty(self):
         """Test Metrics.update_response_time with empty response_times."""
-        metrics = main.Metrics()
+        metrics = main.initialize_metrics()
         metrics.response_times = deque(maxlen=1000)
         
         # Should handle empty deque gracefully
@@ -99,7 +99,7 @@ class TestMainPyCoverage:
 
     def test_metrics_get_cache_hit_rate_zero_total(self):
         """Test Metrics.get_cache_hit_rate with zero total requests."""
-        metrics = main.Metrics()
+        metrics = main.initialize_metrics()
         metrics.cache_hits = 0
         metrics.cache_misses = 0
         
@@ -108,7 +108,7 @@ class TestMainPyCoverage:
 
     def test_metrics_get_success_rate_zero_total(self):
         """Test Metrics.get_success_rate with zero total requests."""
-        metrics = main.Metrics()
+        metrics = main.initialize_metrics()
         metrics.successful_requests = 0
         metrics.failed_requests = 0
         
@@ -117,7 +117,7 @@ class TestMainPyCoverage:
 
     def test_metrics_to_dict_with_inf_min_response_time(self):
         """Test Metrics.to_dict with infinite min_response_time."""
-        metrics = main.Metrics()
+        metrics = main.initialize_metrics()
         metrics.min_response_time = float('inf')
         metrics.max_response_time = 5.0
         metrics.response_times = deque([1.0, 2.0, 3.0], maxlen=1000)
@@ -128,7 +128,7 @@ class TestMainPyCoverage:
 
     def test_metrics_to_dict_with_empty_bmc_api_response_times(self):
         """Test Metrics.to_dict with empty bmc_api_response_times."""
-        metrics = main.Metrics()
+        metrics = main.initialize_metrics()
         metrics.bmc_api_response_times = deque(maxlen=1000)
         
         result = metrics.to_dict()

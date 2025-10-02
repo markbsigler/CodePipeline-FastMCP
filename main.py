@@ -22,9 +22,11 @@ from fastmcp import Context, FastMCP
 from pydantic import BaseModel, ConfigDict, Field
 
 # OpenTelemetry imports
-from otel_config import initialize_otel, get_tracer, get_meter
-from otel_metrics import HybridMetrics, get_metrics, initialize_metrics
-from otel_tracing import get_fastmcp_tracer, get_elicitation_tracer, trace_tool_execution, trace_bmc_operation
+from observability import (
+    initialize_otel, get_tracer, get_meter,
+    HybridMetrics, get_metrics, initialize_metrics,
+    get_fastmcp_tracer, get_elicitation_tracer, trace_tool_execution, trace_bmc_operation
+)
 
 
 # Custom Exception Classes
@@ -228,105 +230,7 @@ class RateLimiter:
             await asyncio.sleep(wait_time)
 
 
-@dataclass
-class Metrics:
-    """Application metrics for monitoring and observability."""
-
-    # Request metrics
-    total_requests: int = 0
-    successful_requests: int = 0
-    failed_requests: int = 0
-    rate_limited_requests: int = 0
-
-    # Response time metrics
-    response_times: deque = field(default_factory=lambda: deque(maxlen=1000))
-    avg_response_time: float = 0.0
-    min_response_time: float = float("inf")
-    max_response_time: float = 0.0
-
-    # API endpoint metrics
-    endpoint_counts: Dict[str, int] = field(default_factory=dict)
-    endpoint_errors: Dict[str, int] = field(default_factory=dict)
-
-    # BMC API metrics
-    bmc_api_calls: int = 0
-    bmc_api_errors: int = 0
-    bmc_api_response_times: deque = field(default_factory=lambda: deque(maxlen=1000))
-
-    # Cache metrics
-    cache_hits: int = 0
-    cache_misses: int = 0
-    cache_size: int = 0
-
-    # System metrics
-    start_time: datetime = field(default_factory=datetime.now)
-    uptime_seconds: float = 0.0
-
-    def update_response_time(self, response_time: float):
-        """Update response time metrics."""
-        self.response_times.append(response_time)
-        self.avg_response_time = sum(self.response_times) / len(self.response_times)
-        self.min_response_time = min(self.min_response_time, response_time)
-        self.max_response_time = max(self.max_response_time, response_time)
-
-    def update_bmc_response_time(self, response_time: float):
-        """Update BMC API response time metrics."""
-        self.bmc_api_response_times.append(response_time)
-
-    def get_cache_hit_rate(self) -> float:
-        """Calculate cache hit rate."""
-        total = self.cache_hits + self.cache_misses
-        return (self.cache_hits / total * 100) if total > 0 else 0.0
-
-    def get_success_rate(self) -> float:
-        """Calculate request success rate."""
-        total = self.successful_requests + self.failed_requests
-        return (self.successful_requests / total * 100) if total > 0 else 100.0
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metrics to dictionary for JSON serialization."""
-        return {
-            "requests": {
-                "total": self.total_requests,
-                "successful": self.successful_requests,
-                "failed": self.failed_requests,
-                "rate_limited": self.rate_limited_requests,
-                "success_rate": self.get_success_rate(),
-            },
-            "response_times": {
-                "average": self.avg_response_time,
-                "minimum": (
-                    self.min_response_time
-                    if self.min_response_time != float("inf")
-                    else 0
-                ),
-                "maximum": self.max_response_time,
-                "samples": len(self.response_times),
-            },
-            "endpoints": {
-                "counts": self.endpoint_counts,
-                "errors": self.endpoint_errors,
-            },
-            "bmc_api": {
-                "calls": self.bmc_api_calls,
-                "errors": self.bmc_api_errors,
-                "avg_response_time": (
-                    sum(self.bmc_api_response_times) / len(self.bmc_api_response_times)
-                    if self.bmc_api_response_times
-                    else 0
-                ),
-            },
-            "cache": {
-                "hits": self.cache_hits,
-                "misses": self.cache_misses,
-                "hit_rate": self.get_cache_hit_rate(),
-                "size": self.cache_size,
-            },
-            "system": {
-                "uptime_seconds": (datetime.now() - self.start_time).total_seconds(),
-                "start_time": self.start_time.isoformat(),
-            },
-        }
+# Metrics class removed - now using HybridMetrics from observability package
 
 
 class HealthChecker:
@@ -519,7 +423,7 @@ class IntelligentCache:
 class ErrorHandler:
     """Comprehensive error handling and recovery system."""
 
-    def __init__(self, settings: Settings, metrics: Optional[Metrics] = None):
+    def __init__(self, settings: Settings, metrics: Optional[HybridMetrics] = None):
         self.settings = settings
         self.metrics = metrics
 
@@ -893,7 +797,7 @@ class BMCAMIDevXClient:
         client: httpx.AsyncClient,
         rate_limiter: Optional[RateLimiter] = None,
         cache: Optional[IntelligentCache] = None,
-        metrics: Optional[Metrics] = None,
+        metrics: Optional[HybridMetrics] = None,
         error_handler: Optional[ErrorHandler] = None,
     ):
         self.client = client

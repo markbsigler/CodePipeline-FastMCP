@@ -2901,7 +2901,7 @@ class TestAdditionalFunctionality:
             mock_context.info.assert_called_once_with("Retrieving server metrics")
 
             # Verify metrics were updated with cache size
-            assert mock_metrics.cache_size == 2
+            mock_metrics.update_cache_size.assert_called_once_with(2)
 
             # Verify metrics data was returned
             assert "total" in result
@@ -2925,7 +2925,7 @@ class TestAdditionalFunctionality:
             result = await get_metrics.fn(None)
 
             # Verify metrics were updated with cache size
-            assert mock_metrics.cache_size == 1
+            mock_metrics.update_cache_size.assert_called_once_with(1)
 
             # Verify metrics data was returned
             assert "total" in result

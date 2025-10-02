@@ -14,8 +14,8 @@ from typing import Dict, Any, Optional, List
 from collections import deque
 from dataclasses import dataclass, field
 from opentelemetry import metrics
-from opentelemetry.metrics import Counter, Histogram, UpDownCounter, Gauge, ObservableGauge
-from otel_config import get_meter, is_metrics_enabled
+from opentelemetry.metrics import Counter, Histogram, UpDownCounter, ObservableGauge
+from ..config.otel_config import get_meter, is_metrics_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -388,6 +388,57 @@ class HybridMetrics:
         
         logger.info("Hybrid metrics initialized with OTEL and legacy support")
     
+    # Backward compatibility properties
+    @property
+    def failed_requests(self) -> int:
+        """Get failed requests count."""
+        return self.legacy.failed_requests
+    
+    @failed_requests.setter
+    def failed_requests(self, value: int):
+        """Set failed requests count."""
+        self.legacy.failed_requests = value
+    
+    @property
+    def cache_misses(self) -> int:
+        """Get cache misses count."""
+        return self.legacy.cache_misses
+    
+    @cache_misses.setter
+    def cache_misses(self, value: int):
+        """Set cache misses count."""
+        self.legacy.cache_misses = value
+    
+    @property
+    def cache_size(self) -> int:
+        """Get cache size."""
+        return self.legacy.cache_size
+    
+    @cache_size.setter
+    def cache_size(self, value: int):
+        """Set cache size."""
+        self.legacy.cache_size = value
+    
+    @property
+    def total_requests(self) -> int:
+        """Get total requests count."""
+        return self.legacy.total_requests
+    
+    @total_requests.setter
+    def total_requests(self, value: int):
+        """Set total requests count."""
+        self.legacy.total_requests = value
+    
+    @property
+    def successful_requests(self) -> int:
+        """Get successful requests count."""
+        return self.legacy.successful_requests
+    
+    @successful_requests.setter
+    def successful_requests(self, value: int):
+        """Set successful requests count."""
+        self.legacy.successful_requests = value
+    
     def record_request(self, method: str, endpoint: str, status_code: int, 
                       duration: float, user_id: Optional[str] = None):
         """Record request in both systems."""
@@ -469,6 +520,10 @@ class HybridMetrics:
         
         # Legacy metrics
         self.legacy.cache_size = size
+    
+    def update_bmc_response_time(self, response_time: float):
+        """Update BMC API response time."""
+        self.legacy.update_bmc_response_time(response_time)
     
     def increment_active_requests(self):
         """Increment active request counter."""

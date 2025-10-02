@@ -47,7 +47,7 @@ class OTELIntegrationTester:
     async def test_otel_initialization(self):
         """Test OTEL components initialize correctly."""
         try:
-            from otel_config import initialize_otel, is_tracing_enabled, is_metrics_enabled
+            from ..config.otel_config import initialize_otel, is_tracing_enabled, is_metrics_enabled
             
             # Test initialization
             tracer, meter = initialize_otel()
@@ -74,7 +74,7 @@ class OTELIntegrationTester:
     async def test_hybrid_metrics(self):
         """Test hybrid metrics system."""
         try:
-            from otel_metrics import HybridMetrics, get_metrics
+            from ..metrics.hybrid_metrics import HybridMetrics, get_metrics
             
             # Test metrics initialization
             metrics = get_metrics()
@@ -105,7 +105,7 @@ class OTELIntegrationTester:
     async def test_tracing_utilities(self):
         """Test tracing utilities."""
         try:
-            from otel_tracing import get_fastmcp_tracer, get_elicitation_tracer
+            from ..tracing.fastmcp_tracer import get_fastmcp_tracer, get_elicitation_tracer
             
             # Test tracer initialization
             fastmcp_tracer = get_fastmcp_tracer()
