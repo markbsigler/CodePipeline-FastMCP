@@ -36,37 +36,32 @@ echo ""
 echo "🔬 Running coverage analysis..."
 echo "=============================="
 
-# Test 1: Advanced features coverage
-echo "📋 Testing advanced features coverage..."
-$PYTHON_CMD -m pytest test_advanced_features.py --cov=fastmcp_config --cov=openapi_server --cov-report=term-missing --cov-append -v
-ADVANCED_COVERAGE_RESULT=$?
+# Test 1: Main application coverage
+echo "📋 Testing main application coverage..."
+$PYTHON_CMD -m pytest tests/test_main.py --cov=main --cov-report=term-missing --cov-append -v
+MAIN_COVERAGE_RESULT=$?
 
-# Test 2: Elicitation coverage
-echo "📋 Testing elicitation coverage..."
-$PYTHON_CMD -m pytest test_elicitation.py --cov=openapi_server --cov-report=term-missing --cov-append -v
-ELICITATION_COVERAGE_RESULT=$?
-
-# Test 3: OpenAPI integration coverage
-echo "📋 Testing OpenAPI integration coverage..."
-$PYTHON_CMD -m pytest test_openapi_integration.py --cov=openapi_server --cov-report=term-missing --cov-append -v
+# Test 2: OpenAPI server coverage
+echo "📋 Testing OpenAPI server coverage..."
+$PYTHON_CMD -m pytest tests/test_openapi_server.py --cov=openapi_server --cov-report=term-missing --cov-append -v
 OPENAPI_COVERAGE_RESULT=$?
 
-# Test 4: Legacy tests coverage (if they exist)
-echo "📋 Testing legacy coverage..."
-if [ -f "test_mcp_server.py" ]; then
-    $PYTHON_CMD -m pytest test_mcp_server.py --cov=main --cov-report=term-missing --cov-append -v
-    LEGACY_COVERAGE_RESULT=$?
-else
-    echo "ℹ️  No legacy tests found, skipping"
-    LEGACY_COVERAGE_RESULT=0
-fi
+# Test 3: FastMCP server integration coverage
+echo "📋 Testing FastMCP server integration coverage..."
+$PYTHON_CMD -m pytest tests/test_fastmcp_server.py --cov=main --cov=openapi_server --cov-report=term-missing --cov-append -v
+FASTMCP_COVERAGE_RESULT=$?
+
+# Test 4: Configuration coverage
+echo "📋 Testing configuration coverage..."
+$PYTHON_CMD -m pytest tests/test_fastmcp_config.py --cov=fastmcp_config --cov-report=term-missing --cov-append -v
+CONFIG_COVERAGE_RESULT=$?
 
 echo "=============================="
 echo ""
 
 # Generate comprehensive coverage report
 echo "📈 Generating comprehensive coverage report..."
-$PYTHON_CMD -m pytest --cov=openapi_server --cov=fastmcp_config --cov=main --cov-report=html --cov-report=xml --cov-report=term-missing -v
+$PYTHON_CMD -m pytest tests/ --cov=main --cov=openapi_server --cov=fastmcp_config --cov=entrypoint --cov=debug --cov-report=html --cov-report=xml --cov-report=term-missing -v
 
 # Check coverage threshold
 echo "🎯 Checking coverage threshold..."
@@ -103,10 +98,10 @@ echo ""
 # Show coverage summary
 echo "📊 Coverage Summary:"
 echo "-------------------"
-echo "  Advanced Features: $([ $ADVANCED_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
-echo "  Elicitation Tests: $([ $ELICITATION_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
-echo "  OpenAPI Integration: $([ $OPENAPI_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
-echo "  Legacy Tests: $([ $LEGACY_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Main Application: $([ $MAIN_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  OpenAPI Server: $([ $OPENAPI_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  FastMCP Integration: $([ $FASTMCP_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Configuration: $([ $CONFIG_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  Overall Coverage: $([ $COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 
 echo ""

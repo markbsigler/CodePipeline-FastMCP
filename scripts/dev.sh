@@ -5,7 +5,7 @@
 set -e
 
 # Configuration
-SERVER_PORT=${PORT:-8000}
+SERVER_PORT=${PORT:-8080}
 SERVER_HOST=${HOST:-0.0.0.0}
 LOG_LEVEL=${LOG_LEVEL:-DEBUG}
 PYTHON_CMD="python"
