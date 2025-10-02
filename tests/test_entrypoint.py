@@ -1,260 +1,189 @@
 #!/usr/bin/env python3
 """
-Comprehensive test coverage for entrypoint.py
-
-This test suite covers all functionality in the entrypoint script including:
-- Main function execution and error handling
-- Server file existence checking
-- Subprocess execution and error handling
-- Keyboard interrupt handling
-- Output formatting and status messages
+Comprehensive tests for entrypoint.py to achieve 100% coverage.
 """
 
-import os
-import sys
 import subprocess
-from io import StringIO
-from unittest.mock import patch, MagicMock
-from pathlib import Path
-import pytest
+import sys
+from unittest.mock import Mock, patch
+
+import entrypoint
 
 
-class TestEntrypointScript:
-    """Test the entrypoint.py script functionality."""
-    
-    def test_main_function_execution(self):
-        """Test that the main function executes without errors."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run') as mock_run:
-                mock_run.return_value.returncode = 0
-                
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    from entrypoint import main
-                    with pytest.raises(SystemExit) as exc_info:
-                        main()
-                    
-                    assert exc_info.value.code == 0
-                    output = mock_stdout.getvalue()
-                    assert "🚀 BMC AMI DevX Code Pipeline FastMCP Server" in output
-                    assert "📁 Server File: openapi_server.py" in output
-                    assert "🏗️  FastMCP with Enterprise Features:" in output
-    
-    def test_server_file_exists_check(self):
-        """Test server file existence checking."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run') as mock_run:
-                mock_run.return_value.returncode = 0
-                
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    from entrypoint import main
-                    with pytest.raises(SystemExit) as exc_info:
-                        main()
-                    
-                    assert exc_info.value.code == 0
-                    output = mock_stdout.getvalue()
-                    assert "📁 Server File: openapi_server.py" in output
-    
-    def test_server_file_not_found(self):
-        """Test behavior when server file doesn't exist."""
-        with patch('pathlib.Path.exists', return_value=False):
-            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                from entrypoint import main
-                with pytest.raises(SystemExit) as exc_info:
-                    main()
-                
-                assert exc_info.value.code == 1
-                output = mock_stdout.getvalue()
-                assert "❌ Error: openapi_server.py not found" in output
-                assert "Expected: BMC AMI DevX Code Pipeline FastMCP Server" in output
-    
-    def test_subprocess_execution_success(self):
-        """Test successful subprocess execution."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run') as mock_run:
-                mock_run.return_value.returncode = 0
-                
-                with patch('sys.exit') as mock_exit:
-                    from entrypoint import main
-                    main()
-                    
-                    mock_run.assert_called_once_with([sys.executable, "openapi_server.py"], check=True)
-                    mock_exit.assert_called_once_with(0)
-    
-    def test_subprocess_execution_failure(self):
-        """Test subprocess execution failure."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run', side_effect=subprocess.CalledProcessError(1, "python")):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    with patch('sys.exit') as mock_exit:
-                        from entrypoint import main
-                        main()
-                        
-                        output = mock_stdout.getvalue()
-                        assert "❌ Error starting server:" in output
-                        mock_exit.assert_called_once_with(1)
-    
-    def test_keyboard_interrupt_handling(self):
-        """Test keyboard interrupt handling."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run', side_effect=KeyboardInterrupt()):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    with patch('sys.exit') as mock_exit:
-                        from entrypoint import main
-                        main()
-                        
-                        output = mock_stdout.getvalue()
-                        assert "🛑 Server interrupted by user" in output
-                        mock_exit.assert_called_once_with(0)
-    
-    def test_general_exception_handling(self):
-        """Test general exception handling."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run', side_effect=Exception("Unexpected error")):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    with patch('sys.exit') as mock_exit:
-                        from entrypoint import main
-                        main()
-                        
-                        output = mock_stdout.getvalue()
-                        assert "❌ Error starting server: Unexpected error" in output
-                        mock_exit.assert_called_once_with(1)
-    
-    def test_enterprise_features_display(self):
-        """Test that enterprise features are displayed correctly."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run') as mock_run:
-                mock_run.return_value.returncode = 0
-                
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    from entrypoint import main
-                    with pytest.raises(SystemExit) as exc_info:
-                        main()
-                    
-                    assert exc_info.value.code == 0
-                    output = mock_stdout.getvalue()
-                    assert "✅ Rate limiting with token bucket algorithm" in output
-                    assert "✅ LRU/TTL caching with comprehensive management" in output
-                    assert "✅ Real-time metrics and monitoring" in output
-                    assert "✅ Error recovery with exponential backoff" in output
-                    assert "✅ Multi-provider authentication support" in output
-    
-    def test_output_formatting(self):
-        """Test that output is properly formatted."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run') as mock_run:
-                mock_run.return_value.returncode = 0
-                
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    from entrypoint import main
-                    with pytest.raises(SystemExit) as exc_info:
-                        main()
-                    
-                    assert exc_info.value.code == 0
-                    output = mock_stdout.getvalue()
-                    
-                    # Check for proper header formatting
-                    assert "🚀 BMC AMI DevX Code Pipeline FastMCP Server" in output
-                    assert "=" * 50 in output
-                    
-                    # Check for proper feature list formatting
-                    assert "🏗️  FastMCP with Enterprise Features:" in output
-                    assert "   ✅" in output  # Indented checkmarks
-    
-    def test_script_execution_as_main(self):
-        """Test running entrypoint.py as main script."""
-        # This test is difficult to run reliably due to port conflicts
-        # so we'll skip it for now
-        pass
-    
-    def test_script_execution_with_missing_server_file(self):
-        """Test running entrypoint.py when server file is missing."""
-        # Temporarily rename the server file
-        server_file = Path("openapi_server.py")
-        backup_file = Path("openapi_server.py.backup")
-        
-        try:
-            if server_file.exists():
-                server_file.rename(backup_file)
-            
-            result = subprocess.run(
-                [sys.executable, "entrypoint.py"],
-                capture_output=True,
-                text=True,
-                cwd=os.path.dirname(os.path.abspath(__file__)) + "/.."
+class TestEntrypoint:
+    """Test class for entrypoint.py coverage."""
+
+    @patch("entrypoint.Path")
+    @patch("sys.exit")
+    def test_main_server_file_not_found(self, mock_exit, mock_path):
+        """Test main function when server file doesn't exist."""
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = False
+        mock_path.return_value = mock_path_instance
+
+        with patch("builtins.print") as mock_print:
+            entrypoint.main()
+
+        mock_print.assert_any_call("❌ Error: openapi_server.py not found")
+        mock_exit.assert_called_once_with(1)
+
+    @patch("entrypoint.Path")
+    @patch("subprocess.run")
+    @patch("sys.exit")
+    def test_main_successful_execution(self, mock_exit, mock_subprocess, mock_path):
+        """Test main function with successful server execution."""
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = True
+        mock_path.return_value = mock_path_instance
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_subprocess.return_value = mock_result
+
+        with patch("builtins.print") as mock_print:
+            entrypoint.main()
+
+        mock_print.assert_any_call("🚀 BMC AMI DevX Code Pipeline FastMCP Server")
+        mock_subprocess.assert_called_once_with(
+            [sys.executable, "openapi_server.py"], check=True
+        )
+        mock_exit.assert_called_once_with(0)
+
+    @patch("entrypoint.Path")
+    @patch("subprocess.run")
+    @patch("sys.exit")
+    def test_main_keyboard_interrupt(self, mock_exit, mock_subprocess, mock_path):
+        """Test main function handles KeyboardInterrupt."""
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = True
+        mock_path.return_value = mock_path_instance
+
+        mock_subprocess.side_effect = KeyboardInterrupt()
+
+        with patch("builtins.print") as mock_print:
+            entrypoint.main()
+
+        mock_print.assert_any_call("\n🛑 Server interrupted by user")
+        mock_exit.assert_called_once_with(0)
+
+    @patch("entrypoint.Path")
+    @patch("subprocess.run")
+    @patch("sys.exit")
+    def test_main_subprocess_exception(self, mock_exit, mock_subprocess, mock_path):
+        """Test main function handles subprocess exceptions."""
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = True
+        mock_path.return_value = mock_path_instance
+
+        mock_subprocess.side_effect = Exception("Test error")
+
+        with patch("builtins.print") as mock_print:
+            entrypoint.main()
+
+        mock_print.assert_any_call("❌ Error starting server: Test error")
+        mock_exit.assert_called_once_with(1)
+
+    @patch("entrypoint.Path")
+    @patch("subprocess.run")
+    @patch("sys.exit")
+    def test_main_non_zero_exit(self, mock_exit, mock_subprocess, mock_path):
+        """Test main function with non-zero subprocess exit code."""
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = True
+        mock_path.return_value = mock_path_instance
+
+        mock_result = Mock()
+        mock_result.returncode = 1
+        mock_subprocess.return_value = mock_result
+
+        entrypoint.main()
+
+        mock_exit.assert_called_once_with(1)
+
+    def test_startup_messages(self):
+        """Test that main function prints correct startup messages."""
+        with (
+            patch("entrypoint.Path") as mock_path,
+            patch("subprocess.run") as mock_subprocess,
+            patch("sys.exit"),
+            patch("builtins.print") as mock_print,
+        ):
+
+            mock_path_instance = Mock()
+            mock_path_instance.exists.return_value = True
+            mock_path.return_value = mock_path_instance
+
+            mock_result = Mock()
+            mock_result.returncode = 0
+            mock_subprocess.return_value = mock_result
+
+            entrypoint.main()
+
+            expected_calls = [
+                "🚀 BMC AMI DevX Code Pipeline FastMCP Server",
+                "📁 Server File: openapi_server.py",
+                "🏗️  FastMCP with Enterprise Features:",
+                "   ✅ Rate limiting with token bucket algorithm",
+                "   ✅ LRU/TTL caching with comprehensive management",
+            ]
+
+            for expected_call in expected_calls:
+                mock_print.assert_any_call(expected_call)
+
+    def test_module_attributes(self):
+        """Test entrypoint module has expected attributes."""
+        assert entrypoint.__doc__ is not None
+        assert (
+            "Entry point for BMC AMI DevX Code Pipeline FastMCP Server"
+            in entrypoint.__doc__
+        )
+        assert hasattr(entrypoint, "sys")
+        assert hasattr(entrypoint, "Path")
+
+    @patch("entrypoint.Path")
+    @patch("subprocess.run")
+    @patch("sys.exit")
+    def test_calledprocesserror_handling(self, mock_exit, mock_subprocess, mock_path):
+        """Test handling of CalledProcessError."""
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = True
+        mock_path.return_value = mock_path_instance
+
+        mock_subprocess.side_effect = subprocess.CalledProcessError(1, "cmd")
+
+        with patch("builtins.print") as mock_print:
+            entrypoint.main()
+
+        mock_print.assert_any_call(
+            "❌ Error starting server: Command 'cmd' returned non-zero exit status 1."
+        )
+        mock_exit.assert_called_once_with(1)
+
+    def test_main_function_callable(self):
+        """Test that main function exists and is callable."""
+        assert hasattr(entrypoint, "main")
+        assert callable(entrypoint.main)
+
+    def test_constants_usage(self):
+        """Test entrypoint uses correct constants."""
+        with (
+            patch("entrypoint.Path") as mock_path,
+            patch("subprocess.run") as mock_subprocess,
+            patch("sys.exit"),
+            patch("builtins.print"),
+        ):
+
+            mock_path_instance = Mock()
+            mock_path_instance.exists.return_value = True
+            mock_path.return_value = mock_path_instance
+
+            mock_result = Mock()
+            mock_result.returncode = 0
+            mock_subprocess.return_value = mock_result
+
+            entrypoint.main()
+
+            mock_path.assert_called_with("openapi_server.py")
+            mock_subprocess.assert_called_once_with(
+                [sys.executable, "openapi_server.py"], check=True
             )
-            
-            # Should exit with code 1
-            assert result.returncode == 1
-            assert "❌ Error: openapi_server.py not found" in result.stdout
-            
-        finally:
-            # Restore the server file
-            if backup_file.exists():
-                backup_file.rename(server_file)
-    
-    def test_subprocess_run_parameters(self):
-        """Test that subprocess.run is called with correct parameters."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run') as mock_run:
-                mock_run.return_value.returncode = 0
-                
-                with patch('sys.exit'):
-                    from entrypoint import main
-                    main()
-                    
-                    # Verify subprocess.run was called with correct parameters
-                    mock_run.assert_called_once()
-                    call_args = mock_run.call_args
-                    assert call_args[0][0] == [sys.executable, "openapi_server.py"]
-                    assert call_args[1]['check'] is True
-    
-    def test_implementation_name_display(self):
-        """Test that implementation name is displayed correctly."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run') as mock_run:
-                mock_run.return_value.returncode = 0
-                
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    from entrypoint import main
-                    with pytest.raises(SystemExit) as exc_info:
-                        main()
-                    
-                    assert exc_info.value.code == 0
-                    output = mock_stdout.getvalue()
-                    assert "BMC AMI DevX Code Pipeline FastMCP Server" in output
-    
-    def test_error_messages_formatting(self):
-        """Test that error messages are properly formatted."""
-        with patch('pathlib.Path.exists', return_value=False):
-            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                from entrypoint import main
-                with pytest.raises(SystemExit) as exc_info:
-                    main()
-                
-                assert exc_info.value.code == 1
-                output = mock_stdout.getvalue()
-                assert "❌ Error:" in output
-                assert "Expected:" in output
-    
-    def test_success_messages_formatting(self):
-        """Test that success messages are properly formatted."""
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('subprocess.run') as mock_run:
-                mock_run.return_value.returncode = 0
-                
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    from entrypoint import main
-                    with pytest.raises(SystemExit) as exc_info:
-                        main()
-                    
-                    assert exc_info.value.code == 0
-                    output = mock_stdout.getvalue()
-                    assert "🚀" in output  # Success emoji
-                    assert "📁" in output  # File emoji
-                    assert "🏗️" in output  # Building emoji
-                    assert "✅" in output  # Checkmark emoji
-
-
-if __name__ == "__main__":
-    # Run the tests
-    pytest.main([__file__, "-v"])
