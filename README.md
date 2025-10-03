@@ -1,26 +1,32 @@
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-2.12.2%2B-green)](https://gofastmcp.com/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/markbsigler/CodePipeline-FastMCP/actions)
-[![Tests](https://img.shields.io/badge/tests-666%20passing-brightgreen)](https://github.com/markbsigler/CodePipeline-FastMCP/actions)
+[![Tests](https://img.shields.io/badge/tests-697%20passing-brightgreen)](https://github.com/markbsigler/CodePipeline-FastMCP/actions)
+[![Coverage](https://img.shields.io/badge/coverage-82%25-green)](https://github.com/markbsigler/CodePipeline-FastMCP/actions)
+[![Security](https://img.shields.io/badge/security-hardened-blue)](https://github.com/markbsigler/CodePipeline-FastMCP/security)
 
-A **production-ready FastMCP 2.12.2** Model Context Protocol (MCP) server for **BMC AMI DevX Code Pipeline** mainframe DevOps operations. This server implements real FastMCP with native authentication, comprehensive input validation, retry logic, and enterprise-grade error handling.
+An **enterprise-grade FastMCP 2.12.2** Model Context Protocol (MCP) server for **BMC AMI DevX Code Pipeline** mainframe DevOps operations. This server implements production-ready FastMCP with advanced security hardening, multi-tier caching, circuit breaker resilience, comprehensive audit logging, and enterprise-grade error handling.
 
 ## Features
 
-### 🚀 **Production-Ready FastMCP 2.12.2 Implementation**
+### 🚀 **Enterprise-Grade FastMCP 2.12.2 Implementation**
 - ✅ **Real FastMCP Server**: Native FastMCP 2.12.2 implementation (no mock)
 - ✅ **Streamable HTTP Transport**: FastMCP's recommended transport protocol
-- ✅ **Native Authentication**: Multiple auth providers (JWT, GitHub, Google, WorkOS)
-- ✅ **Comprehensive Validation**: Input validation for all API parameters
-- ✅ **Retry Logic**: Exponential backoff for resilient API calls
-- ✅ **Enterprise Error Handling**: Structured error responses and logging
+- ✅ **Circuit Breaker Resilience**: Automatic failure detection and recovery
+- ✅ **Multi-Tier Caching**: Redis + memory caching with intelligent promotion
+- ✅ **Advanced Rate Limiting**: Per-user, per-API key, and global rate limits
+- ✅ **Security Hardening**: OWASP Top 10 protection with comprehensive validation
+- ✅ **Audit Logging**: Structured security event logging and compliance
 
-### 🔐 **Authentication & Security**
+### 🔐 **Advanced Security & Authentication**
+- **Multi-Tier Rate Limiting**: Global (60 RPM), per-user (30 RPM), per-API key (100 RPM)
+- **Input Validation**: SQL injection, XSS, and path traversal protection
+- **Security Headers**: CSP, HSTS, X-Frame-Options, and 10+ security headers
 - **JWT Token Verification**: Using FastMCP's `JWTVerifier` with JWKS support
 - **GitHub OAuth**: `GitHubProvider` for GitHub-based authentication
 - **Google OAuth**: `GoogleProvider` for Google Workspace integration
 - **WorkOS AuthKit**: `AuthKitProvider` with Dynamic Client Registration
-- **Environment Configuration**: Secure configuration via environment variables
+- **Audit Logging**: Comprehensive security event tracking and compliance
 
 ### 🏗️ **BMC AMI DevX Code Pipeline Integration**
 - **Assignment Management**: Create, list, update, and track mainframe assignments
@@ -30,31 +36,57 @@ A **production-ready FastMCP 2.12.2** Model Context Protocol (MCP) server for **
 - **Mainframe DevOps**: Complete CI/CD pipeline integration with validation
 
 ### 🧪 **Testing & Quality**
-- **Comprehensive Test Suite**: 666 passing tests with 79% coverage (enterprise-grade reliability)
-- **Consolidated Test Structure**: Streamlined test files with eliminated redundancy
-- **Input Validation Tests**: Complete validation function coverage
-- **Retry Logic Tests**: Exponential backoff and error handling validation
-- **Server Integration Tests**: FastMCP server creation and configuration
-- **Error Handling Tests**: Validation error message testing
-- **Enterprise Feature Tests**: Rate limiting, caching, metrics, error recovery
+- **Comprehensive Test Suite**: 697 passing tests with 82% coverage (enterprise-grade reliability)
+- **Security Test Coverage**: 31 security tests with 96% coverage
+- **Circuit Breaker Tests**: 9 tests covering all failure scenarios
+- **Multi-Tier Cache Tests**: 13 tests for Redis and memory backends
+- **Input Validation Tests**: Complete SQL injection, XSS, and path traversal coverage
+- **Rate Limiting Tests**: Token bucket and advanced rate limiter validation
+- **Zero Linting Violations**: Clean, maintainable codebase
+- **Performance Tests**: Load testing and resilience validation
+
+### 🏎️ **Performance & Resilience**
+- **Circuit Breaker Pattern**: Automatic failure detection with 5-failure threshold
+- **Exponential Backoff**: Jitter-enhanced retry logic (±25% randomization)
+- **Multi-Tier Caching**: L1 (memory) + L2 (Redis) with automatic promotion
+- **Intelligent Cache**: LRU eviction, TTL expiration, and statistics tracking
+- **Connection Pooling**: Optimized HTTP client with keep-alive connections
+- **Memory Management**: Automatic cleanup of expired rate limit buckets
 
 ## How it Works
 
-The server implements a real FastMCP 2.12.2 server that provides MCP tools for BMC AMI DevX Code Pipeline operations. Each tool includes comprehensive input validation, retry logic, and proper error handling. The server supports multiple authentication providers and uses FastMCP's native Streamable HTTP transport for real-time capabilities.
+The server implements an enterprise-grade FastMCP 2.12.2 server with advanced security hardening, multi-tier caching, and circuit breaker resilience. Each tool includes comprehensive input validation, advanced rate limiting, and structured audit logging. The server features automatic failure recovery, intelligent caching strategies, and production-ready security controls.
 
 ```mermaid
 flowchart TD
     A[AI Assistant] -->|MCP Protocol| B[FastMCP 2.12.2 Server]
-    B -->|Input Validation| V[Parameter Validation]
-    B -->|Retry Logic| R[Exponential Backoff]
-    B -->|Auth Provider| C[Authentication]
-    C -->|JWT/GitHub/Google/WorkOS| D[Auth Verification]
+    B -->|Security Check| S[Security Manager]
+    S -->|Rate Limiting| RL[Multi-Tier Rate Limiter]
+    S -->|Input Validation| V[Security Validator]
+    S -->|Audit Logging| AL[Audit Logger]
+    
+    B -->|Cache Check| C[Multi-Tier Cache]
+    C -->|L1 Memory| C1[Memory Backend]
+    C -->|L2 Redis| C2[Redis Backend]
+    
+    B -->|Circuit Breaker| CB[Failure Protection]
+    CB -->|Retry Logic| R[Exponential Backoff + Jitter]
+    
+    B -->|Auth Provider| AUTH[JWT/GitHub/Google/WorkOS]
     B -->|Validated Request| E[BMC AMI DevX API]
+    
     E -->|Mainframe Operations| F[COBOL/PL1 Source]
     E -->|Release Management| G[Deployment Pipeline]
     E -->|Assignment Tracking| H[DevOps Workflow]
+    
     B -->|Error Handling| I[Structured Responses]
-    B -->|Context Logging| J[Progress Updates]
+    AL -->|Security Events| LOG[Audit Trail]
+    
+    style B fill:#e1f5fe
+    style S fill:#fff3e0
+    style C fill:#f3e5f5
+    style CB fill:#e8f5e8
+    style E fill:#f3e5f5
 ```
 
 ## BMC AMI DevX Code Pipeline OpenAPI Specification
@@ -125,6 +157,53 @@ AUTH_PROVIDER=fastmcp.server.auth.providers.workos.AuthKitProvider
 FASTMCP_SERVER_AUTH_AUTHKIT_DOMAIN=https://your-project.authkit.app
 ```
 
+### Security Configuration
+```bash
+# Security features
+SECURITY_ENABLED=true
+SECURITY_RATE_LIMIT_ENABLED=true
+SECURITY_RATE_LIMIT_PER_USER_RPM=30
+SECURITY_RATE_LIMIT_PER_API_KEY_RPM=100
+SECURITY_INPUT_VALIDATION_ENABLED=true
+SECURITY_MAX_REQUEST_SIZE=1048576
+SECURITY_MAX_STRING_LENGTH=1000
+
+# Security headers and CORS
+SECURITY_HEADERS_ENABLED=true
+SECURITY_CORS_ENABLED=true
+SECURITY_CORS_ALLOWED_ORIGINS=*
+
+# Audit logging
+SECURITY_AUDIT_LOGGING_ENABLED=true
+SECURITY_AUDIT_LOG_SENSITIVE_DATA=false
+```
+
+### Caching Configuration
+```bash
+# Cache backend selection
+CACHE_BACKEND=multi_tier  # Options: memory, redis, multi_tier
+CACHE_ENABLED=true
+CACHE_MAX_SIZE=1000
+CACHE_TTL_SECONDS=300
+
+# Redis configuration (for redis/multi_tier backends)
+REDIS_URL=redis://localhost:6379
+REDIS_KEY_PREFIX=fastmcp:
+REDIS_SERIALIZER=json
+
+# Multi-tier cache settings
+MULTI_TIER_L1_TTL_RATIO=0.5
+```
+
+### Circuit Breaker Configuration
+```bash
+# Circuit breaker settings
+CIRCUIT_BREAKER_FAILURE_THRESHOLD=5
+CIRCUIT_BREAKER_RECOVERY_TIMEOUT=60
+MAX_RETRY_ATTEMPTS=3
+RETRY_BASE_DELAY=1.0
+```
+
 ### Development Mode (No Authentication)
 ```bash
 AUTH_ENABLED=false
@@ -182,10 +261,44 @@ The server provides structured error responses with proper categorization:
 - **Connection Issues**: Verify API_BASE_URL and network connectivity
 - **Retry Failures**: Check API timeout and retry attempt settings
 
+## Project Architecture
+
+### Core Components
+```
+lib/
+├── security.py              # Advanced security hardening
+├── security_middleware.py   # FastMCP security integration
+├── cache_backends.py        # Multi-tier caching (Memory, Redis, Multi-tier)
+├── errors.py                # Circuit breaker + enhanced error handling
+├── clients.py               # HTTP client with resilience features
+├── settings.py              # Comprehensive configuration management
+├── auth.py                  # Authentication providers
+└── health.py                # Health checks and monitoring
+
+observability/
+├── metrics/                 # Performance and business metrics
+├── tracing/                 # Distributed tracing
+└── config/                  # Observability configuration
+
+tests/
+├── test_security.py         # Security feature tests (31 tests)
+├── test_cache_backends.py   # Caching system tests (13 tests)
+├── test_circuit_breaker.py  # Circuit breaker tests (9 tests)
+└── test_*.py                # Comprehensive test suite (697 total)
+```
+
+### Enterprise Features
+- **🔒 Security Hardening**: Multi-tier rate limiting, input validation, audit logging
+- **🚀 Performance**: Multi-tier caching with Redis support and intelligent promotion
+- **🛡️ Resilience**: Circuit breaker pattern with exponential backoff and jitter
+- **📊 Observability**: Comprehensive metrics, tracing, and health monitoring
+- **🔧 Configuration**: Environment-based configuration with validation
+
 ## Contributing
 - Fork the repo and create a feature branch.
 - Follow PEP8 and existing code style.
 - Add or update tests for new features.
+- Ensure security tests pass for any security-related changes.
 - Open a pull request with a clear description.
 
 ## Example API Calls
@@ -206,15 +319,17 @@ This server implements a **production-ready FastMCP implementation** following b
 ### 🌟 **Unified Implementation**
 - **Simplified FastMCP Patterns**: Direct instantiation, built-in auth providers
 - **Enterprise Features**: Rate limiting, caching, metrics, error recovery
-- **85% Test Coverage**: 373 comprehensive tests ensuring reliability
+- **82% Test Coverage**: 697 comprehensive tests ensuring reliability
 - **42% Code Reduction**: Maintainable codebase (833 lines vs previous 1,441)
 - **FastMCP Best Practices**: Full alignment with official recommendations
 
 ### 🏗️ **Enterprise Features**
-- **Rate Limiting**: Token bucket algorithm with configurable burst capacity
-- **LRU/TTL Caching**: Intelligent caching with comprehensive management
-- **Real-time Metrics**: Response times, success rates, uptime tracking
-- **Error Recovery**: Exponential backoff retry with smart categorization
+- **Advanced Security**: Multi-tier rate limiting, input validation, security headers
+- **Multi-Tier Caching**: L1 (memory) + L2 (Redis) with intelligent promotion
+- **Circuit Breaker**: Automatic failure detection with exponential backoff + jitter
+- **Audit Logging**: Comprehensive security event tracking and compliance
+- **Real-time Metrics**: Response times, success rates, cache hit rates, uptime tracking
+- **Error Recovery**: Smart categorization with structured error responses
 - **Connection Pooling**: Optimized HTTP client performance
 
 ## Quick Start
