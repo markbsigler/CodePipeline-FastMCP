@@ -286,7 +286,7 @@ The server will start on `http://localhost:8080` with the following endpoints:
 - **Health Check**: `http://localhost:8080/health`
 - **Available Tools**: Auto-generated from BMC AMI DevX Code Pipeline OpenAPI spec
 
-> **⚠️ DEPRECATION NOTICE**: `main.py` is deprecated and will be removed in a future version. Please use `openapi_server.py` as the primary server. All components have been moved to the `lib/` package for better organization. See the [Migration Guide](docs/main-py-migration-guide.md) for complete migration instructions.
+> **✅ ARCHITECTURE UPDATE**: The server now uses `openapi_server.py` as the primary entry point with all components organized in the `lib/` package for better maintainability and performance.
 
 ### Docker Deployment
 
@@ -325,7 +325,7 @@ curl http://localhost:8080/health
 curl -X POST http://localhost:8080/mcp/capabilities
 
 # Run specific test categories
-pytest tests/test_main.py -v                          # Main functionality tests
+pytest tests/test_openapi_server.py -v                # OpenAPI server tests
 pytest tests/test_fastmcp_server.py -v                # Integration tests
 pytest tests/test_openapi_server.py -v                # OpenAPI server tests
 ```
@@ -467,10 +467,10 @@ For production deployment with BMC AMI DevX Code Pipeline:
 
 ```bash
 # Enable debug logging
-LOG_LEVEL=DEBUG python main.py
+LOG_LEVEL=DEBUG python openapi_server.py
 
 # Disable authentication for testing
-AUTH_ENABLED=false python main.py
+AUTH_ENABLED=false python openapi_server.py
 
 # Run tests to verify functionality
 pytest test_simple.py -v
@@ -500,7 +500,7 @@ This version represents a complete transformation from a mock implementation to 
 
 #### 📁 **New Files**
 - `config/.env.example` - Comprehensive configuration examples
-- `tests/test_main.py` - Consolidated main functionality tests (373 tests, all passing)
+- `tests/test_openapi_server.py` - OpenAPI server comprehensive tests
 - `tests/test_fastmcp_server.py` - Integration test suite
 - `tests/test_openapi_server.py` - OpenAPI server test suite
 

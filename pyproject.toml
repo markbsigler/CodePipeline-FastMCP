@@ -51,7 +51,7 @@ test = [
 ]
 
 [project.scripts]
-fastmcp-server = "main:main"
+fastmcp-server = "openapi_server:main"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

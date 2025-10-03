@@ -1272,7 +1272,8 @@ def analyze_assignment_status(assignment_data: dict) -> str:
     """
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the FastMCP server."""
     # Follow FastMCP standard server running pattern
     mcp.run(
         transport="http",
@@ -1280,3 +1281,7 @@ if __name__ == "__main__":
         port=int(os.getenv("PORT", "8080")),
         # FastMCP automatically uses FASTMCP_LOG_LEVEL environment variable
     )
+
+
+if __name__ == "__main__":
+    main()

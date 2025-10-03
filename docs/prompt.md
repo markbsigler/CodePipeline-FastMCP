@@ -98,7 +98,6 @@ def main():
 ```text
 /
 ├── openapi_server.py          # **Main FastMCP server implementation** (primary entry point)
-├── main.py                    # Legacy server implementation (for reference/components)
 ├── entrypoint.py              # Unified container entry point
 ├── fastmcp_config.py          # Global configuration management with feature toggles
 ├── lib/                       # **Component library with reusable modules**
@@ -132,7 +131,6 @@ def main():
 │   │   └── fastmcp-overview.json
 │   └── README.md              # Observability documentation
 ├── tests/                     # **Comprehensive test suite (20 files, 666 tests)**
-│   ├── test_main.py                    # **Consolidated main functionality tests**
 │   ├── test_openapi_server.py         # **OpenAPI server comprehensive tests**
 │   ├── test_fastmcp_server.py         # Integration test suite
 │   ├── test_entrypoint.py              # Entrypoint script tests
@@ -163,7 +161,6 @@ def main():
 │   ├── elicitation-implementation-summary.md # Elicitation features guide
 │   ├── otel-implementation-summary.md # OpenTelemetry implementation guide
 │   ├── otel-observability-setup.md # Observability setup documentation
-│   ├── main-py-migration-guide.md # Migration guide from main.py
 │   ├── architecture.md        # System architecture documentation
 │   ├── architecture-diagrams.md # Architecture diagrams and visuals
 │   ├── api-documentation.md   # API documentation
@@ -315,7 +312,6 @@ FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER=false
 - **Comprehensive Coverage**: 79% overall test coverage across all features (production-ready level)
 - **100% Test Pass Rate**: 666 passing tests, 0 skipped (enterprise-grade reliability)
 - **Comprehensive Test Suites**: 20+ test files covering all functionality
- - `test_main.py` - **Consolidated main functionality tests (comprehensive coverage)**
  - `test_openapi_server.py` - **OpenAPI server comprehensive tests**
  - `test_fastmcp_server.py` - Integration test suite
  - `test_lib_*.py` - **Library component tests (7 files)**
@@ -503,7 +499,7 @@ mkdir fastmcp-code-pipeline-server
 cd fastmcp-code-pipeline-server
 
 # Initialize Python project
-touch main.py test_mcp_server.py
+touch openapi_server.py test_mcp_server.py
 mkdir config
 touch config/openapi.json
 ```
