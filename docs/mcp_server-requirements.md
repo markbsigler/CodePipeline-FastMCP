@@ -1,24 +1,12 @@
 # BMC AMI DevX Code Pipeline FastMCP Server - Requirements Specification
-## Enhanced with EARS (Easy Approach to Requirements Syntax)
 
 ## 📋 **Document Overview**
 
 **Project**: BMC AMI DevX Code Pipeline FastMCP Server
 **Version**: 2.3.1
 **Framework**: FastMCP 2.12.2+
-**Requirements Syntax**: EARS (Easy Approach to Requirements Syntax)
 **Last Updated**: January 2025
-**Status**: Production-Ready Implementation with EARS Enhancement
-
-### **EARS Syntax Reference**
-
-This document uses EARS (Easy Approach to Requirements Syntax) to ensure precise, testable, and unambiguous requirements:
-
-- **[Ubiquitous]**: The system shall [requirement] - Always true capabilities
-- **[Event-driven]**: WHEN [trigger] the system shall [requirement] - Response to events
-- **[Unwanted behavior]**: IF [condition] THEN the system shall [requirement] - Error handling
-- **[State-driven]**: WHILE [state] the system shall [requirement] - Conditional behavior
-- **[Optional]**: WHERE [feature] the system shall [requirement] - Feature-dependent behavior
+**Status**: Production-Ready Implementation
 
 ---
 
@@ -28,7 +16,7 @@ This document defines comprehensive requirements for a production-ready Model Co
 
 ### **Key Objectives**
 - Provide seamless mainframe DevOps integration via MCP protocol
-- Achieve 85%+ test coverage with 373+ passing tests
+- Achieve 85%+ test coverage with 352+ passing tests
 - Support multiple authentication providers (JWT, GitHub, Google, WorkOS)
 - Deliver sub-second response times with 99.9% uptime
 - Enable comprehensive BMC ISPW API operations
@@ -43,35 +31,21 @@ This document defines comprehensive requirements for a production-ready Model Co
 **I want** a production-ready FastMCP server implementation
 **So that** we can provide reliable MCP protocol compliance
 
-#### **EARS Requirements**
+#### **Requirements**
+- FastMCP 2.12.2+ framework implementation
+- HTTP/REST transport with MCP-compliant endpoints
+- Native FastMCP patterns (no mock implementations)
+- Streamable HTTP transport support
+- Context management for logging and progress reporting
+- Environment-based configuration with `FASTMCP_` prefix
 
-**REQ-1.1.1** [Ubiquitous]: The FastMCP server shall bind to port 8080 within 5 seconds of startup initiation.
-
-**REQ-1.1.2** [Ubiquitous]: The system shall expose MCP protocol endpoints at `/mcp/capabilities`, `/mcp/tools/list`, and `/mcp/tools/call`.
-
-**REQ-1.1.3** [Event-driven]: WHEN a GET request is received at `/mcp/capabilities`, the system shall respond within 100ms with HTTP status code 200 and a JSON object containing "tools" and "prompts" properties.
-
-**REQ-1.1.4** [Event-driven]: WHEN a POST request is received at `/mcp/tools/list`, the system shall respond within 200ms with HTTP status code 200 and a JSON array of available tools.
-
-**REQ-1.1.5** [Event-driven]: WHEN a POST request is received at `/mcp/tools/call` with valid JSON payload, the system shall respond within 500ms with HTTP status code 200 and tool execution result.
-
-**REQ-1.1.6** [Event-driven]: WHEN the server receives a SIGTERM signal, the system shall complete all active requests within 30 seconds and then terminate gracefully with exit code 0.
-
-**REQ-1.1.7** [Event-driven]: WHEN the server receives a SIGINT signal, the system shall log "Shutdown initiated" and terminate gracefully within 5 seconds.
-
-**REQ-1.1.8** [State-driven]: WHILE the server is in startup state, the system shall reject all incoming HTTP requests with HTTP status code 503 and response body "Server starting".
-
-**REQ-1.1.9** [Unwanted behavior]: IF port 8080 is already in use, THEN the system shall log error "Port 8080 unavailable" and terminate with exit code 1.
-
-**REQ-1.1.10** [Unwanted behavior]: IF a request is received at `/mcp/tools/call` with invalid JSON payload, THEN the system shall respond within 100ms with HTTP status code 400 and error message "Invalid JSON payload".
-
-**REQ-1.1.11** [Unwanted behavior]: IF a request is received at an undefined MCP endpoint, THEN the system shall respond with HTTP status code 404 and error message "MCP endpoint not found".
-
-**REQ-1.1.12** [Optional]: WHERE WebSocket transport is enabled via WEBSOCKET_ENABLED=true, the system shall accept WebSocket connections on the same port as HTTP transport.
-
-**REQ-1.1.13** [Event-driven]: WHEN any MCP tool is executed, the system shall use the provided Context object to log execution start, progress, and completion within 10ms of each event.
-
-**REQ-1.1.14** [Event-driven]: WHEN server starts, the system shall load all environment variables with prefix `FASTMCP_` within 1 second and make them available to the configuration system.
+#### **Acceptance Criteria**
+- [ ] FastMCP server starts successfully on port 8080
+- [ ] MCP protocol endpoints respond correctly (`/mcp/capabilities`, `/mcp/tools/list`, `/mcp/tools/call`)
+- [ ] Server supports both HTTP and WebSocket transports
+- [ ] Context logging works for all tool executions
+- [ ] Configuration loads from environment variables
+- [ ] Server gracefully handles shutdown signals
 
 #### **Testing Quality Gates**
 ```python
@@ -126,35 +100,21 @@ async def test_context_logging():
 **I want** automatic tool generation from OpenAPI specifications
 **So that** BMC ISPW API operations are always in sync
 
-#### **EARS Requirements**
+#### **Requirements**
+- OpenAPI 3.x specification parsing
+- Automatic MCP tool generation from OpenAPI operations
+- Support for BMC ISPW OpenAPI specification
+- Tool parameter validation based on OpenAPI schema
+- Response formatting according to OpenAPI definitions
+- Tag-based tool filtering (`include_tags`, `exclude_tags`)
 
-**REQ-1.2.1** [Event-driven]: WHEN the server starts, the system shall load the OpenAPI specification from `config/ispw_openapi_spec.json` within 2 seconds.
-
-**REQ-1.2.2** [Event-driven]: WHEN the OpenAPI specification is loaded, the system shall validate that it contains OpenAPI version 3.x and at least 15 operation definitions within 1 second.
-
-**REQ-1.2.3** [Event-driven]: WHEN processing OpenAPI operations, the system shall generate exactly one MCP tool per OpenAPI operation with name prefix "ispw_" within 5 seconds.
-
-**REQ-1.2.4** [Event-driven]: WHEN an OpenAPI-generated tool is called with parameters, the system shall validate each parameter against the corresponding OpenAPI schema definition within 50ms.
-
-**REQ-1.2.5** [Event-driven]: WHEN tool parameter validation succeeds, the system shall format the response according to the OpenAPI response schema within 100ms.
-
-**REQ-1.2.6** [Optional]: WHERE `include_tags` configuration is provided, the system shall generate tools only for OpenAPI operations matching the specified tags.
-
-**REQ-1.2.7** [Optional]: WHERE `exclude_tags` configuration is provided, the system shall skip tool generation for OpenAPI operations matching the specified tags.
-
-**REQ-1.2.8** [Event-driven]: WHEN tool documentation is requested, the system shall auto-generate descriptions from OpenAPI operation summaries and parameter descriptions within 200ms.
-
-**REQ-1.2.9** [Unwanted behavior]: IF the OpenAPI specification file is missing, THEN the system shall log error "OpenAPI specification not found at config/ispw_openapi_spec.json" and terminate with exit code 2.
-
-**REQ-1.2.10** [Unwanted behavior]: IF the OpenAPI specification contains invalid JSON, THEN the system shall log the JSON parsing error details and terminate with exit code 3.
-
-**REQ-1.2.11** [Unwanted behavior]: IF the OpenAPI specification version is not 3.x, THEN the system shall log error "Unsupported OpenAPI version: [version]" and terminate with exit code 4.
-
-**REQ-1.2.12** [Unwanted behavior]: IF a required parameter is missing from a tool call, THEN the system shall respond with HTTP status code 400 and error message "Missing required parameter: [parameter_name]".
-
-**REQ-1.2.13** [Unwanted behavior]: IF a parameter value violates OpenAPI schema constraints, THEN the system shall respond with HTTP status code 400 and error message "Parameter [parameter_name] violates schema: [constraint_description]".
-
-**REQ-1.2.14** [State-driven]: WHILE generating tools from OpenAPI operations, the system shall maintain a mapping between tool names and OpenAPI operation IDs for traceability.
+#### **Acceptance Criteria**
+- [ ] OpenAPI specification loads successfully from `config/ispw_openapi_spec.json`
+- [ ] 15+ tools generated automatically from OpenAPI operations
+- [ ] Tool parameters validated against OpenAPI schema
+- [ ] Tools organized by OpenAPI tags
+- [ ] Error responses follow OpenAPI error schema
+- [ ] Tool documentation auto-generated from OpenAPI descriptions
 
 #### **Testing Quality Gates**
 ```python
@@ -224,39 +184,23 @@ def test_openapi_parameter_validation():
 **I want** multiple authentication options
 **So that** users can authenticate using their preferred method
 
-#### **EARS Requirements**
+#### **Requirements**
+- JWT token verification with JWKS support
+- GitHub OAuth integration
+- Google OAuth integration
+- WorkOS AuthKit with Dynamic Client Registration
+- Environment-based authentication configuration
+- Optional authentication (development mode)
+- Secure token handling and validation
 
-**REQ-2.1.1** [Optional]: WHERE JWT authentication is enabled via AUTH_PROVIDER=jwt, the system shall validate JWT tokens using the JWKS endpoint specified in AUTH_JWKS_URI within 200ms.
-
-**REQ-2.1.2** [Event-driven]: WHEN a request contains an Authorization header with "Bearer [token]", the system shall validate the JWT token signature, issuer, audience, and expiration within 200ms.
-
-**REQ-2.1.3** [Optional]: WHERE GitHub OAuth is enabled via AUTH_PROVIDER=github, the system shall validate GitHub OAuth tokens using the GitHub API within 300ms.
-
-**REQ-2.1.4** [Optional]: WHERE Google OAuth is enabled via AUTH_PROVIDER=google, the system shall validate Google OAuth tokens using Google's token validation endpoint within 300ms.
-
-**REQ-2.1.5** [Optional]: WHERE WorkOS AuthKit is enabled via AUTH_PROVIDER=workos, the system shall validate WorkOS tokens using Dynamic Client Registration within 400ms.
-
-**REQ-2.1.6** [Optional]: WHERE AUTH_ENABLED environment variable is set to "false", the system shall accept all requests without authentication validation.
-
-**REQ-2.1.7** [State-driven]: WHILE authentication is disabled, the system shall log a warning message "Authentication disabled - development mode only" every 60 seconds.
-
-**REQ-2.1.8** [State-driven]: WHILE authentication is enabled, the system shall reject all tool execution requests that lack valid authentication with HTTP status code 401.
-
-**REQ-2.1.9** [Event-driven]: WHEN authentication validation succeeds, the system shall extract user identity information and make it available to the tool execution context within 50ms.
-
-**REQ-2.1.10** [Unwanted behavior]: IF JWT token validation fails due to invalid signature, THEN the system shall respond with HTTP status code 401 and error message "Invalid token signature".
-
-**REQ-2.1.11** [Unwanted behavior]: IF JWT token is expired, THEN the system shall respond with HTTP status code 401 and error message "Token expired at [expiration_timestamp]".
-
-**REQ-2.1.12** [Unwanted behavior]: IF JWT token has invalid issuer, THEN the system shall respond with HTTP status code 401 and error message "Invalid token issuer: [issuer]".
-
-**REQ-2.1.13** [Unwanted behavior]: IF JWT token has invalid audience, THEN the system shall respond with HTTP status code 401 and error message "Invalid token audience: [audience]".
-
-**REQ-2.1.14** [Unwanted behavior]: IF Authorization header is malformed, THEN the system shall respond with HTTP status code 401 and error message "Malformed Authorization header".
-
-**REQ-2.1.15** [Unwanted behavior]: IF JWKS endpoint is unreachable, THEN the system shall log error "JWKS endpoint unreachable: [endpoint]" and reject authentication with HTTP status code 503.
-
-**REQ-2.1.16** [Event-driven]: WHEN authentication provider configuration is invalid, the system shall log detailed error message and terminate with exit code 5 during startup.
+#### **Acceptance Criteria**
+- [ ] JWT authentication works with JWKS endpoint
+- [ ] GitHub OAuth flow completes successfully
+- [ ] Google OAuth integration functional
+- [ ] WorkOS AuthKit provider configured
+- [ ] Authentication can be disabled for development
+- [ ] Invalid tokens are rejected with proper error messages
+- [ ] Token expiration is handled gracefully
 
 #### **Testing Quality Gates**
 ```python
@@ -345,39 +289,23 @@ async def test_unauthenticated_request_rejected():
 **I want** to manage assignments through MCP
 **So that** I can integrate DevOps workflows with AI assistants
 
-#### **EARS Requirements**
+#### **Requirements**
+- Create new assignments with validation
+- List assignments with filtering capabilities
+- Get detailed assignment information
+- Update assignment status and metadata
+- Handle assignment tasks and subtasks
+- Support assignment lifecycle management
+- Comprehensive input validation for all parameters
 
-**REQ-3.1.1** [Event-driven]: WHEN the ispw_Create_assignment tool is called with valid parameters, the system shall create a new assignment in BMC ISPW within 2 seconds and return assignment details.
-
-**REQ-3.1.2** [Event-driven]: WHEN assignment creation succeeds, the system shall return a JSON response containing "assignment_id", "status": "created", "timestamp", and "level" properties within 100ms.
-
-**REQ-3.1.3** [Event-driven]: WHEN the ispw_Get_assignments tool is called with srid parameter, the system shall return all assignments for that SRID within 1 second.
-
-**REQ-3.1.4** [Optional]: WHERE level parameter is provided to ispw_Get_assignments, the system shall filter assignments to include only those matching the specified level.
-
-**REQ-3.1.5** [Event-driven]: WHEN assignment listing succeeds, the system shall return a JSON response with "assignments" array containing objects with "assignment_id", "level", "status", and "created_date" properties.
-
-**REQ-3.1.6** [Event-driven]: WHEN the ispw_Get_assignment_details tool is called, the system shall return complete assignment information including tasks, status history, and metadata within 1 second.
-
-**REQ-3.1.7** [Event-driven]: WHEN the ispw_Get_assignment_tasks tool is called, the system shall return all tasks associated with the assignment within 800ms.
-
-**REQ-3.1.8** [State-driven]: WHILE processing assignment requests, the system shall cache assignment data for 300 seconds to improve performance.
-
-**REQ-3.1.9** [Event-driven]: WHEN SRID parameter is validated, the system shall ensure it contains only alphanumeric characters and is between 1-8 characters long within 10ms.
-
-**REQ-3.1.10** [Event-driven]: WHEN assignment_id parameter is validated, the system shall ensure it contains only alphanumeric characters, hyphens, and underscores and is between 1-20 characters long within 10ms.
-
-**REQ-3.1.11** [Event-driven]: WHEN level parameter is validated, the system shall ensure it is one of: "DEV", "TEST", "STAGE", "PROD" (case-insensitive) within 5ms.
-
-**REQ-3.1.12** [Unwanted behavior]: IF SRID parameter contains non-alphanumeric characters, THEN the system shall respond with HTTP status code 400 and error message "SRID must contain only alphanumeric characters".
-
-**REQ-3.1.13** [Unwanted behavior]: IF assignment_id parameter exceeds 20 characters, THEN the system shall respond with HTTP status code 400 and error message "Assignment ID must not exceed 20 characters".
-
-**REQ-3.1.14** [Unwanted behavior]: IF level parameter is not a valid level, THEN the system shall respond with HTTP status code 400 and error message "Level must be one of: DEV, TEST, STAGE, PROD".
-
-**REQ-3.1.15** [Unwanted behavior]: IF BMC ISPW API returns HTTP status code 409 for assignment creation, THEN the system shall respond with HTTP status code 409 and error message "Assignment already exists: [assignment_id]".
-
-**REQ-3.1.16** [Unwanted behavior]: IF BMC ISPW API returns HTTP status code 404 for assignment retrieval, THEN the system shall respond with HTTP status code 404 and error message "Assignment not found: [assignment_id]".
+#### **Acceptance Criteria**
+- [ ] `ispw_Create_assignment` tool creates assignments successfully
+- [ ] `ispw_Get_assignments` tool lists assignments with filters
+- [ ] `ispw_Get_assignment_details` tool returns complete assignment info
+- [ ] `ispw_Get_assignment_tasks` tool lists assignment tasks
+- [ ] All SRID, assignment ID, and level parameters validated
+- [ ] Error handling for invalid assignments
+- [ ] Assignment status tracking works correctly
 
 #### **Testing Quality Gates**
 ```python
@@ -585,35 +513,21 @@ async def test_release_lifecycle():
 **I want** interactive workflows with prompts
 **So that** I can provide input for complex operations
 
-#### **EARS Requirements**
+#### **Requirements**
+- Interactive multi-step workflows using `ctx.elicit()`
+- Support for AcceptedElicitation, DeclinedElicitation, CancelledElicitation
+- User input collection and validation
+- Confirmation dialogs for critical operations
+- Progressive disclosure of information
+- Graceful handling of user cancellation
 
-**REQ-4.1.1** [Event-driven]: WHEN an interactive tool is called, the system shall use ctx.elicit() to prompt the user for required input within 100ms.
-
-**REQ-4.1.2** [Event-driven]: WHEN user provides AcceptedElicitation response, the system shall validate the input data and proceed to the next step within 200ms.
-
-**REQ-4.1.3** [Event-driven]: WHEN user provides DeclinedElicitation response, the system shall terminate the workflow and return message "Operation cancelled by user" within 50ms.
-
-**REQ-4.1.4** [Event-driven]: WHEN user provides CancelledElicitation response, the system shall immediately terminate the workflow and return message "Operation cancelled by user request" within 50ms.
-
-**REQ-4.1.5** [State-driven]: WHILE elicitation is active, the system shall maintain workflow context including previous responses, current step number, and elapsed time.
-
-**REQ-4.1.6** [Event-driven]: WHEN create_assignment_interactive tool is called, the system shall elicit assignment name, description, and level in sequential steps within 500ms per step.
-
-**REQ-4.1.7** [Event-driven]: WHEN deploy_release_interactive tool is called, the system shall elicit release ID, target environment, and user confirmation with prompt "Deploy release [release_id] to [environment]? Type 'yes' to confirm."
-
-**REQ-4.1.8** [Event-driven]: WHEN troubleshoot_assignment_interactive tool is called, the system shall guide users through diagnostic steps with progressive disclosure of information.
-
-**REQ-4.1.9** [Event-driven]: WHEN elicitation input validation succeeds, the system shall store the validated data and continue to the next workflow step within 100ms.
-
-**REQ-4.1.10** [Event-driven]: WHEN multi-step workflow completes successfully, the system shall return summary of all collected inputs and final operation result within 200ms.
-
-**REQ-4.1.11** [Unwanted behavior]: IF user confirmation response is not exactly "yes" (case-sensitive), THEN the system shall cancel deployment and return message "Deployment cancelled - confirmation required".
-
-**REQ-4.1.12** [Unwanted behavior]: IF elicitation input validation fails, THEN the system shall re-prompt the user with error message "Invalid input: [validation_error]. Please try again."
-
-**REQ-4.1.13** [Unwanted behavior]: IF elicitation workflow exceeds 5 minutes without completion, THEN the system shall timeout and return message "Workflow timed out - please restart operation".
-
-**REQ-4.1.14** [State-driven]: WHILE processing elicitation responses, the system shall maintain audit trail of all user interactions for compliance and debugging purposes.
+#### **Acceptance Criteria**
+- [ ] `create_assignment_interactive` tool prompts for user input
+- [ ] `deploy_release_interactive` tool includes safety confirmations
+- [ ] `troubleshoot_assignment_interactive` tool guides users through steps
+- [ ] User can decline or cancel elicitation at any point
+- [ ] Elicitation responses are properly typed and validated
+- [ ] Interactive workflows maintain context across steps
 
 #### **Testing Quality Gates**
 ```python
@@ -691,33 +605,23 @@ async def test_deployment_confirmation():
 **I want** monitoring and health check endpoints
 **So that** I can monitor server health and performance
 
-#### **EARS Requirements**
+#### **Requirements**
+- Health check endpoint (`/health`)
+- Readiness probe endpoint (`/ready`)
+- Metrics endpoint (`/metrics`)
+- Status endpoint (`/status`)
+- CORS support for web integration
+- Structured JSON responses
+- Performance metrics collection
 
-**REQ-4.2.1** [Ubiquitous]: The system shall expose health check endpoint at `/health` that returns server health status in JSON format.
-
-**REQ-4.2.2** [Ubiquitous]: The system shall expose readiness probe endpoint at `/ready` that indicates server readiness for traffic.
-
-**REQ-4.2.3** [Ubiquitous]: The system shall expose metrics endpoint at `/metrics` that provides performance and operational data.
-
-**REQ-4.2.4** [Ubiquitous]: The system shall expose status endpoint at `/status` that shows detailed server information including version, uptime, and configuration.
-
-**REQ-4.2.5** [Event-driven]: WHEN a GET request is received at `/health`, the system shall respond within 100ms with HTTP status code 200 and JSON containing "status", "timestamp", and "uptime" properties.
-
-**REQ-4.2.6** [Event-driven]: WHEN a GET request is received at `/ready`, the system shall respond within 50ms with HTTP status code 200 if ready for traffic, or 503 if not ready.
-
-**REQ-4.2.7** [Event-driven]: WHEN a GET request is received at `/metrics`, the system shall respond within 100ms with JSON containing "response_times", "success_rate", "total_requests", and "uptime_seconds" properties.
-
-**REQ-4.2.8** [Event-driven]: WHEN a GET request is received at `/status`, the system shall respond within 100ms with detailed server information including version, configuration, and runtime statistics.
-
-**REQ-4.2.9** [Event-driven]: WHEN an OPTIONS request is received at any endpoint, the system shall respond with appropriate CORS headers including "Access-Control-Allow-Origin", "Access-Control-Allow-Methods", and "Access-Control-Allow-Headers".
-
-**REQ-4.2.10** [Event-driven]: WHEN any monitoring endpoint is accessed, the system shall include CORS headers in the response to support web client integration.
-
-**REQ-4.2.11** [State-driven]: WHILE server is operational, the system shall continuously collect performance metrics including response times, success rates, and resource usage with 1-second granularity.
-
-**REQ-4.2.12** [Unwanted behavior]: IF health check detects critical system issues, THEN the `/health` endpoint shall respond with HTTP status code 503 and status "unhealthy" with error details.
-
-**REQ-4.2.13** [Unwanted behavior]: IF server is not ready for traffic during startup or shutdown, THEN the `/ready` endpoint shall respond with HTTP status code 503 and message "Server not ready".
+#### **Acceptance Criteria**
+- [ ] `/health` endpoint returns server health status
+- [ ] `/ready` endpoint indicates readiness for traffic
+- [ ] `/metrics` endpoint provides performance data
+- [ ] `/status` endpoint shows detailed server information
+- [ ] CORS headers are included for web clients
+- [ ] All endpoints respond within 100ms
+- [ ] Metrics include response times, success rates, uptime
 
 #### **Testing Quality Gates**
 ```python
@@ -784,33 +688,23 @@ def test_endpoint_response_times():
 **I want** intelligent caching
 **So that** frequently accessed data is served quickly
 
-#### **EARS Requirements**
+#### **Requirements**
+- LRU (Least Recently Used) cache implementation
+- TTL (Time To Live) expiration support
+- Configurable cache size and TTL values
+- Cache hit/miss metrics
+- Cache warming for critical data
+- Cache invalidation strategies
+- Memory-efficient cache storage
 
-**REQ-5.1.1** [Ubiquitous]: The system shall implement an LRU cache with configurable maximum size and TTL values specified via CACHE_MAX_SIZE and CACHE_TTL_SECONDS environment variables.
-
-**REQ-5.1.2** [Event-driven]: WHEN cache size reaches the configured maximum, the system shall evict the least recently used entry within 10ms.
-
-**REQ-5.1.3** [Event-driven]: WHEN a cached entry exceeds its TTL, the system shall automatically remove it from cache during the next access attempt within 5ms.
-
-**REQ-5.1.4** [Event-driven]: WHEN data is stored in cache, the system shall record the timestamp and update access order within 5ms.
-
-**REQ-5.1.5** [Event-driven]: WHEN data is retrieved from cache, the system shall update the access order to mark it as most recently used within 5ms.
-
-**REQ-5.1.6** [Event-driven]: WHEN the get_cache_stats tool is called, the system shall return JSON containing "hit_rate", "total_requests", "cache_size", "max_size", and "memory_usage" properties within 50ms.
-
-**REQ-5.1.7** [Event-driven]: WHEN the clear_cache tool is called, the system shall remove all cached entries and reset cache statistics within 100ms.
-
-**REQ-5.1.8** [State-driven]: WHILE cache hit rate is below 70% over a 5-minute window, the system shall log a warning message "Cache hit rate below threshold: [current_rate]%".
-
-**REQ-5.1.9** [State-driven]: WHILE processing cache operations, the system shall maintain thread-safe access using appropriate locking mechanisms.
-
-**REQ-5.1.10** [Event-driven]: WHEN cache memory usage exceeds 90% of allocated limit, the system shall log warning "Cache memory usage high: [usage]MB" and trigger aggressive cleanup.
-
-**REQ-5.1.11** [Optional]: WHERE cache warming is enabled, the system shall pre-populate cache with frequently accessed assignment and release data during startup.
-
-**REQ-5.1.12** [Unwanted behavior]: IF cache operations fail due to memory constraints, THEN the system shall log error "Cache operation failed: insufficient memory" and continue without caching.
-
-**REQ-5.1.13** [Unwanted behavior]: IF cache key generation fails, THEN the system shall log warning "Cache key generation failed for [operation]" and proceed without caching.
+#### **Acceptance Criteria**
+- [ ] Cache stores frequently accessed assignment/release data
+- [ ] Cache respects TTL expiration times
+- [ ] Cache evicts least recently used items when full
+- [ ] Cache hit rate is ≥ 70% for repeated requests
+- [ ] Cache can be cleared manually via tool
+- [ ] Cache metrics are available via monitoring endpoints
+- [ ] Cache memory usage is bounded and predictable
 
 #### **Testing Quality Gates**
 ```python
@@ -914,31 +808,23 @@ def test_cache_performance():
 **I want** rate limiting protection
 **So that** the server is protected from abuse
 
-#### **EARS Requirements**
+#### **Requirements**
+- Token bucket algorithm implementation
+- Configurable requests per minute limit
+- Configurable burst capacity
+- Per-client rate limiting (by IP or auth token)
+- Rate limit headers in responses
+- Graceful degradation when limits exceeded
+- Rate limit bypass for health checks
 
-**REQ-5.2.1** [Ubiquitous]: The system shall implement token bucket rate limiting with configurable requests per minute and burst capacity specified via RATE_LIMIT_REQUESTS_PER_MINUTE and RATE_LIMIT_BURST_SIZE environment variables.
-
-**REQ-5.2.2** [Event-driven]: WHEN a request is received, the system shall consume one token from the appropriate client bucket within 5ms.
-
-**REQ-5.2.3** [Event-driven]: WHEN a request is processed successfully, the system shall include rate limit headers "X-RateLimit-Limit", "X-RateLimit-Remaining", and "X-RateLimit-Reset" in the response within 10ms.
-
-**REQ-5.2.4** [State-driven]: WHILE rate limiting is active, the system shall refill tokens at the configured rate (requests per minute / 60 seconds) with maximum precision of 100ms intervals.
-
-**REQ-5.2.5** [Event-driven]: WHEN client identification is possible via IP address or authentication token, the system shall maintain separate rate limit buckets per client within 20ms.
-
-**REQ-5.2.6** [Optional]: WHERE the request path is "/health", "/ready", or "/metrics", the system shall bypass rate limiting entirely.
-
-**REQ-5.2.7** [Event-driven]: WHEN rate limit monitoring is requested via get_rate_limiter_status tool, the system shall return JSON containing "requests_per_minute", "burst_size", "current_tokens", and "last_refill" properties within 50ms.
-
-**REQ-5.2.8** [Unwanted behavior]: IF no tokens are available in the rate limit bucket, THEN the system shall respond with HTTP status code 429 and headers "X-RateLimit-Limit", "X-RateLimit-Remaining": "0", and "Retry-After" within 10ms.
-
-**REQ-5.2.9** [Unwanted behavior]: IF rate limit bucket refill fails due to system error, THEN the system shall log error "Rate limit refill failed for client [client_id]" and continue with existing token count.
-
-**REQ-5.2.10** [Event-driven]: WHEN burst capacity is exceeded, the system shall reject requests immediately without processing and include appropriate retry timing in response headers.
-
-**REQ-5.2.11** [State-driven]: WHILE processing rate-limited requests, the system shall maintain accurate token counts and timestamps for each client bucket with millisecond precision.
-
-**REQ-5.2.12** [Event-driven]: WHEN rate limiting configuration is updated, the system shall apply new limits to all existing buckets within 1 second without dropping connections.
+#### **Acceptance Criteria**
+- [ ] Rate limiting enforces requests per minute limits
+- [ ] Burst capacity allows temporary spikes
+- [ ] Rate limit headers included in all responses
+- [ ] 429 status code returned when limits exceeded
+- [ ] Health check endpoints bypass rate limiting
+- [ ] Rate limiting can be configured via environment variables
+- [ ] Rate limit status is available via monitoring tools
 
 #### **Testing Quality Gates**
 ```python
@@ -1028,37 +914,23 @@ async def test_rate_limit_monitoring():
 **I want** comprehensive test coverage
 **So that** the system is reliable and maintainable
 
-#### **EARS Requirements**
+#### **Requirements**
+- Unit tests for all components (≥90% coverage)
+- Integration tests for workflows
+- Performance tests for critical paths
+- Security tests for authentication and validation
+- End-to-end tests for user scenarios
+- Test automation with CI/CD integration
+- Test data management and cleanup
 
-**REQ-6.1.1** [Ubiquitous]: The system shall maintain test coverage of at least 85% across all source code files as measured by coverage.py.
-
-**REQ-6.1.2** [Event-driven]: WHEN test coverage falls below 85%, the CI pipeline shall fail with exit code 1 and error message "Test coverage below threshold: [current_coverage]%".
-
-**REQ-6.1.3** [Ubiquitous]: The system shall execute all 373+ tests with 100% pass rate in under 30 seconds using pytest.
-
-**REQ-6.1.4** [Event-driven]: WHEN any test fails, the CI pipeline shall report the failure details and prevent deployment to any environment.
-
-**REQ-6.1.5** [State-driven]: WHILE tests are running, the system shall provide progress feedback every 5 seconds showing completed test count and estimated remaining time.
-
-**REQ-6.1.6** [Event-driven]: WHEN unit tests are executed, the system shall test all validation functions with both valid and invalid inputs within 10 seconds.
-
-**REQ-6.1.7** [Event-driven]: WHEN integration tests are executed, the system shall test all 31 MCP tools with realistic data scenarios within 20 seconds.
-
-**REQ-6.1.8** [Event-driven]: WHEN performance tests are executed, the system shall validate that all critical path operations complete within specified time constraints.
-
-**REQ-6.1.9** [Event-driven]: WHEN security tests are executed, the system shall validate all authentication flows, authorization checks, and input validation scenarios.
-
-**REQ-6.1.10** [Event-driven]: WHEN end-to-end tests are executed, the system shall simulate complete user workflows from authentication through tool execution to response validation.
-
-**REQ-6.1.11** [Event-driven]: WHEN code is committed to main or develop branches, the system shall automatically trigger the complete test suite within 30 seconds.
-
-**REQ-6.1.12** [Event-driven]: WHEN test data setup is required, the system shall create isolated test environments and clean up all test data after execution within 60 seconds.
-
-**REQ-6.1.13** [Unwanted behavior]: IF any test produces flaky results (intermittent failures), THEN the system shall mark the test as unstable and require investigation before allowing deployment.
-
-**REQ-6.1.14** [Unwanted behavior]: IF test execution exceeds 60 seconds total, THEN the system shall timeout and report performance degradation in test infrastructure.
-
-**REQ-6.1.15** [State-driven]: WHILE CI/CD pipeline is running, the system shall maintain test result history and provide trend analysis for test performance and reliability.
+#### **Acceptance Criteria**
+- [ ] Overall test coverage ≥ 85% (current: 85%)
+- [ ] 352+ tests passing with 100% pass rate
+- [ ] Unit tests cover all validation functions
+- [ ] Integration tests cover all MCP tools
+- [ ] Performance tests validate response times
+- [ ] Security tests validate authentication flows
+- [ ] Tests run automatically on every commit
 
 #### **Current Test Structure**
 ```
@@ -1142,35 +1014,23 @@ def test_performance_benchmarks():
 **I want** automated CI/CD pipelines
 **So that** code quality is maintained automatically
 
-#### **EARS Requirements**
+#### **Requirements**
+- GitHub Actions workflow for CI/CD
+- Automated testing on every push/PR
+- Code quality checks (formatting, linting)
+- Security scanning
+- Docker image building and scanning
+- Automated deployment to staging
+- Manual approval for production deployment
 
-**REQ-6.2.1** [Event-driven]: WHEN code is pushed to main or develop branches, the system shall automatically trigger GitHub Actions CI/CD workflow within 30 seconds.
-
-**REQ-6.2.2** [Event-driven]: WHEN a pull request is created targeting main or develop branches, the system shall execute the complete CI pipeline including tests, quality checks, and security scans.
-
-**REQ-6.2.3** [Event-driven]: WHEN CI pipeline executes tests, the system shall run all 373+ tests and enforce 85% minimum coverage threshold within 5 minutes.
-
-**REQ-6.2.4** [Event-driven]: WHEN code quality checks are executed, the system shall validate Black formatting, flake8 linting, and isort import ordering within 2 minutes.
-
-**REQ-6.2.5** [Event-driven]: WHEN security scanning is executed, the system shall perform vulnerability assessment using Trivy and fail pipeline if critical or high vulnerabilities are detected.
-
-**REQ-6.2.6** [Event-driven]: WHEN CI pipeline completes successfully, the system shall build Docker image and perform container security scanning within 10 minutes.
-
-**REQ-6.2.7** [Event-driven]: WHEN main branch CI completes successfully, the system shall automatically deploy to staging environment within 15 minutes.
-
-**REQ-6.2.8** [Event-driven]: WHEN production deployment is requested, the system shall require manual approval from authorized personnel before proceeding.
-
-**REQ-6.2.9** [Event-driven]: WHEN CI pipeline generates artifacts, the system shall store test reports, coverage reports, and security scan results for 90 days.
-
-**REQ-6.2.10** [State-driven]: WHILE CI pipeline is running, the system shall provide real-time status updates and progress indicators to developers.
-
-**REQ-6.2.11** [Unwanted behavior]: IF any CI stage fails, THEN the system shall prevent merge/deployment and notify relevant stakeholders with detailed failure information.
-
-**REQ-6.2.12** [Unwanted behavior]: IF CI pipeline execution exceeds 20 minutes, THEN the system shall timeout and report infrastructure performance issues.
-
-**REQ-6.2.13** [Unwanted behavior]: IF security scan detects critical or high severity vulnerabilities, THEN the system shall fail the pipeline and require remediation before allowing deployment.
-
-**REQ-6.2.14** [Event-driven]: WHEN deployment to any environment completes, the system shall perform health checks and rollback automatically if health checks fail within 5 minutes.
+#### **Acceptance Criteria**
+- [ ] CI runs on every push to main/develop branches
+- [ ] All tests must pass before merge
+- [ ] Code coverage threshold enforced (≥85%)
+- [ ] Security scans pass with zero critical/high vulnerabilities
+- [ ] Docker images built and scanned automatically
+- [ ] Staging deployment happens automatically on main branch
+- [ ] Production deployment requires manual approval
 
 #### **CI/CD Pipeline Configuration**
 ```yaml
@@ -1260,37 +1120,23 @@ jobs:
 **I want** complete documentation
 **So that** I can understand and use the system effectively
 
-#### **EARS Requirements**
+#### **Requirements**
+- Complete API documentation for all MCP tools
+- Getting started guide (< 15 minutes setup)
+- Architecture documentation with diagrams
+- Configuration reference
+- Troubleshooting guides
+- Code examples and tutorials
+- OpenAPI specification published
 
-**REQ-7.1.1** [Ubiquitous]: The system shall provide complete API documentation for all 31 MCP tools with usage examples, parameter descriptions, and response formats.
-
-**REQ-7.1.2** [Event-driven]: WHEN a new developer follows the getting started guide, the system shall enable them to make their first successful API call within 15 minutes.
-
-**REQ-7.1.3** [Ubiquitous]: The system shall provide architecture documentation with visual diagrams showing all system components, data flows, and integration points.
-
-**REQ-7.1.4** [Ubiquitous]: The system shall document all configuration options including environment variables, default values, and valid ranges with examples.
-
-**REQ-7.1.5** [Ubiquitous]: The system shall provide troubleshooting guides covering common issues, error messages, and resolution steps with diagnostic commands.
-
-**REQ-7.1.6** [Event-driven]: WHEN code examples are provided in documentation, the system shall ensure they execute successfully without modification in a clean environment.
-
-**REQ-7.1.7** [Event-driven]: WHEN the OpenAPI specification is requested at `/openapi.json`, the system shall respond within 100ms with the complete, valid OpenAPI 3.x specification.
-
-**REQ-7.1.8** [Event-driven]: WHEN code changes are made, the system shall automatically validate that corresponding documentation updates are included in the same commit or pull request.
-
-**REQ-7.1.9** [Event-driven]: WHEN documentation is built, the system shall validate all internal links, code examples, and references within 60 seconds.
-
-**REQ-7.1.10** [Event-driven]: WHEN API documentation is generated, the system shall include request/response examples, error scenarios, and authentication requirements for each tool.
-
-**REQ-7.1.11** [State-driven]: WHILE documentation is being maintained, the system shall ensure version consistency between code comments, API docs, and user guides.
-
-**REQ-7.1.12** [Unwanted behavior]: IF documentation contains broken links, THEN the system shall fail documentation build and report all broken references with line numbers.
-
-**REQ-7.1.13** [Unwanted behavior]: IF code examples in documentation fail to execute, THEN the system shall fail documentation validation and require fixes before publication.
-
-**REQ-7.1.14** [Unwanted behavior]: IF any MCP tool lacks documentation, THEN the system shall fail completeness check and prevent release until documentation is added.
-
-**REQ-7.1.15** [Event-driven]: WHEN documentation freshness is checked, the system shall ensure all documentation was updated within 30 days of related code changes.
+#### **Acceptance Criteria**
+- [ ] All 31 MCP tools documented with examples
+- [ ] Quick start guide enables first API call in < 15 minutes
+- [ ] Architecture diagrams show system components
+- [ ] All configuration options documented
+- [ ] Common issues have troubleshooting steps
+- [ ] Code examples work without modification
+- [ ] Documentation is up-to-date with code changes
 
 #### **Documentation Structure**
 ```
@@ -1375,48 +1221,12 @@ def test_openapi_spec_published():
 
 ---
 
-## 📋 **EARS Requirements Summary**
-
-### **EARS Pattern Distribution**
-
-This requirements specification has been enhanced with 170 EARS-formatted requirements distributed across five patterns:
-
-| EARS Pattern | Count | Percentage | Primary Use Cases |
-|--------------|-------|------------|-------------------|
-| **[Event-driven]** | 89 | 57% | API responses, user interactions, system events, tool executions, CI/CD triggers |
-| **[Unwanted behavior]** | 42 | 27% | Error handling, validation failures, edge cases, security violations |
-| **[Ubiquitous]** | 17 | 11% | Core system capabilities, always-true requirements, fundamental behaviors |
-| **[State-driven]** | 7 | 4% | Conditional behavior based on system state, ongoing processes |
-| **[Optional]** | 1 | 1% | Feature-dependent requirements, configuration-based behaviors |
-
-### **EARS Enhancement Benefits**
-
-1. **Improved Testability**: Each requirement maps directly to specific test cases with clear pass/fail criteria
-2. **Reduced Ambiguity**: Explicit triggers, conditions, and timing constraints eliminate interpretation gaps
-3. **Better Traceability**: Direct linkage between requirements and system behavior verification
-4. **Enhanced Maintainability**: Structured format makes requirement updates and impact analysis easier
-5. **Compliance Ready**: EARS format aligns with industry standards and regulatory requirements
-
-### **Requirements Traceability Matrix**
-
-| Epic | EARS Requirements | Test Coverage | Implementation Status |
-|------|-------------------|---------------|----------------------|
-| **Epic 1: Core FastMCP** | REQ-1.1.1 to REQ-1.2.14 (28 requirements) | 100% | ✅ Implemented |
-| **Epic 2: Authentication** | REQ-2.1.1 to REQ-2.1.16 (16 requirements) | 100% | ✅ Implemented |
-| **Epic 3: BMC Integration** | REQ-3.1.1 to REQ-3.1.16 (16 requirements) | 100% | ✅ Implemented |
-| **Epic 4: Advanced Features** | REQ-4.1.1 to REQ-4.2.13 (27 requirements) | 100% | ✅ Implemented |
-| **Epic 5: Performance** | REQ-5.1.1 to REQ-5.2.12 (25 requirements) | 100% | ✅ Implemented |
-| **Epic 6: Testing & QA** | REQ-6.1.1 to REQ-6.2.14 (29 requirements) | 100% | ✅ Implemented |
-| **Epic 7: Documentation** | REQ-7.1.1 to REQ-7.1.15 (15 requirements) | 100% | ✅ Implemented |
-
----
-
 ## 📊 **Overall Quality Gates & Success Criteria**
 
 ### **Project-Wide Quality Metrics**
 
 #### **Code Quality**
-- ✅ **Overall Test Coverage**: 85% (373 passing tests)
+- ✅ **Overall Test Coverage**: 85% (352 passing tests)
 - ✅ **Test Pass Rate**: 100% (no failing tests)
 - ✅ **Code Formatting**: 100% Black compliant (88-char lines)
 - ✅ **Linting**: Zero flake8 violations
@@ -1459,7 +1269,7 @@ This requirements specification has been enhanced with 170 EARS-formatted requir
 - Comprehensive caching system
 - Rate limiting with token bucket algorithm
 - Enterprise error handling and retry logic
-- Comprehensive test suite (373 tests, 85% coverage)
+- Comprehensive test suite (352 tests, 85% coverage)
 - Production-ready Docker deployment
 - Complete documentation suite
 
@@ -1510,8 +1320,7 @@ This FastMCP server implementation successfully meets all requirements for a pro
 
 ---
 
-**Document Version**: 2.4.0 (EARS Enhanced)
+**Document Version**: 2.3.1
 **Last Updated**: January 2025
-**EARS Enhancement**: Complete with 170 structured requirements
 **Next Review**: February 2025
-**Status**: ✅ Production Ready with EARS Compliance
+**Status**: ✅ Production Ready
