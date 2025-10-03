@@ -706,12 +706,13 @@ class HybridMetrics:
         self.legacy.max_response_time = 0.0
         self.legacy.avg_response_time = 0.0
         self.legacy.bmc_api_response_times = []
-        self.legacy.start_time = time.time()
+        self.legacy.start_time = datetime.now()
 
         # Reset OTEL metrics (if available)
         if self.otel:
             # OTEL metrics are cumulative by design, but we can reset our internal state
-            # Note: This won't reset the actual OTEL counters/histograms as they're cumulative
+            # Note: This won't reset the actual OTEL counters/histograms as they're
+            # cumulative
             pass
 
     def to_dict(self) -> Dict[str, Any]:

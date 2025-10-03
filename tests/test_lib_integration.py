@@ -196,8 +196,13 @@ class TestComponentIntegration:
         mock_response.json.return_value = {"data": "test"}
         self.mock_http_client.get.return_value = mock_response
 
-        # Make request to populate cache
-        result1 = await client.get_assignment_details("SRID001", "ASSIGN001")
+        # Make request to populate cache with short TTL
+        result1 = await client.get_cached_or_fetch(
+            "test_operation",
+            "/ispw/SRID001/assignments/ASSIGN001",
+            cache_params={"srid": "SRID001", "assignment_id": "ASSIGN001"},
+            ttl=1,  # 1 second TTL
+        )
         assert result1 == {"data": "test"}
         assert self.mock_http_client.get.call_count == 1
 
@@ -208,7 +213,12 @@ class TestComponentIntegration:
         short_ttl_cache.cleanup_expired()
 
         # Next request should hit API again (cache expired)
-        result2 = await client.get_assignment_details("SRID001", "ASSIGN001")
+        result2 = await client.get_cached_or_fetch(
+            "test_operation",
+            "/ispw/SRID001/assignments/ASSIGN001",
+            cache_params={"srid": "SRID001", "assignment_id": "ASSIGN001"},
+            ttl=1,  # 1 second TTL
+        )
         assert result2 == {"data": "test"}
         assert self.mock_http_client.get.call_count == 2  # Second API call
 
@@ -220,7 +230,8 @@ class TestComponentIntegration:
         assert self.health_checker.bmc_client == self.client
 
         # Test basic health check functionality
-        # (Note: HealthChecker doesn't have check_api_health method in current implementation)
+        # (Note: HealthChecker doesn't have check_api_health method in current
+        # implementation)
         # This test verifies the component is properly integrated
         assert isinstance(self.health_checker.settings, Settings)
         assert self.health_checker.bmc_client is not None
@@ -251,7 +262,14 @@ class TestComponentIntegration:
         mock_response.status_code = 200
         mock_response.json.return_value = {"data": "test"}
         mock_response.raise_for_status.return_value = None
-        self.mock_http_client.get.return_value = mock_response
+
+        # Add a small delay to simulate network latency and ensure measurable
+        # response times
+        async def mock_get_with_delay(*args, **kwargs):
+            await asyncio.sleep(0.001)  # 1ms delay
+            return mock_response
+
+        self.mock_http_client.get = mock_get_with_delay
 
         # Make multiple requests
         for i in range(5):
@@ -314,7 +332,7 @@ class TestComponentIntegration:
     async def test_concurrent_requests_with_rate_limiting(self):
         """Test concurrent requests with rate limiting and caching."""
         # Setup rate limiter with reasonable limits
-        rate_limiter = RateLimiter(requests_per_minute=10, burst_size=3)
+        _ = RateLimiter(requests_per_minute=10, burst_size=3)
 
         # Setup mock response
         mock_response = Mock()
@@ -382,7 +400,7 @@ class TestFallbackMechanisms:
 
     def test_metrics_fallback_when_disabled(self):
         """Test metrics fallback when metrics are disabled."""
-        settings = Settings(metrics_enabled=False)
+        _ = Settings(metrics_enabled=False)
 
         # Should handle missing metrics gracefully
         mock_http_client = AsyncMock(spec=httpx.AsyncClient)
