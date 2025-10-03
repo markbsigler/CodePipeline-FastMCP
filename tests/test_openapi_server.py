@@ -634,8 +634,8 @@ class TestOpenAPIServerCoverage:
             {
                 "AUTH_ENABLED": "true",
                 "AUTH_PROVIDER": "workos",
-                "FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID": "test_client_id",
-                "FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET": "test_client_secret",
+                "FASTMCP_SERVER_AUTH_AUTHKIT_CLIENT_ID": "test_client_id",
+                "FASTMCP_SERVER_AUTH_AUTHKIT_CLIENT_SECRET": "test_client_secret",
                 "FASTMCP_SERVER_AUTH_AUTHKIT_DOMAIN": "test-domain.com",
             },
         ):
@@ -645,7 +645,7 @@ class TestOpenAPIServerCoverage:
                 mock_workos.assert_called_once_with(
                     client_id="test_client_id",
                     client_secret="test_client_secret",
-                    authkit_domain="test-domain.com",
+                    domain="test-domain.com",
                 )
 
     def test_create_auth_provider_unknown(self):
@@ -895,8 +895,8 @@ class TestOpenAPIServerCoverage:
         mock_request = Mock()
 
         with patch.object(
-            openapi_server,
-            "get_server_health",
+            openapi_server.health_checker,
+            "get_health",
             side_effect=Exception("Health check error"),
         ):
             response = asyncio.run(openapi_server.health_check_route(mock_request))

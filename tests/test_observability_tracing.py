@@ -541,8 +541,16 @@ class TestElicitationTracer:
 
     def test_record_elicitation_response_accepted(self):
         """Test recording accepted elicitation response."""
-        with patch(
-            "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
+        mock_tracer = Mock()
+        with (
+            patch(
+                "observability.tracing.fastmcp_tracer.is_tracing_enabled",
+                return_value=True,
+            ),
+            patch(
+                "observability.tracing.fastmcp_tracer.get_tracer",
+                return_value=mock_tracer,
+            ),
         ):
             from observability.tracing.fastmcp_tracer import ElicitationTracer
 
@@ -563,8 +571,16 @@ class TestElicitationTracer:
 
     def test_record_elicitation_response_declined(self):
         """Test recording declined elicitation response."""
-        with patch(
-            "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
+        mock_tracer = Mock()
+        with (
+            patch(
+                "observability.tracing.fastmcp_tracer.is_tracing_enabled",
+                return_value=True,
+            ),
+            patch(
+                "observability.tracing.fastmcp_tracer.get_tracer",
+                return_value=mock_tracer,
+            ),
         ):
             from observability.tracing.fastmcp_tracer import ElicitationTracer
 
@@ -582,8 +598,16 @@ class TestElicitationTracer:
 
     def test_record_elicitation_response_cancelled(self):
         """Test recording cancelled elicitation response."""
-        with patch(
-            "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
+        mock_tracer = Mock()
+        with (
+            patch(
+                "observability.tracing.fastmcp_tracer.is_tracing_enabled",
+                return_value=True,
+            ),
+            patch(
+                "observability.tracing.fastmcp_tracer.get_tracer",
+                return_value=mock_tracer,
+            ),
         ):
             from observability.tracing.fastmcp_tracer import ElicitationTracer
 
@@ -601,8 +625,16 @@ class TestElicitationTracer:
 
     def test_record_elicitation_response_unknown(self):
         """Test recording unknown elicitation response."""
-        with patch(
-            "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
+        mock_tracer = Mock()
+        with (
+            patch(
+                "observability.tracing.fastmcp_tracer.is_tracing_enabled",
+                return_value=True,
+            ),
+            patch(
+                "observability.tracing.fastmcp_tracer.get_tracer",
+                return_value=mock_tracer,
+            ),
         ):
             from observability.tracing.fastmcp_tracer import ElicitationTracer
 
@@ -638,8 +670,16 @@ class TestElicitationTracer:
 
     def test_update_workflow_progress(self):
         """Test updating workflow progress."""
-        with patch(
-            "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
+        mock_tracer = Mock()
+        with (
+            patch(
+                "observability.tracing.fastmcp_tracer.is_tracing_enabled",
+                return_value=True,
+            ),
+            patch(
+                "observability.tracing.fastmcp_tracer.get_tracer",
+                return_value=mock_tracer,
+            ),
         ):
             from observability.tracing.fastmcp_tracer import ElicitationTracer
 
@@ -656,8 +696,16 @@ class TestElicitationTracer:
 
     def test_update_workflow_progress_zero_total(self):
         """Test updating workflow progress with zero total steps."""
-        with patch(
-            "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
+        mock_tracer = Mock()
+        with (
+            patch(
+                "observability.tracing.fastmcp_tracer.is_tracing_enabled",
+                return_value=True,
+            ),
+            patch(
+                "observability.tracing.fastmcp_tracer.get_tracer",
+                return_value=mock_tracer,
+            ),
         ):
             from observability.tracing.fastmcp_tracer import ElicitationTracer
 
@@ -725,7 +773,10 @@ class TestConvenienceFunctions:
                 "observability.tracing.fastmcp_tracer.get_fastmcp_tracer",
                 return_value=mock_tracer,
             ),
-            patch("time.time", side_effect=[1000.0, 1000.2]),
+            patch(
+                "observability.tracing.fastmcp_tracer.time.time",
+                side_effect=[1000.0, 1000.2],
+            ),
         ):
 
             from observability.tracing.fastmcp_tracer import trace_tool_execution
@@ -739,7 +790,16 @@ class TestConvenienceFunctions:
             )
 
             assert result == "tool_result"
-            mock_span.set_attribute.assert_any_call("mcp.execution.duration", 0.2)
+
+            # Check that duration was set (with floating point tolerance)
+            duration_calls = [
+                call
+                for call in mock_span.set_attribute.call_args_list
+                if call[0][0] == "mcp.execution.duration"
+            ]
+            assert len(duration_calls) == 1
+            duration_value = duration_calls[0][0][1]
+            assert abs(duration_value - 0.2) < 0.001  # Allow small floating point error
             mock_span.set_attribute.assert_any_call("mcp.execution.success", True)
 
     @pytest.mark.asyncio
