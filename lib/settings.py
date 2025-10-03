@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     cache_cleanup_interval: int = Field(
         default=60, description="Cache cleanup interval in seconds"
     )
+    
+    # Advanced caching configuration
+    cache_backend: str = Field(default="memory", description="Cache backend type (memory, redis, multi_tier)")
+    redis_url: str = Field(default="redis://localhost:6379", description="Redis connection URL")
+    redis_key_prefix: str = Field(default="fastmcp:", description="Redis key prefix")
+    redis_serializer: str = Field(default="json", description="Redis serializer (json, pickle)")
+    multi_tier_l1_ttl_ratio: float = Field(default=0.5, description="L1 cache TTL ratio for multi-tier")
 
     # Authentication configuration
     auth_enabled: bool = Field(default=False, description="Enable authentication")

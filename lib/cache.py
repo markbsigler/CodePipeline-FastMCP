@@ -89,18 +89,19 @@ class IntelligentCache:
         """Private method for generating cache keys (for backward compatibility)."""
         return self.generate_key(operation, **kwargs)
 
-    async def get(self, operation: str, **kwargs) -> Optional[Any]:
+    async def get(self, operation: str, direct_key: bool = False, **kwargs) -> Optional[Any]:
         """
         Retrieve a value from the cache.
 
         Args:
-            operation: The operation name
-            **kwargs: Parameters to generate cache key
+            operation: The operation name or direct key if direct_key=True
+            direct_key: If True, use operation as direct key instead of generating one
+            **kwargs: Parameters to generate cache key (ignored if direct_key=True)
 
         Returns:
             Cached value if found and not expired, None otherwise
         """
-        key = self.generate_key(operation, **kwargs)
+        key = operation if direct_key else self.generate_key(operation, **kwargs)
 
         async with self.lock:
             entry = self.cache.get(key)
@@ -126,18 +127,19 @@ class IntelligentCache:
             return entry.value
 
     async def set(
-        self, operation: str, value: Any, ttl: Optional[int] = None, **kwargs
+        self, operation: str, value: Any, ttl: Optional[int] = None, direct_key: bool = False, **kwargs
     ):
         """
         Store a value in the cache.
 
         Args:
-            operation: The operation name
+            operation: The operation name or direct key if direct_key=True
             value: The value to cache
             ttl: Time-to-live in seconds (uses default if None)
-            **kwargs: Parameters to generate cache key
+            direct_key: If True, use operation as direct key instead of generating one
+            **kwargs: Parameters to generate cache key (ignored if direct_key=True)
         """
-        key = self.generate_key(operation, **kwargs)
+        key = operation if direct_key else self.generate_key(operation, **kwargs)
         ttl = ttl or self.default_ttl
 
         async with self.lock:
@@ -172,18 +174,19 @@ class IntelligentCache:
         del self.access_order[lru_key]
         self.evictions += 1
 
-    async def delete(self, operation: str, **kwargs) -> bool:
+    async def delete(self, operation: str, direct_key: bool = False, **kwargs) -> bool:
         """
         Delete a specific cache entry.
 
         Args:
-            operation: The operation name
-            **kwargs: Parameters to generate cache key
+            operation: The operation name or direct key if direct_key=True
+            direct_key: If True, use operation as direct key instead of generating one
+            **kwargs: Parameters to generate cache key (ignored if direct_key=True)
 
         Returns:
             True if entry was deleted, False if not found
         """
-        key = self.generate_key(operation, **kwargs)
+        key = operation if direct_key else self.generate_key(operation, **kwargs)
 
         async with self.lock:
             if key in self.cache:
@@ -218,6 +221,35 @@ class IntelligentCache:
             if key in self.access_order:
                 del self.access_order[key]
             self.expirations += 1
+
+    async def exists(self, operation: str, direct_key: bool = False, **kwargs) -> bool:
+        """
+        Check if a key exists in the cache (without affecting access stats).
+        
+        Args:
+            operation: The operation name or direct key if direct_key=True
+            direct_key: If True, use operation as direct key instead of generating one
+            **kwargs: Parameters to generate cache key (ignored if direct_key=True)
+            
+        Returns:
+            True if key exists and is not expired, False otherwise
+        """
+        key = operation if direct_key else self.generate_key(operation, **kwargs)
+        
+        async with self.lock:
+            if key not in self.cache:
+                return False
+            
+            entry = self.cache[key]
+            if entry.is_expired():
+                # Remove expired entry
+                del self.cache[key]
+                if key in self.access_order:
+                    del self.access_order[key]
+                self.expirations += 1
+                return False
+            
+            return True
 
     def get_hit_rate(self) -> float:
         """Calculate cache hit rate as a percentage."""
