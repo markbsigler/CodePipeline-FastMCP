@@ -27,7 +27,7 @@ class TestSettings:
 
     def test_default_settings(self):
         """Test default settings values."""
-        _ = Settings()
+        settings = Settings()
 
         assert settings.host == "0.0.0.0"
         assert settings.port == 8080
@@ -54,7 +54,7 @@ class TestSettings:
 
         with unittest.mock.patch.dict(os.environ, test_env):
             # Use the new from_env() method to test environment variable loading
-            from main import Settings
+            from lib import Settings
 
             settings = Settings.from_env()
 
@@ -74,7 +74,7 @@ class TestSettings:
         """Test handling of invalid environment values."""
         # Test invalid port - should use default value instead of raising error
         with unittest.mock.patch.dict(os.environ, {"PORT": "invalid"}):
-            from main import Settings
+            from lib import Settings
 
             settings = Settings.from_env()
             # Should fall back to default port since conversion failed
@@ -82,7 +82,7 @@ class TestSettings:
 
         # Test invalid boolean - should use default value instead of raising error
         with unittest.mock.patch.dict(os.environ, {"AUTH_ENABLED": "maybe"}):
-            from main import Settings
+            from lib import Settings
 
             settings = Settings.from_env()
             # Should fall back to default value since conversion failed
@@ -420,7 +420,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limiter_acquire_success(self):
         """Test successful token acquisition."""
-        from main import RateLimiter
+        from lib import RateLimiter
 
         rate_limiter = RateLimiter(requests_per_minute=60, burst_size=10)
 
@@ -431,7 +431,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limiter_acquire_failure(self):
         """Test token acquisition failure when rate limited."""
-        from main import RateLimiter
+        from lib import RateLimiter
 
         # Create rate limiter with very low limits
         rate_limiter = RateLimiter(requests_per_minute=1, burst_size=1)
@@ -447,7 +447,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limiter_wait_for_token(self):
         """Test waiting for token availability."""
-        from main import RateLimiter
+        from lib import RateLimiter
 
         # Create rate limiter with very low limits
         rate_limiter = RateLimiter(requests_per_minute=60, burst_size=1)
@@ -473,7 +473,7 @@ class TestRateLimiting:
         """Test that BMC client uses rate limiting."""
         import unittest.mock
 
-        from main import BMCAMIDevXClient
+        from lib import BMCAMIDevXClient
 
         # Create a mock rate limiter
         mock_rate_limiter = unittest.mock.AsyncMock()
@@ -502,7 +502,7 @@ class TestMonitoring:
 
     def test_metrics_initialization(self):
         """Test metrics initialization."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         assert metrics.total_requests == 0
@@ -514,7 +514,7 @@ class TestMonitoring:
 
     def test_metrics_update_response_time(self):
         """Test response time metrics updates."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.update_response_time(1.5)
@@ -528,7 +528,7 @@ class TestMonitoring:
 
     def test_metrics_success_rate(self):
         """Test success rate calculation."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.successful_requests = 80
@@ -538,7 +538,7 @@ class TestMonitoring:
 
     def test_metrics_cache_hit_rate(self):
         """Test cache hit rate calculation."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.cache_hits = 75
@@ -548,7 +548,7 @@ class TestMonitoring:
 
     def test_metrics_to_dict(self):
         """Test metrics serialization to dictionary."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.total_requests = 100
@@ -574,7 +574,7 @@ class TestCaching:
     @pytest.mark.asyncio
     async def test_cache_basic_operations(self):
         """Test basic cache operations."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache(max_size=10, default_ttl=60)
 
@@ -587,7 +587,7 @@ class TestCaching:
     @pytest.mark.asyncio
     async def test_cache_expiration(self):
         """Test cache expiration."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache(max_size=10, default_ttl=1)  # 1 second TTL
 
@@ -608,7 +608,7 @@ class TestCaching:
     @pytest.mark.asyncio
     async def test_cache_lru_eviction(self):
         """Test LRU eviction when cache is full."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache(max_size=3, default_ttl=60)
 
@@ -634,7 +634,7 @@ class TestCaching:
     @pytest.mark.asyncio
     async def test_cache_cleanup_expired(self):
         """Test cleanup of expired entries."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache(max_size=10, default_ttl=1)
 
@@ -660,7 +660,7 @@ class TestCaching:
 
     def test_cache_stats(self):
         """Test cache statistics."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache(max_size=100, default_ttl=300)
 
@@ -682,13 +682,13 @@ class TestHealthChecker:
         """Test successful health check."""
         import unittest.mock
 
-        from main import HealthChecker, Settings
+        from lib import HealthChecker, Settings
 
         # Create mock BMC client
         mock_bmc_client = unittest.mock.AsyncMock()
         mock_bmc_client.get_assignments.return_value = {"assignments": []}
 
-        _ = Settings()
+        settings = Settings()
         health_checker = HealthChecker(mock_bmc_client, settings)
 
         health_data = await health_checker.check_health()
@@ -703,13 +703,13 @@ class TestHealthChecker:
         """Test health check with BMC API error."""
         import unittest.mock
 
-        from main import HealthChecker, Settings
+        from lib import HealthChecker, Settings
 
         # Create mock BMC client that raises error
         mock_bmc_client = unittest.mock.AsyncMock()
         mock_bmc_client.get_assignments.side_effect = Exception("API Error")
 
-        _ = Settings()
+        settings = Settings()
         health_checker = HealthChecker(mock_bmc_client, settings)
 
         health_data = await health_checker.check_health()
@@ -724,7 +724,7 @@ class TestErrorHandling:
 
     def test_bmc_api_error_creation(self):
         """Test BMC API error creation."""
-        from main import BMCAPIError, BMCAPIRateLimitError, BMCAPITimeoutError
+        from lib.errors import BMCAPIError, BMCAPIRateLimitError, BMCAPITimeoutError
 
         # Test base BMC API error
         error = BMCAPIError(
@@ -745,7 +745,7 @@ class TestErrorHandling:
 
     def test_mcp_validation_error_creation(self):
         """Test MCP validation error creation."""
-        from main import MCPValidationError
+        from lib import MCPValidationError
 
         error = MCPValidationError("Invalid input", field="srid", value="INVALID")
         assert str(error) == "Invalid input"
@@ -754,7 +754,7 @@ class TestErrorHandling:
 
     def test_mcp_server_error_creation(self):
         """Test MCP server error creation."""
-        from main import MCPServerError
+        from lib import MCPServerError
 
         error = MCPServerError(
             "Server error", error_code="ERR001", details={"key": "value"}
@@ -765,9 +765,9 @@ class TestErrorHandling:
 
     def test_error_handler_initialization(self):
         """Test error handler initialization."""
-        from main import ErrorHandler, Settings
+        from lib import ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         metrics = initialize_metrics()
         error_handler = ErrorHandler(settings, metrics)
 
@@ -777,14 +777,15 @@ class TestErrorHandling:
     def test_error_handler_http_error_conversion(self):
         """Test HTTP error conversion to BMC API errors."""
         import httpx
-        from main import (
+
+        from lib import (
             BMCAPIAuthenticationError,
             BMCAPITimeoutError,
             ErrorHandler,
             Settings,
         )
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Test timeout error conversion
@@ -804,9 +805,9 @@ class TestErrorHandling:
 
     def test_error_handler_validation_error_conversion(self):
         """Test validation error conversion."""
-        from main import ErrorHandler, MCPValidationError, Settings
+        from lib import ErrorHandler, MCPValidationError, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         validation_error = ValueError("Invalid format")
@@ -821,9 +822,9 @@ class TestErrorHandling:
 
     def test_error_handler_general_error_conversion(self):
         """Test general error conversion."""
-        from main import ErrorHandler, MCPServerError, Settings
+        from lib import ErrorHandler, MCPServerError, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         general_error = RuntimeError("Something went wrong")
@@ -838,9 +839,9 @@ class TestErrorHandling:
 
     def test_error_response_creation(self):
         """Test standardized error response creation."""
-        from main import BMCAPIError, ErrorHandler, MCPValidationError, Settings
+        from lib import BMCAPIError, ErrorHandler, MCPValidationError, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Test BMC API error response
@@ -871,7 +872,7 @@ class TestErrorHandling:
 
     def test_error_response_message_truncation(self):
         """Test error message truncation."""
-        from main import BMCAPIError, ErrorHandler, Settings
+        from lib import BMCAPIError, ErrorHandler, Settings
 
         settings = Settings(max_error_message_length=50)
         error_handler = ErrorHandler(settings)
@@ -889,7 +890,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_error_recovery_execution(self):
         """Test error recovery execution with retry logic."""
-        from main import BMCAPITimeoutError, ErrorHandler, Settings
+        from lib import BMCAPITimeoutError, ErrorHandler, Settings
 
         settings = Settings(error_recovery_attempts=3)
         error_handler = ErrorHandler(settings)
@@ -913,7 +914,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_error_recovery_no_retry_for_validation_errors(self):
         """Test that validation errors are not retried."""
-        from main import ErrorHandler, MCPValidationError, Settings
+        from lib import ErrorHandler, MCPValidationError, Settings
 
         settings = Settings(error_recovery_attempts=3)
         error_handler = ErrorHandler(settings)
@@ -936,7 +937,8 @@ class TestErrorHandling:
     def test_error_handler_http_status_errors(self):
         """Test HTTP status error conversion for different status codes."""
         import httpx
-        from main import (
+
+        from lib import (
             BMCAPIAuthenticationError,
             BMCAPINotFoundError,
             BMCAPIRateLimitError,
@@ -945,7 +947,7 @@ class TestErrorHandling:
             Settings,
         )
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Test 401 Authentication Error
@@ -1019,9 +1021,10 @@ class TestErrorHandling:
     def test_error_handler_json_parsing_failure(self):
         """Test error handler when JSON parsing fails."""
         import httpx
-        from main import BMCAPIAuthenticationError, ErrorHandler, Settings
 
-        _ = Settings()
+        from lib.errors import BMCAPIAuthenticationError, ErrorHandler, Settings
+
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create response with invalid JSON
@@ -1037,9 +1040,9 @@ class TestErrorHandling:
 
     def test_error_response_with_metrics(self):
         """Test error response creation with metrics integration."""
-        from main import BMCAPIError, ErrorHandler, Settings
+        from lib import BMCAPIError, ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         metrics = initialize_metrics()
         error_handler = ErrorHandler(settings, metrics)
 
@@ -1054,7 +1057,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_error_recovery_with_different_error_types(self):
         """Test error recovery with different types of errors."""
-        from main import (
+        from lib import (
             BMCAPIAuthenticationError,
             BMCAPITimeoutError,
             ErrorHandler,
@@ -1201,7 +1204,7 @@ class TestSettingsComprehensive:
         }
 
         with unittest.mock.patch.dict(os.environ, test_env):
-            from main import Settings
+            from lib import Settings
 
             settings = Settings.from_env()
 
@@ -1251,7 +1254,7 @@ class TestSettingsComprehensive:
         }
 
         with unittest.mock.patch.dict(os.environ, test_env):
-            from main import Settings
+            from lib import Settings
 
             settings = Settings.from_env()
 
@@ -1266,7 +1269,7 @@ class TestSettingsComprehensive:
         test_env = {"HOST": "127.0.0.1", "PORT": "9000"}
 
         with unittest.mock.patch.dict(os.environ, test_env):
-            from main import Settings
+            from lib import Settings
 
             settings = Settings.from_env(host="192.168.1.1", port=8000)
 
@@ -1282,7 +1285,7 @@ class TestMetricsComprehensive:
         """Test Metrics class initialization."""
         from collections import deque
 
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         assert metrics.total_requests == 0
@@ -1298,7 +1301,7 @@ class TestMetricsComprehensive:
 
     def test_metrics_update_response_time(self):
         """Test Metrics response time updates."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.update_bmc_response_time(1.0)
@@ -1310,7 +1313,7 @@ class TestMetricsComprehensive:
 
     def test_metrics_success_rate(self):
         """Test Metrics success rate calculation."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.successful_requests = 8
@@ -1320,7 +1323,7 @@ class TestMetricsComprehensive:
 
     def test_metrics_cache_hit_rate(self):
         """Test Metrics cache hit rate calculation."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.cache_hits = 7
@@ -1330,7 +1333,7 @@ class TestMetricsComprehensive:
 
     def test_metrics_to_dict(self):
         """Test Metrics to_dict serialization."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.total_requests = 10
@@ -1374,7 +1377,7 @@ class TestCacheComprehensive:
         """Test CacheEntry creation and TTL."""
         from datetime import datetime
 
-        from main import CacheEntry
+        from lib import CacheEntry
 
         entry = CacheEntry(
             data={"data": "value"}, timestamp=datetime.now(), ttl_seconds=1
@@ -1385,7 +1388,7 @@ class TestCacheComprehensive:
 
     def test_intelligent_cache_initialization(self):
         """Test IntelligentCache initialization."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache(max_size=3, default_ttl=60)
         assert cache.max_size == 3
@@ -1401,10 +1404,10 @@ class TestHealthCheckerComprehensive:
         """Test HealthChecker initialization."""
         import unittest.mock
 
-        from main import HealthChecker, Settings
+        from lib import HealthChecker, Settings
 
         mock_bmc_client = unittest.mock.MagicMock()
-        _ = Settings()
+        settings = Settings()
         health_checker = HealthChecker(mock_bmc_client, settings)
 
         assert health_checker.bmc_client == mock_bmc_client
@@ -1419,7 +1422,7 @@ class TestRateLimiterComprehensive:
 
     def test_rate_limiter_initialization(self):
         """Test RateLimiter initialization."""
-        from main import RateLimiter
+        from lib import RateLimiter
 
         rate_limiter = RateLimiter(requests_per_minute=60, burst_size=10)
         assert rate_limiter.requests_per_minute == 60
@@ -1430,7 +1433,7 @@ class TestRateLimiterComprehensive:
     @pytest.mark.asyncio
     async def test_rate_limiter_token_consumption(self):
         """Test RateLimiter token consumption."""
-        from main import RateLimiter
+        from lib import RateLimiter
 
         rate_limiter = RateLimiter(requests_per_minute=60, burst_size=2)
         initial_tokens = rate_limiter.tokens
@@ -1445,7 +1448,7 @@ class TestRateLimiterComprehensive:
 
     def test_rate_limiter_properties(self):
         """Test RateLimiter properties and initialization."""
-        from main import RateLimiter
+        from lib import RateLimiter
 
         rate_limiter = RateLimiter(requests_per_minute=120, burst_size=5)
         assert rate_limiter.requests_per_minute == 120
@@ -1488,7 +1491,7 @@ class TestBMCClientMethodsComprehensive:
     @pytest.mark.asyncio
     async def test_get_assignment_details_with_error_handling(self, mock_httpx_client):
         """Test get_assignment_details with error handling."""
-        from main import MCPServerError
+        from lib import MCPServerError
 
         mock_client_instance = unittest.mock.AsyncMock()
         mock_client_instance.request.side_effect = Exception("Network error")
@@ -1502,7 +1505,7 @@ class TestBMCClientMethodsComprehensive:
     @pytest.mark.asyncio
     async def test_bmc_client_with_metrics(self, mock_httpx_client):
         """Test BMCAMIDevXClient with metrics integration."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         mock_response = unittest.mock.MagicMock()
         mock_response.json.return_value = {"assignments": [{"id": "ASSIGN-001"}]}
@@ -1524,7 +1527,7 @@ class TestBMCClientMethodsComprehensive:
     @pytest.mark.asyncio
     async def test_bmc_client_with_cache(self, mock_httpx_client):
         """Test BMCAMIDevXClient with cache integration."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         mock_response = unittest.mock.MagicMock()
         mock_response.json.return_value = {"assignments": [{"id": "ASSIGN-001"}]}
@@ -1551,9 +1554,9 @@ class TestServerInitialization:
 
     def test_settings_creation(self):
         """Test Settings creation with defaults."""
-        from main import Settings
+        from lib import Settings
 
-        _ = Settings()
+        settings = Settings()
         assert settings.host == "0.0.0.0"
         assert settings.port == 8080
         assert settings.log_level == "INFO"
@@ -1583,7 +1586,7 @@ class TestServerInitialization:
 
     def test_create_auth_provider_with_different_providers(self):
         """Test create_auth_provider with different provider types."""
-        from main import Settings, create_auth_provider
+        from lib import Settings, create_auth_provider
 
         # Test JWT provider
         jwt_settings = Settings(
@@ -1591,10 +1594,8 @@ class TestServerInitialization:
             auth_provider="fastmcp.server.auth.providers.jwt.JWTVerifier",
         )
 
-        with unittest.mock.patch(
-            "fastmcp.server.auth.providers.jwt.JWTVerifier"
-        ) as _:
-            _ = create_auth_provider(jwt_settings)
+        with unittest.mock.patch("fastmcp.server.auth.providers.jwt.JWTVerifier") as _:
+            provider = create_auth_provider(jwt_settings)
             assert provider is not None
 
         # Test GitHub provider
@@ -1606,12 +1607,12 @@ class TestServerInitialization:
         with unittest.mock.patch(
             "fastmcp.server.auth.providers.github.GitHubProvider"
         ) as _:
-            _ = create_auth_provider(github_settings)
+            provider = create_auth_provider(github_settings)
             assert provider is not None
 
     def test_create_auth_provider_with_invalid_provider(self):
         """Test create_auth_provider with invalid provider."""
-        from main import Settings, create_auth_provider
+        from lib import Settings, create_auth_provider
 
         invalid_settings = Settings(
             auth_enabled=True, auth_provider="invalid.module.InvalidProvider"
@@ -1626,7 +1627,7 @@ class TestAdditionalCoverage:
 
     def test_metrics_update_response_time(self):
         """Test Metrics update_response_time method."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.update_response_time(1.5)
@@ -1640,7 +1641,7 @@ class TestAdditionalCoverage:
 
     def test_metrics_get_success_rate(self):
         """Test Metrics get_success_rate method."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.successful_requests = 8
@@ -1651,7 +1652,7 @@ class TestAdditionalCoverage:
 
     def test_metrics_get_cache_hit_rate(self):
         """Test Metrics get_cache_hit_rate method."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.cache_hits = 7
@@ -1662,7 +1663,7 @@ class TestAdditionalCoverage:
 
     def test_metrics_get_cache_hit_rate_zero_total(self):
         """Test Metrics get_cache_hit_rate with zero total."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.cache_hits = 0
@@ -1673,7 +1674,7 @@ class TestAdditionalCoverage:
 
     def test_metrics_get_success_rate_zero_total(self):
         """Test Metrics get_success_rate with zero total."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
         metrics.successful_requests = 0
@@ -1686,7 +1687,7 @@ class TestAdditionalCoverage:
         """Test CacheEntry is_expired method."""
         from datetime import datetime, timedelta
 
-        from main import CacheEntry
+        from lib import CacheEntry
 
         # Test non-expired entry
         entry = CacheEntry(
@@ -1704,7 +1705,7 @@ class TestAdditionalCoverage:
 
     def test_intelligent_cache_generate_key(self):
         """Test IntelligentCache _generate_key method."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache(max_size=10, default_ttl=60)
 
@@ -1720,9 +1721,9 @@ class TestAdditionalCoverage:
 
     def test_error_handler_handle_validation_error(self):
         """Test ErrorHandler handle_validation_error method."""
-        from main import ErrorHandler, MCPValidationError, Settings
+        from lib import ErrorHandler, MCPValidationError, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         validation_error = error_handler.handle_validation_error(
@@ -1735,9 +1736,9 @@ class TestAdditionalCoverage:
 
     def test_error_handler_handle_general_error(self):
         """Test ErrorHandler handle_general_error method."""
-        from main import ErrorHandler, MCPServerError, Settings
+        from lib import ErrorHandler, MCPServerError, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         general_error = error_handler.handle_general_error(
@@ -1751,9 +1752,10 @@ class TestAdditionalCoverage:
     def test_error_handler_http_timeout_error(self):
         """Test ErrorHandler HTTP timeout error conversion."""
         import httpx
-        from main import BMCAPITimeoutError, ErrorHandler, Settings
 
-        _ = Settings()
+        from lib import BMCAPITimeoutError, ErrorHandler, Settings
+
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         timeout_error = httpx.TimeoutException("Request timed out")
@@ -1768,9 +1770,10 @@ class TestAdditionalCoverage:
     def test_error_handler_http_401_error(self):
         """Test ErrorHandler HTTP 401 authentication error conversion."""
         import httpx
-        from main import BMCAPIAuthenticationError, ErrorHandler, Settings
 
-        _ = Settings()
+        from lib.errors import BMCAPIAuthenticationError, ErrorHandler, Settings
+
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -1791,9 +1794,10 @@ class TestAdditionalCoverage:
     def test_error_handler_http_404_error(self):
         """Test ErrorHandler HTTP 404 not found error conversion."""
         import httpx
-        from main import BMCAPINotFoundError, ErrorHandler, Settings
 
-        _ = Settings()
+        from lib import BMCAPINotFoundError, ErrorHandler, Settings
+
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -1814,9 +1818,10 @@ class TestAdditionalCoverage:
     def test_error_handler_http_429_error(self):
         """Test ErrorHandler HTTP 429 rate limit error conversion."""
         import httpx
-        from main import BMCAPIRateLimitError, ErrorHandler, Settings
 
-        _ = Settings()
+        from lib import BMCAPIRateLimitError, ErrorHandler, Settings
+
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -1839,9 +1844,10 @@ class TestAdditionalCoverage:
     def test_error_handler_http_422_error(self):
         """Test ErrorHandler HTTP 422 validation error conversion."""
         import httpx
-        from main import BMCAPIValidationError, ErrorHandler, Settings
 
-        _ = Settings()
+        from lib import BMCAPIValidationError, ErrorHandler, Settings
+
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -1865,9 +1871,10 @@ class TestAdditionalCoverage:
     def test_error_handler_http_500_error(self):
         """Test ErrorHandler HTTP 500 server error conversion."""
         import httpx
-        from main import BMCAPIError, ErrorHandler, Settings
 
-        _ = Settings()
+        from lib import BMCAPIError, ErrorHandler, Settings
+
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -1888,9 +1895,10 @@ class TestAdditionalCoverage:
     def test_error_handler_http_error_json_parse_failure(self):
         """Test ErrorHandler HTTP error with JSON parse failure."""
         import httpx
-        from main import BMCAPIError, ErrorHandler, Settings
 
-        _ = Settings()
+        from lib import BMCAPIError, ErrorHandler, Settings
+
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response that fails JSON parsing
@@ -1912,9 +1920,9 @@ class TestAdditionalCoverage:
     @pytest.mark.asyncio
     async def test_error_handler_execute_with_recovery_success(self):
         """Test ErrorHandler execute_with_recovery with successful operation."""
-        from main import ErrorHandler, Settings
+        from lib import ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         async def successful_operation():
@@ -1928,9 +1936,9 @@ class TestAdditionalCoverage:
     @pytest.mark.asyncio
     async def test_error_handler_execute_with_recovery_retry_success(self):
         """Test ErrorHandler execute_with_recovery with retry that succeeds."""
-        from main import ErrorHandler, Settings
+        from lib import ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         call_count = 0
@@ -1951,9 +1959,9 @@ class TestAdditionalCoverage:
     @pytest.mark.asyncio
     async def test_error_handler_execute_with_recovery_no_retry_validation_error(self):
         """Test ErrorHandler execute_with_recovery doesn't retry validation errors."""
-        from main import ErrorHandler, MCPValidationError, Settings
+        from lib import ErrorHandler, MCPValidationError, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         call_count = 0
@@ -1973,9 +1981,9 @@ class TestAdditionalCoverage:
     @pytest.mark.asyncio
     async def test_error_handler_execute_with_recovery_no_retry_auth_error(self):
         """Test ErrorHandler execute_with_recovery doesn't retry auth errors."""
-        from main import BMCAPIAuthenticationError, ErrorHandler, Settings
+        from lib.errors import BMCAPIAuthenticationError, ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         call_count = 0
@@ -1995,9 +2003,9 @@ class TestAdditionalCoverage:
     @pytest.mark.asyncio
     async def test_error_handler_execute_with_recovery_no_retry_not_found_error(self):
         """Test ErrorHandler execute_with_recovery doesn't retry not found errors."""
-        from main import BMCAPINotFoundError, ErrorHandler, Settings
+        from lib import BMCAPINotFoundError, ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         call_count = 0
@@ -2020,7 +2028,7 @@ class TestAdditionalFunctionality:
 
     def test_settings_from_env_with_invalid_types(self):
         """Test Settings.from_env with invalid type conversions."""
-        from main import Settings
+        from lib import Settings
 
         test_env = {
             "PORT": "invalid_port",
@@ -2038,9 +2046,9 @@ class TestAdditionalFunctionality:
 
     def test_error_handler_create_error_response_with_metrics(self):
         """Test ErrorHandler create_error_response with metrics."""
-        from main import ErrorHandler, Settings
+        from lib import ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a test exception
@@ -2056,7 +2064,7 @@ class TestAdditionalFunctionality:
 
     def test_rate_limiter_properties(self):
         """Test RateLimiter properties."""
-        from main import RateLimiter
+        from lib import RateLimiter
 
         rate_limiter = RateLimiter(60, 10)
 
@@ -2069,7 +2077,7 @@ class TestAdditionalFunctionality:
         """Test CacheEntry expiration."""
         from datetime import datetime, timedelta
 
-        from main import CacheEntry
+        from lib import CacheEntry
 
         # Create an expired entry
         expired_time = datetime.now() - timedelta(seconds=400)
@@ -2085,7 +2093,7 @@ class TestAdditionalFunctionality:
 
     def test_intelligent_cache_generate_key(self):
         """Test IntelligentCache key generation."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache()
 
@@ -2102,7 +2110,7 @@ class TestAdditionalFunctionality:
 
     def test_intelligent_cache_initialization(self):
         """Test IntelligentCache initialization."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache(max_size=500, default_ttl=600)
 
@@ -2113,7 +2121,7 @@ class TestAdditionalFunctionality:
 
     def test_metrics_update_bmc_response_time(self):
         """Test Metrics update_bmc_response_time method."""
-        from main import initialize_metrics
+        from lib import initialize_metrics
 
         metrics = initialize_metrics()
 
@@ -2127,9 +2135,9 @@ class TestAdditionalFunctionality:
 
     def test_error_handler_create_error_response_rate_limit_error(self):
         """Test ErrorHandler create_error_response with rate limit error."""
-        from main import BMCAPIRateLimitError, ErrorHandler, Settings
+        from lib import BMCAPIRateLimitError, ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a rate limit error
@@ -2146,9 +2154,9 @@ class TestAdditionalFunctionality:
 
     def test_error_handler_create_error_response_validation_error(self):
         """Test ErrorHandler create_error_response with validation error."""
-        from main import BMCAPIValidationError, ErrorHandler, Settings
+        from lib import BMCAPIValidationError, ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a validation error
@@ -2167,9 +2175,9 @@ class TestAdditionalFunctionality:
 
     def test_error_handler_create_error_response_mcp_validation_error(self):
         """Test ErrorHandler create_error_response with MCP validation error."""
-        from main import ErrorHandler, MCPValidationError, Settings
+        from lib import ErrorHandler, MCPValidationError, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create an MCP validation error
@@ -2188,9 +2196,9 @@ class TestAdditionalFunctionality:
 
     def test_error_handler_create_error_response_message_truncation(self):
         """Test ErrorHandler create_error_response with message truncation."""
-        from main import ErrorHandler, Settings
+        from lib import ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         settings.max_error_message_length = 10
         error_handler = ErrorHandler(settings)
 
@@ -2208,9 +2216,9 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_error_handler_execute_with_recovery_max_attempts(self):
         """Test ErrorHandler execute_with_recovery with max attempts reached."""
-        from main import ErrorHandler, Settings
+        from lib import ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         settings.error_recovery_attempts = 2
         error_handler = ErrorHandler(settings)
 
@@ -2231,9 +2239,9 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_error_handler_execute_with_recovery_with_metrics(self):
         """Test ErrorHandler execute_with_recovery with metrics updates."""
-        from main import ErrorHandler, Settings
+        from lib import ErrorHandler, Settings
 
-        _ = Settings()
+        settings = Settings()
         error_handler = ErrorHandler(settings)
 
         # Mock metrics
@@ -2252,21 +2260,21 @@ class TestAdditionalFunctionality:
 
     def test_create_auth_provider_with_none_settings(self):
         """Test create_auth_provider with None settings."""
-        from main import create_auth_provider
+        from lib import create_auth_provider
 
         # Mock the global settings
         with unittest.mock.patch("openapi_server.settings") as mock_settings:
             mock_settings.auth_enabled = False
 
-            _ = create_auth_provider(None)
+            provider = create_auth_provider(None)
 
             assert provider is None
 
     def test_create_auth_provider_auth_disabled(self):
         """Test create_auth_provider with auth disabled."""
-        from main import Settings, create_auth_provider
+        from lib import Settings, create_auth_provider
 
-        _ = Settings()
+        settings = Settings()
         settings.auth_enabled = False
 
         provider = create_auth_provider(settings)
@@ -2275,9 +2283,9 @@ class TestAdditionalFunctionality:
 
     def test_create_auth_provider_no_provider(self):
         """Test create_auth_provider with no provider specified."""
-        from main import Settings, create_auth_provider
+        from lib import Settings, create_auth_provider
 
-        _ = Settings()
+        settings = Settings()
         settings.auth_enabled = True
         settings.auth_provider = None
 
@@ -2288,7 +2296,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_bmc_client_make_request_success_with_metrics(self):
         """Test BMC client _make_request success with metrics updates."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2323,7 +2331,8 @@ class TestAdditionalFunctionality:
     async def test_bmc_client_make_request_http_error(self):
         """Test BMC client _make_request with HTTP error."""
         import httpx
-        from main import BMCAMIDevXClient, BMCAPIError, Settings
+
+        from lib import BMCAMIDevXClient, BMCAPIError, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2353,7 +2362,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_bmc_client_get_release_details(self):
         """Test BMC client get_release_details method."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2382,7 +2391,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_bmc_client_deploy_release(self):
         """Test BMC client deploy_release method."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2412,7 +2421,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_bmc_client_get_sets(self):
         """Test BMC client get_sets method."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2440,7 +2449,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_bmc_client_get_sets_with_set_id(self):
         """Test BMC client get_sets method with set_id."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2466,7 +2475,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_bmc_client_deploy_set(self):
         """Test BMC client deploy_set method."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2496,7 +2505,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_bmc_client_get_packages(self):
         """Test BMC client get_packages method."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2526,7 +2535,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_bmc_client_get_packages_with_package_id(self):
         """Test BMC client get_packages method with package_id."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2555,7 +2564,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_bmc_client_get_package_details(self):
         """Test BMC client get_package_details method."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         # Mock httpx client
         mock_httpx_client = unittest.mock.AsyncMock()
@@ -2605,7 +2614,7 @@ class TestAdditionalFunctionality:
             mock_cache.cache = {"key1": "value1", "key2": "value2"}
 
             # Call the underlying function using the fn attribute
-            from main import get_metrics
+            from lib import get_metrics
 
             result = await get_metrics.fn(mock_context)
 
@@ -2632,7 +2641,7 @@ class TestAdditionalFunctionality:
             mock_cache.cache = {"key1": "value1"}
 
             # Call the underlying function using the fn attribute
-            from main import get_metrics
+            from lib import get_metrics
 
             result = await get_metrics.fn(None)
 
@@ -2659,7 +2668,7 @@ class TestAdditionalFunctionality:
             )
 
             # Call the underlying function using the fn attribute
-            from main import get_health_status
+            from lib import get_health_status
 
             result = await get_health_status.fn(mock_context)
 
@@ -2685,7 +2694,7 @@ class TestAdditionalFunctionality:
             )
 
             # Call the underlying function using the fn attribute
-            from main import get_health_status
+            from lib import get_health_status
 
             result = await get_health_status.fn(None)
 
@@ -2699,7 +2708,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_health_checker_with_psutil_available(self):
         """Test health checker when psutil is available."""
-        from main import HealthChecker, Settings
+        from lib import HealthChecker, Settings
 
         # Mock settings
         mock_settings = Settings()
@@ -2735,7 +2744,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_health_checker_with_psutil_import_error(self):
         """Test health checker when psutil import fails."""
-        from main import HealthChecker, Settings
+        from lib import HealthChecker, Settings
 
         # Mock settings
         mock_settings = Settings()
@@ -2765,7 +2774,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_health_checker_with_psutil_exception(self):
         """Test health checker when psutil raises an exception."""
-        from main import HealthChecker, Settings
+        from lib import HealthChecker, Settings
 
         # Mock settings
         mock_settings = Settings()
@@ -2796,7 +2805,7 @@ class TestAdditionalFunctionality:
 
     def test_get_settings_function(self):
         """Test get_settings function that reloads environment variables."""
-        from main import get_settings
+        from lib import get_settings
 
         # Mock environment variables
         with unittest.mock.patch.dict(
@@ -2816,7 +2825,7 @@ class TestAdditionalFunctionality:
 
     def test_get_settings_function_with_defaults(self):
         """Test get_settings function with minimal environment variables."""
-        from main import get_settings
+        from lib import get_settings
 
         # Mock minimal environment variables
         with unittest.mock.patch.dict("os.environ", {}, clear=True):
@@ -2830,7 +2839,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_cache_set_existing_key_removal(self):
         """Test cache set method when key already exists (edge case)."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache()
 
@@ -2851,7 +2860,7 @@ class TestAdditionalFunctionality:
     @pytest.mark.asyncio
     async def test_cache_set_multiple_keys(self):
         """Test cache set method with multiple keys."""
-        from main import IntelligentCache
+        from lib import IntelligentCache
 
         cache = IntelligentCache()
 
@@ -2911,7 +2920,7 @@ class TestBMCClientAdvanced:
         mock_error_handler,
     ):
         """Test BMC client _make_request with rate limiting."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         _ = Settings()
         client = BMCAMIDevXClient(
@@ -2948,7 +2957,7 @@ class TestBMCClientAdvanced:
         mock_error_handler,
     ):
         """Test BMC client _make_request when rate limited."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         _ = Settings()
         client = BMCAMIDevXClient(
@@ -2978,7 +2987,7 @@ class TestBMCClientAdvanced:
         mock_error_handler,
     ):
         """Test BMC client _get_cached_or_fetch with cache hit."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         _ = Settings()
         client = BMCAMIDevXClient(
@@ -3010,7 +3019,7 @@ class TestBMCClientAdvanced:
         mock_error_handler,
     ):
         """Test BMC client _get_cached_or_fetch with cache miss."""
-        from main import BMCAMIDevXClient, Settings
+        from lib import BMCAMIDevXClient, Settings
 
         _ = Settings()
         client = BMCAMIDevXClient(
@@ -3045,7 +3054,8 @@ class TestBMCClientAdvanced:
     ):
         """Test BMC client _make_request with HTTP error."""
         import httpx
-        from main import BMCAMIDevXClient, BMCAPIError, Settings
+
+        from lib import BMCAMIDevXClient, BMCAPIError, Settings
 
         _ = Settings()
         client = BMCAMIDevXClient(
@@ -3084,7 +3094,7 @@ class TestAuthentication:
     def test_no_auth_provider(self):
         """Test when authentication is disabled."""
         with unittest.mock.patch.dict(os.environ, {"AUTH_ENABLED": "false"}):
-            _ = create_auth_provider()
+            provider = create_auth_provider()
             assert provider is None
 
     def test_jwt_auth_provider(self):
@@ -3105,7 +3115,7 @@ class TestAuthentication:
             mock_import = unittest.mock.MagicMock(return_value=mock_module)
 
             # Create test settings instance manually
-            from main import Settings
+            from lib import Settings
 
             test_settings = Settings(
                 auth_enabled=True,
@@ -3140,7 +3150,7 @@ class TestAuthentication:
             mock_import = unittest.mock.MagicMock(return_value=mock_module)
 
             # Create test settings instance manually
-            from main import Settings
+            from lib import Settings
 
             test_settings = Settings(
                 auth_enabled=True,
@@ -3167,21 +3177,21 @@ class TestAuthentication:
         with unittest.mock.patch.dict(os.environ, test_env):
             with unittest.mock.patch("builtins.print") as mock_print:
                 # Create test settings instance manually
-                from main import Settings
+                from lib import Settings
 
                 test_settings = Settings(
                     auth_enabled=True, auth_provider="nonexistent.module.Provider"
                 )
-                _ = create_auth_provider(test_settings)
+                provider = create_auth_provider(test_settings)
 
                 assert provider is None
                 mock_print.assert_called()
 
     def test_google_auth_provider(self):
         """Test Google authentication provider creation."""
-        from main import Settings, create_auth_provider
+        from lib import Settings, create_auth_provider
 
-        _ = Settings()
+        settings = Settings()
         settings.auth_enabled = True
         settings.auth_provider = "fastmcp.auth.GoogleProvider"
 
@@ -3199,9 +3209,9 @@ class TestAuthentication:
 
     def test_auth_kit_provider(self):
         """Test AuthKit authentication provider creation."""
-        from main import Settings, create_auth_provider
+        from lib import Settings, create_auth_provider
 
-        _ = Settings()
+        settings = Settings()
         settings.auth_enabled = True
         settings.auth_provider = "fastmcp.auth.AuthKitProvider"
 
@@ -3286,7 +3296,7 @@ class TestMCPTools:
         }
 
         # Import the core function (not the wrapped tool)
-        from main import _get_assignments_core
+        from lib import _get_assignments_core
 
         # Call the core function directly
         result = await _get_assignments_core(
@@ -3313,7 +3323,7 @@ class TestMCPTools:
     ):
         """Test get_assignments with validation error."""
         # Import the core function
-        from main import _get_assignments_core
+        from lib import _get_assignments_core
 
         # Call with invalid SRID
         result = await _get_assignments_core("", "DEV", None, mock_context)
@@ -3335,7 +3345,7 @@ class TestMCPTools:
     async def test_get_assignments_http_error(self, mock_bmc_client, mock_context):
         """Test get_assignments with HTTP error."""
         # Import the core function
-        from main import _get_assignments_core
+        from lib import _get_assignments_core
 
         # Mock HTTP error
         mock_bmc_client.get_assignments.side_effect = httpx.HTTPError("API Error")
@@ -3356,7 +3366,7 @@ class TestMCPTools:
     async def test_create_assignment_success(self, mock_bmc_client, mock_context):
         """Test successful create_assignment tool call."""
         # Import the core function
-        from main import _create_assignment_core
+        from lib import _create_assignment_core
 
         # Mock BMC client response
         mock_bmc_client.create_assignment.return_value = {
@@ -3384,7 +3394,7 @@ class TestMCPTools:
     async def test_get_assignment_details_success(self, mock_bmc_client, mock_context):
         """Test successful get_assignment_details tool call."""
         # Import the core function
-        from main import _get_assignment_details_core
+        from lib import _get_assignment_details_core
 
         # Mock BMC client response
         mock_bmc_client.get_assignment_details.return_value = {
@@ -3441,7 +3451,6 @@ class TestServerIntegration:
         print("✅ Health endpoint route test passed")
 
 
-
 class TestConfiguration:
     """Test configuration and environment handling."""
 
@@ -3476,7 +3485,7 @@ class TestConfiguration:
 
         with unittest.mock.patch.dict(os.environ, test_env):
             # Use from_env() to get a fresh instance
-            from main import Settings
+            from lib import Settings
 
             settings = Settings.from_env()
 
