@@ -10,6 +10,7 @@ docs/
 *.md
 
 # Development and testing
+tests/
 .pytest_cache/
 .coverage
 htmlcov/
@@ -48,10 +49,9 @@ env/
 *.log
 logs/
 
-# Node.js (development tooling)
+# Node.js (no longer used - removed from project)
 node_modules/
 npm-debug.log
-package-lock.json
 
 # Environment files (use Docker ENV instead)
 .env

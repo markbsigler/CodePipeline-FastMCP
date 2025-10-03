@@ -1,5 +1,6 @@
 # FastMCP 2.x Production Dockerfile for BMC AMI DevX Code Pipeline MCP Server
 # Multi-stage build optimized for FastMCP Python implementation
+# Pure Python project - no Node.js dependencies required
 
 # Build stage
 FROM python:3.11-slim AS builder
@@ -34,6 +35,11 @@ ENV PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \
     PORT=8080 \
     LOG_LEVEL=INFO
+
+# Install runtime dependencies for health check
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create app user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
