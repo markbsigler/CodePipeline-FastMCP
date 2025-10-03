@@ -14,17 +14,12 @@ import httpx
 import pytest
 from fastmcp import Context, FastMCP
 
-# Import the main module components
-import main
-from main import (
-    BMCAMIDevXClient,
-    BMCAPIError,
-    Settings,
-    create_auth_provider,
-    retry_on_failure,
-    validate_level,
-    validate_srid,
-)
+# Import components from lib package and openapi_server
+import openapi_server
+from lib import BMCAMIDevXClient, Settings, create_auth_provider, initialize_metrics
+from lib.errors import BMCAPIError, retry_on_failure
+
+# Note: validate_level and validate_srid functions were removed with main.py
 
 
 class TestSettings:
@@ -782,7 +777,6 @@ class TestErrorHandling:
     def test_error_handler_http_error_conversion(self):
         """Test HTTP error conversion to BMC API errors."""
         import httpx
-
         from main import (
             BMCAPIAuthenticationError,
             BMCAPITimeoutError,
@@ -939,7 +933,6 @@ class TestErrorHandling:
     def test_error_handler_http_status_errors(self):
         """Test HTTP status error conversion for different status codes."""
         import httpx
-
         from main import (
             BMCAPIAuthenticationError,
             BMCAPINotFoundError,
@@ -1023,7 +1016,6 @@ class TestErrorHandling:
     def test_error_handler_json_parsing_failure(self):
         """Test error handler when JSON parsing fails."""
         import httpx
-
         from main import BMCAPIAuthenticationError, ErrorHandler, Settings
 
         settings = Settings()
@@ -1102,7 +1094,6 @@ class TestErrorHandling:
     def test_error_handler_http_status_errors(self):
         """Test HTTP status error conversion for different status codes."""
         import httpx
-
         from main import (
             BMCAPIAuthenticationError,
             BMCAPINotFoundError,
@@ -1186,7 +1177,6 @@ class TestErrorHandling:
     def test_error_handler_json_parsing_failure(self):
         """Test error handler when JSON parsing fails."""
         import httpx
-
         from main import BMCAPIAuthenticationError, ErrorHandler, Settings
 
         settings = Settings()
@@ -1738,7 +1728,7 @@ class TestMCPToolsComprehensive:
         from main import _get_assignments_core
 
         # Mock the global bmc_client to return our mock
-        with unittest.mock.patch("main.bmc_client", mock_bmc_client):
+        with unittest.mock.patch("openapi_server.bmc_client", mock_bmc_client):
             # Make the mock return an awaitable
             async def mock_get_assignments(*args, **kwargs):
                 return {"assignments": [{"id": "ASSIGN-001"}]}
@@ -1762,7 +1752,7 @@ class TestMCPToolsComprehensive:
         from main import _get_assignments_core
 
         # Mock the global bmc_client to return our mock
-        with unittest.mock.patch("main.bmc_client", mock_bmc_client):
+        with unittest.mock.patch("openapi_server.bmc_client", mock_bmc_client):
             # Make the mock return an awaitable
             async def mock_get_assignments(*args, **kwargs):
                 return {"assignments": [{"id": "ASSIGN-001"}]}
@@ -2001,7 +1991,6 @@ class TestAdditionalCoverage:
     def test_error_handler_http_timeout_error(self):
         """Test ErrorHandler HTTP timeout error conversion."""
         import httpx
-
         from main import BMCAPITimeoutError, ErrorHandler, Settings
 
         settings = Settings()
@@ -2019,7 +2008,6 @@ class TestAdditionalCoverage:
     def test_error_handler_http_401_error(self):
         """Test ErrorHandler HTTP 401 authentication error conversion."""
         import httpx
-
         from main import BMCAPIAuthenticationError, ErrorHandler, Settings
 
         settings = Settings()
@@ -2043,7 +2031,6 @@ class TestAdditionalCoverage:
     def test_error_handler_http_404_error(self):
         """Test ErrorHandler HTTP 404 not found error conversion."""
         import httpx
-
         from main import BMCAPINotFoundError, ErrorHandler, Settings
 
         settings = Settings()
@@ -2067,7 +2054,6 @@ class TestAdditionalCoverage:
     def test_error_handler_http_429_error(self):
         """Test ErrorHandler HTTP 429 rate limit error conversion."""
         import httpx
-
         from main import BMCAPIRateLimitError, ErrorHandler, Settings
 
         settings = Settings()
@@ -2093,7 +2079,6 @@ class TestAdditionalCoverage:
     def test_error_handler_http_422_error(self):
         """Test ErrorHandler HTTP 422 validation error conversion."""
         import httpx
-
         from main import BMCAPIValidationError, ErrorHandler, Settings
 
         settings = Settings()
@@ -2120,7 +2105,6 @@ class TestAdditionalCoverage:
     def test_error_handler_http_500_error(self):
         """Test ErrorHandler HTTP 500 server error conversion."""
         import httpx
-
         from main import BMCAPIError, ErrorHandler, Settings
 
         settings = Settings()
@@ -2144,7 +2128,6 @@ class TestAdditionalCoverage:
     def test_error_handler_http_error_json_parse_failure(self):
         """Test ErrorHandler HTTP error with JSON parse failure."""
         import httpx
-
         from main import BMCAPIError, ErrorHandler, Settings
 
         settings = Settings()
@@ -2536,7 +2519,7 @@ class TestAdditionalFunctionality:
         from main import create_auth_provider
 
         # Mock the global settings
-        with unittest.mock.patch("main.settings") as mock_settings:
+        with unittest.mock.patch("openapi_server.settings") as mock_settings:
             mock_settings.auth_enabled = False
 
             provider = create_auth_provider(None)
@@ -2604,7 +2587,6 @@ class TestAdditionalFunctionality:
     async def test_bmc_client_make_request_http_error(self):
         """Test BMC client _make_request with HTTP error."""
         import httpx
-
         from main import BMCAMIDevXClient, BMCAPIError, Settings
 
         # Mock httpx client
@@ -2879,8 +2861,8 @@ class TestAdditionalFunctionality:
 
         # Mock global instances
         with (
-            unittest.mock.patch("main.metrics") as mock_metrics,
-            unittest.mock.patch("main.cache") as mock_cache,
+            unittest.mock.patch("openapi_server.metrics") as mock_metrics,
+            unittest.mock.patch("openapi_server.cache") as mock_cache,
         ):
 
             mock_metrics.to_dict.return_value = {"requests": {"total": 100}}
@@ -2906,8 +2888,8 @@ class TestAdditionalFunctionality:
         """Test get_metrics MCP tool function without context."""
         # Mock global instances
         with (
-            unittest.mock.patch("main.metrics") as mock_metrics,
-            unittest.mock.patch("main.cache") as mock_cache,
+            unittest.mock.patch("openapi_server.metrics") as mock_metrics,
+            unittest.mock.patch("openapi_server.cache") as mock_cache,
         ):
 
             mock_metrics.to_dict.return_value = {"requests": {"total": 50}}
@@ -2933,7 +2915,9 @@ class TestAdditionalFunctionality:
         mock_context.info = unittest.mock.AsyncMock()
 
         # Mock health checker
-        with unittest.mock.patch("main.health_checker") as mock_health_checker:
+        with unittest.mock.patch(
+            "openapi_server.health_checker"
+        ) as mock_health_checker:
             mock_health_checker.check_health = unittest.mock.AsyncMock(
                 return_value={"status": "healthy", "details": {}}
             )
@@ -2957,7 +2941,9 @@ class TestAdditionalFunctionality:
     async def test_get_health_status_tool_no_context(self):
         """Test get_health_status MCP tool function without context."""
         # Mock health checker
-        with unittest.mock.patch("main.health_checker") as mock_health_checker:
+        with unittest.mock.patch(
+            "openapi_server.health_checker"
+        ) as mock_health_checker:
             mock_health_checker.check_health = unittest.mock.AsyncMock(
                 return_value={"status": "unhealthy", "error": "test error"}
             )
@@ -3323,7 +3309,6 @@ class TestBMCClientAdvanced:
     ):
         """Test BMC client _make_request with HTTP error."""
         import httpx
-
         from main import BMCAMIDevXClient, BMCAPIError, Settings
 
         settings = Settings()
@@ -3502,8 +3487,10 @@ class TestFastMCPServer:
 
     def test_server_creation(self):
         """Test FastMCP server creation."""
-        with unittest.mock.patch("main.create_auth_provider", return_value=None):
-            server = main.server
+        with unittest.mock.patch(
+            "openapi_server.create_auth_provider", return_value=None
+        ):
+            server = openapi_server.server
 
             assert isinstance(server, FastMCP)
             assert server.name == "BMC AMI DevX Code Pipeline MCP Server"
@@ -3513,7 +3500,9 @@ class TestFastMCPServer:
         """Test FastMCP server creation with authentication."""
         mock_auth = unittest.mock.MagicMock()
 
-        with unittest.mock.patch("main.create_auth_provider", return_value=mock_auth):
+        with unittest.mock.patch(
+            "openapi_server.create_auth_provider", return_value=mock_auth
+        ):
             # Recreate server with auth
             server = FastMCP(
                 name="Test Server",
@@ -3531,7 +3520,7 @@ class TestMCPTools:
     @pytest.fixture
     def mock_bmc_client(self):
         """Create a mock BMC client."""
-        with unittest.mock.patch("main.bmc_client") as mock_client:
+        with unittest.mock.patch("openapi_server.bmc_client") as mock_client:
             # Set up async mocks for BMC client methods
             mock_client.get_assignments = unittest.mock.AsyncMock()
             mock_client.create_assignment = unittest.mock.AsyncMock()
@@ -3693,7 +3682,7 @@ class TestServerIntegration:
         # This test verifies the server can be created and configured
         # without actually starting the HTTP server
 
-        server = main.server
+        server = openapi_server.server
         assert server is not None
         assert isinstance(server, FastMCP)
 
@@ -3708,7 +3697,7 @@ class TestServerIntegration:
         # In FastMCP, custom routes are registered via decorators
         # We can verify the route exists by checking the server configuration
 
-        server = main.server
+        server = openapi_server.server
         assert server is not None
 
         # FastMCP handles route registration internally
@@ -3725,7 +3714,7 @@ class TestErrorHandling:
         # Import the core function
         from main import _get_assignments_core
 
-        with unittest.mock.patch("main.bmc_client") as mock_client:
+        with unittest.mock.patch("openapi_server.bmc_client") as mock_client:
             mock_client.get_assignments.side_effect = Exception("Unexpected error")
 
             context = unittest.mock.MagicMock(spec=Context)
@@ -3746,17 +3735,8 @@ class TestErrorHandling:
             # Context should log error
             context.error.assert_called()
 
-    def test_validation_error_messages(self):
-        """Test that validation errors provide helpful messages."""
-        # Test various validation error scenarios
-        with pytest.raises(ValueError, match="SRID is required"):
-            validate_srid("")
-
-        with pytest.raises(ValueError, match="SRID must be 1-8 alphanumeric"):
-            validate_srid("INVALID@123")
-
-        with pytest.raises(ValueError, match="Level must be one of"):
-            validate_level("INVALID_LEVEL")
+    # NOTE: test_validation_error_messages removed - validation functions were in main.py
+    # which has been removed. Validation is now handled by lib components.
 
 
 class TestConfiguration:
@@ -3773,7 +3753,7 @@ class TestConfiguration:
 
         try:
             # Test loading from the temp file
-            with unittest.mock.patch("main.Settings") as mock_settings:
+            with unittest.mock.patch("openapi_server.Settings") as mock_settings:
                 mock_settings.return_value.model_config = {"env_file": temp_env_file}
 
                 # This would normally load from the .env file
