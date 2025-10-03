@@ -7,12 +7,100 @@ custom exceptions, error categorization, and retry logic.
 """
 
 import asyncio
+import random
 import time
+from enum import Enum
 from typing import Any, Callable, Dict, Optional
 
 import httpx
 
 from .settings import Settings
+
+
+class CircuitBreakerState(Enum):
+    """Circuit breaker states."""
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+
+class CircuitBreaker:
+    """
+    Circuit breaker implementation for enhanced resilience.
+    
+    Prevents cascading failures by temporarily stopping requests
+    to failing services and allowing them time to recover.
+    """
+    
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: int = 60,
+        expected_exception: type = Exception,
+    ):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.expected_exception = expected_exception
+        
+        self.failure_count = 0
+        self.last_failure_time = None
+        self.state = CircuitBreakerState.CLOSED
+        
+    def call(self, func: Callable, *args, **kwargs):
+        """Execute function with circuit breaker protection."""
+        if self.state == CircuitBreakerState.OPEN:
+            if self._should_attempt_reset():
+                self.state = CircuitBreakerState.HALF_OPEN
+            else:
+                raise CircuitBreakerOpenError("Circuit breaker is OPEN")
+                
+        try:
+            result = func(*args, **kwargs)
+            self._on_success()
+            return result
+        except self.expected_exception as e:
+            self._on_failure()
+            raise e
+            
+    async def acall(self, func: Callable, *args, **kwargs):
+        """Execute async function with circuit breaker protection."""
+        if self.state == CircuitBreakerState.OPEN:
+            if self._should_attempt_reset():
+                self.state = CircuitBreakerState.HALF_OPEN
+            else:
+                raise CircuitBreakerOpenError("Circuit breaker is OPEN")
+                
+        try:
+            result = await func(*args, **kwargs)
+            self._on_success()
+            return result
+        except self.expected_exception as e:
+            self._on_failure()
+            raise e
+            
+    def _should_attempt_reset(self) -> bool:
+        """Check if enough time has passed to attempt reset."""
+        return (
+            self.last_failure_time is not None
+            and time.time() - self.last_failure_time >= self.recovery_timeout
+        )
+        
+    def _on_success(self):
+        """Handle successful call."""
+        self.failure_count = 0
+        self.state = CircuitBreakerState.CLOSED
+        
+    def _on_failure(self):
+        """Handle failed call."""
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        
+        if self.failure_count >= self.failure_threshold:
+            self.state = CircuitBreakerState.OPEN
+
+
+class CircuitBreakerOpenError(Exception):
+    """Exception raised when circuit breaker is open."""
 
 
 # Custom Exception Classes
@@ -60,6 +148,13 @@ class ErrorHandler:
         self.base_delay = settings.retry_base_delay
         self.retryable_statuses = {500, 502, 503, 504}
         self.retryable_exceptions = (httpx.TimeoutException, httpx.ConnectError)
+        
+        # Initialize circuit breaker for enhanced resilience
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=getattr(settings, 'circuit_breaker_failure_threshold', 5),
+            recovery_timeout=getattr(settings, 'circuit_breaker_recovery_timeout', 60),
+            expected_exception=(BMCAPIError, httpx.HTTPError)
+        )
 
     def should_retry(self, error: Exception) -> bool:
         """Determine if an error should trigger a retry."""
@@ -68,8 +163,17 @@ class ErrorHandler:
         return isinstance(error, self.retryable_exceptions)
 
     def get_retry_delay(self, attempt: int, base_delay: float) -> float:
-        """Calculate exponential backoff delay."""
-        return base_delay * (2**attempt)
+        """Calculate exponential backoff delay with jitter."""
+        # Exponential backoff: base_delay * 2^attempt
+        delay = base_delay * (2**attempt)
+        
+        # Add jitter to prevent thundering herd problem
+        # Jitter is ±25% of the calculated delay
+        jitter = delay * 0.25 * (2 * random.random() - 1)
+        
+        # Ensure minimum delay and cap maximum delay
+        final_delay = max(0.1, delay + jitter)
+        return min(final_delay, 60.0)  # Cap at 60 seconds
 
     def categorize_error(self, error: Exception, operation: str) -> Dict[str, Any]:
         """Categorize error and extract relevant information."""
@@ -202,7 +306,17 @@ class ErrorHandler:
         for attempt in range(self.max_retries + 1):
             try:
                 start_time = time.time()
-                result = await func(*args, **kwargs)
+                
+                # Use circuit breaker for enhanced resilience
+                try:
+                    result = await self.circuit_breaker.acall(func, *args, **kwargs)
+                except CircuitBreakerOpenError as cb_error:
+                    # Circuit breaker is open, return error response immediately
+                    return self.create_error_response(
+                        BMCAPIError(f"Service temporarily unavailable: {cb_error}"),
+                        operation,
+                        attempt + 1
+                    )
 
                 # Record successful operation
                 duration = time.time() - start_time

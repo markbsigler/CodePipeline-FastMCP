@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     retry_base_delay: float = Field(
         default=1.0, description="Base retry delay in seconds"
     )
+    
+    # Circuit breaker configuration
+    circuit_breaker_failure_threshold: int = Field(
+        default=5, description="Circuit breaker failure threshold"
+    )
+    circuit_breaker_recovery_timeout: int = Field(
+        default=60, description="Circuit breaker recovery timeout in seconds"
+    )
 
     # Observability configuration
     otel_enabled: bool = Field(default=True, description="Enable OpenTelemetry")
