@@ -273,8 +273,8 @@ AUTH_ENABLED=false python openapi_server.py
 # Production mode (with authentication) - RECOMMENDED
 python openapi_server.py
 
-# Alternative: Use npm scripts
-npm run dev
+# Alternative: Use development scripts
+./scripts/dev.sh
 
 # Alternative: Use development script
 ./scripts/dev.sh
@@ -370,31 +370,32 @@ The project includes comprehensive automation scripts in the `scripts/` director
 - 🧹 **Cleanup**: Automatic cleanup of old backup images
 - 📋 **Management**: Complete deployment verification and status reporting
 
-### NPM-Style Development Commands
+### Development Commands
 
-The project provides familiar npm-style commands via `package.json`:
+The project provides shell scripts and Python commands for development:
 
 ```bash
 # Development workflow
-npm run dev              # Start development server
-npm run test             # Run test suite
-npm run test:coverage    # Run tests with coverage reporting
-npm run test:watch       # Run tests in watch mode
+./scripts/dev.sh              # Start development server
+./scripts/test.sh             # Run comprehensive test suite
+./scripts/coverage.sh         # Run tests with coverage reporting
+./scripts/setup.sh            # Setup development environment
 
-# Code quality
-npm run lint:fix         # Auto-fix code formatting (autoflake + isort + black)
-npm run format           # Format code with black
-npm run style:check      # Check code style without changes
-npm run pre-commit:run   # Run all pre-commit hooks
+# Python commands
+.venv/bin/pytest             # Run test suite
+.venv/bin/pytest --cov=.     # Run tests with coverage
+.venv/bin/black *.py         # Format code with black
+.venv/bin/flake8 *.py        # Lint code with flake8
+pre-commit run --all-files   # Run all pre-commit hooks
 
 # Docker operations
-npm run docker:build     # Build Docker image
-npm run docker:up        # Start with docker-compose
-npm run docker:down      # Stop docker containers
+docker-compose build         # Build Docker image
+docker-compose up --build   # Start with docker-compose
+docker-compose down          # Stop docker containers
 
-# Utilities
-npm run clean            # Clean build artifacts and cache
-npm run health           # Check server health endpoint
+# Utilities and deployment
+./scripts/health.sh          # Health check utilities
+./scripts/deploy.sh          # Production deployment
 ```
 
 ## MCP Tools Available
