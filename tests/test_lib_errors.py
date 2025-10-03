@@ -394,42 +394,45 @@ class TestErrorHandler:
     async def test_execute_with_recovery_success(self):
         """Test execute_with_recovery with successful operation."""
         mock_func = AsyncMock(return_value="success")
-        self.mock_metrics.record_operation = Mock()
+        self.mock_metrics.record_request = Mock()
 
         result = await self.error_handler.execute_with_recovery(
-            "test_op", mock_func, "arg1", key="value"
+            "GET /test_endpoint", mock_func, "arg1", key="value"
         )
 
         assert result == "success"
         mock_func.assert_called_once_with("arg1", key="value")
-        self.mock_metrics.record_operation.assert_called_once()
+        self.mock_metrics.record_request.assert_called_once()
         # Check that success was recorded
-        call_args = self.mock_metrics.record_operation.call_args
-        assert call_args[0][0] == "test_op"  # operation
-        assert call_args[0][1] is True  # success
+        call_args = self.mock_metrics.record_request.call_args
+        assert call_args[0][0] == "GET"  # method
+        assert call_args[0][1] == "/test_endpoint"  # endpoint
+        assert call_args[0][2] == 200  # status_code
 
     @pytest.mark.asyncio
     async def test_execute_with_recovery_retry_then_success(self):
         """Test execute_with_recovery with retry then success."""
+        mock_response = Mock()
+        mock_response.status_code = 503
         mock_func = AsyncMock(
             side_effect=[
                 httpx.HTTPStatusError(
-                    "Server error", request=Mock(), response=Mock(status_code=503)
+                    "Server error", request=Mock(), response=mock_response
                 ),
                 "success",
             ]
         )
-        self.mock_metrics.record_operation = Mock()
+        self.mock_metrics.record_request = Mock()
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
             result = await self.error_handler.execute_with_recovery(
-                "test_op", mock_func
+                "POST /test_endpoint", mock_func
             )
 
         assert result == "success"
         assert mock_func.call_count == 2
         # Should record both failed and successful operations
-        assert self.mock_metrics.record_operation.call_count == 2
+        assert self.mock_metrics.record_request.call_count == 2
 
     @pytest.mark.asyncio
     async def test_execute_with_recovery_non_retryable_error(self):

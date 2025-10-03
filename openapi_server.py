@@ -546,7 +546,9 @@ if ADVANCED_FEATURES_AVAILABLE and settings:
             max_connections=settings.connection_pool_size * 2,
         ),
         headers={
-            "Authorization": f"Bearer {settings.api_token or os.getenv('API_TOKEN', '')}",
+            "Authorization": (
+                f"Bearer {settings.api_token or os.getenv('API_TOKEN', '')}"
+            ),
             "Content-Type": "application/json",
             "User-Agent": "BMC-AMI-DevX-MCP-Server/2.2.0",
         },
@@ -570,7 +572,9 @@ else:
             max_connections=int(os.getenv("CONNECTION_POOL_SIZE", "20")) * 2,
         ),
         headers={
-            "Authorization": f"Bearer {settings.api_token or os.getenv('API_TOKEN', '')}",
+            "Authorization": (
+                f"Bearer {settings.api_token or os.getenv('API_TOKEN', '')}"
+            ),
             "Content-Type": "application/json",
             "User-Agent": "BMC-AMI-DevX-MCP-Server/2.2.0",
         },
