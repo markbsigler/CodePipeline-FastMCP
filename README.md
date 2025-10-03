@@ -1,7 +1,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-2.12.2%2B-green)](https://gofastmcp.com/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/markbsigler/CodePipeline-FastMCP/actions)
-[![Tests](https://img.shields.io/badge/tests-373%20passing-brightgreen)](https://github.com/markbsigler/CodePipeline-FastMCP/actions)
+[![Tests](https://img.shields.io/badge/tests-666%20passing-brightgreen)](https://github.com/markbsigler/CodePipeline-FastMCP/actions)
 
 A **production-ready FastMCP 2.12.2** Model Context Protocol (MCP) server for **BMC AMI DevX Code Pipeline** mainframe DevOps operations. This server implements real FastMCP with native authentication, comprehensive input validation, retry logic, and enterprise-grade error handling.
 
@@ -30,7 +30,7 @@ A **production-ready FastMCP 2.12.2** Model Context Protocol (MCP) server for **
 - **Mainframe DevOps**: Complete CI/CD pipeline integration with validation
 
 ### 🧪 **Testing & Quality**
-- **Comprehensive Test Suite**: 373 passing tests with 85% coverage (enterprise-grade reliability)
+- **Comprehensive Test Suite**: 666 passing tests with 79% coverage (enterprise-grade reliability)
 - **Consolidated Test Structure**: Streamlined test files with eliminated redundancy
 - **Input Validation Tests**: Complete validation function coverage
 - **Retry Logic Tests**: Exponential backoff and error handling validation
