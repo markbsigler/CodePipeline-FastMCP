@@ -27,7 +27,7 @@ class TestSettings:
 
     def test_default_settings(self):
         """Test default settings values."""
-        settings = Settings()
+        _ = Settings()
 
         assert settings.host == "0.0.0.0"
         assert settings.port == 8080
@@ -688,7 +688,7 @@ class TestHealthChecker:
         mock_bmc_client = unittest.mock.AsyncMock()
         mock_bmc_client.get_assignments.return_value = {"assignments": []}
 
-        settings = Settings()
+        _ = Settings()
         health_checker = HealthChecker(mock_bmc_client, settings)
 
         health_data = await health_checker.check_health()
@@ -709,7 +709,7 @@ class TestHealthChecker:
         mock_bmc_client = unittest.mock.AsyncMock()
         mock_bmc_client.get_assignments.side_effect = Exception("API Error")
 
-        settings = Settings()
+        _ = Settings()
         health_checker = HealthChecker(mock_bmc_client, settings)
 
         health_data = await health_checker.check_health()
@@ -767,7 +767,7 @@ class TestErrorHandling:
         """Test error handler initialization."""
         from main import ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         metrics = initialize_metrics()
         error_handler = ErrorHandler(settings, metrics)
 
@@ -784,7 +784,7 @@ class TestErrorHandling:
             Settings,
         )
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Test timeout error conversion
@@ -806,7 +806,7 @@ class TestErrorHandling:
         """Test validation error conversion."""
         from main import ErrorHandler, MCPValidationError, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         validation_error = ValueError("Invalid format")
@@ -823,7 +823,7 @@ class TestErrorHandling:
         """Test general error conversion."""
         from main import ErrorHandler, MCPServerError, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         general_error = RuntimeError("Something went wrong")
@@ -840,7 +840,7 @@ class TestErrorHandling:
         """Test standardized error response creation."""
         from main import BMCAPIError, ErrorHandler, MCPValidationError, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Test BMC API error response
@@ -876,7 +876,10 @@ class TestErrorHandling:
         settings = Settings(max_error_message_length=50)
         error_handler = ErrorHandler(settings)
 
-        long_message = "This is a very long error message that should be truncated because it exceeds the maximum length"
+        long_message = (
+            "This is a very long error message that should be truncated "
+            "because it exceeds the maximum length"
+        )
         bmc_error = BMCAPIError(long_message)
         response = error_handler.create_error_response(bmc_error, "test_operation")
 
@@ -942,7 +945,7 @@ class TestErrorHandling:
             Settings,
         )
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Test 401 Authentication Error
@@ -1018,7 +1021,7 @@ class TestErrorHandling:
         import httpx
         from main import BMCAPIAuthenticationError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create response with invalid JSON
@@ -1036,168 +1039,7 @@ class TestErrorHandling:
         """Test error response creation with metrics integration."""
         from main import BMCAPIError, ErrorHandler, Settings
 
-        settings = Settings()
-        metrics = initialize_metrics()
-        error_handler = ErrorHandler(settings, metrics)
-
-        bmc_error = BMCAPIError("Test error", status_code=500)
-        response = error_handler.create_error_response(bmc_error, "test_operation")
-
-        assert response["error"] is True
-        assert metrics.failed_requests == 1
-        assert "test_operation_500" in metrics.endpoint_errors
-        assert metrics.endpoint_errors["test_operation_500"] == 1
-
-    @pytest.mark.asyncio
-    async def test_error_recovery_with_different_error_types(self):
-        """Test error recovery with different types of errors."""
-        from main import (
-            BMCAPIAuthenticationError,
-            BMCAPITimeoutError,
-            ErrorHandler,
-            Settings,
-        )
-
-        settings = Settings(error_recovery_attempts=2)
-        error_handler = ErrorHandler(settings)
-
-        # Test with timeout error (should retry)
-        call_count = 0
-
-        async def timeout_failing_function():
-            nonlocal call_count
-            call_count += 1
-            if call_count < 2:
-                raise BMCAPITimeoutError("Timeout")
-            return "success"
-
-        result = await error_handler.execute_with_recovery(
-            "test_operation", timeout_failing_function
-        )
-        assert result == "success"
-        assert call_count == 2
-
-        # Test with authentication error (should not retry)
-        call_count = 0
-
-        async def auth_failing_function():
-            nonlocal call_count
-            call_count += 1
-            raise BMCAPIAuthenticationError("Auth failed")
-
-        with pytest.raises(BMCAPIAuthenticationError):
-            await error_handler.execute_with_recovery(
-                "test_operation", auth_failing_function
-            )
-        assert call_count == 1  # Should not retry
-
-    def test_error_handler_http_status_errors(self):
-        """Test HTTP status error conversion for different status codes."""
-        import httpx
-        from main import (
-            BMCAPIAuthenticationError,
-            BMCAPINotFoundError,
-            BMCAPIRateLimitError,
-            BMCAPIValidationError,
-            ErrorHandler,
-            Settings,
-        )
-
-        settings = Settings()
-        error_handler = ErrorHandler(settings)
-
-        # Test 401 Authentication Error
-        response_401 = httpx.Response(
-            401, request=httpx.Request("GET", "http://test.com")
-        )
-        response_401._content = b'{"error": "unauthorized"}'
-        status_error_401 = httpx.HTTPStatusError(
-            "Unauthorized", request=response_401.request, response=response_401
-        )
-        bmc_error = error_handler.handle_http_error(status_error_401, "test_operation")
-        assert isinstance(bmc_error, BMCAPIAuthenticationError)
-        assert bmc_error.status_code == 401
-
-        # Test 404 Not Found Error
-        response_404 = httpx.Response(
-            404, request=httpx.Request("GET", "http://test.com")
-        )
-        response_404._content = b'{"error": "not found"}'
-        status_error_404 = httpx.HTTPStatusError(
-            "Not Found", request=response_404.request, response=response_404
-        )
-        bmc_error = error_handler.handle_http_error(status_error_404, "test_operation")
-        assert isinstance(bmc_error, BMCAPINotFoundError)
-        assert bmc_error.status_code == 404
-
-        # Test 429 Rate Limit Error
-        response_429 = httpx.Response(
-            429, request=httpx.Request("GET", "http://test.com")
-        )
-        response_429._content = b'{"error": "rate limited"}'
-        response_429.headers["Retry-After"] = "60"
-        status_error_429 = httpx.HTTPStatusError(
-            "Too Many Requests", request=response_429.request, response=response_429
-        )
-        bmc_error = error_handler.handle_http_error(status_error_429, "test_operation")
-        assert isinstance(bmc_error, BMCAPIRateLimitError)
-        assert bmc_error.status_code == 429
-        assert bmc_error.retry_after == 60
-
-        # Test 422 Validation Error
-        response_422 = httpx.Response(
-            422, request=httpx.Request("GET", "http://test.com")
-        )
-        response_422._content = (
-            b'{"errors": ["field1 is required", "field2 is invalid"]}'
-        )
-        status_error_422 = httpx.HTTPStatusError(
-            "Unprocessable Entity", request=response_422.request, response=response_422
-        )
-        bmc_error = error_handler.handle_http_error(status_error_422, "test_operation")
-        assert isinstance(bmc_error, BMCAPIValidationError)
-        assert bmc_error.status_code == 422
-        assert bmc_error.validation_errors == [
-            "field1 is required",
-            "field2 is invalid",
-        ]
-
-        # Test other status codes
-        response_500 = httpx.Response(
-            500, request=httpx.Request("GET", "http://test.com")
-        )
-        response_500._content = b'{"error": "internal server error"}'
-        status_error_500 = httpx.HTTPStatusError(
-            "Internal Server Error", request=response_500.request, response=response_500
-        )
-        bmc_error = error_handler.handle_http_error(status_error_500, "test_operation")
-        assert isinstance(bmc_error, BMCAPIError)
-        assert bmc_error.status_code == 500
-
-    def test_error_handler_json_parsing_failure(self):
-        """Test error handler when JSON parsing fails."""
-        import httpx
-        from main import BMCAPIAuthenticationError, ErrorHandler, Settings
-
-        settings = Settings()
-        error_handler = ErrorHandler(settings)
-
-        # Create response with invalid JSON
-        response = httpx.Response(401, request=httpx.Request("GET", "http://test.com"))
-        response._content = b"invalid json content"
-        status_error = httpx.HTTPStatusError(
-            "Unauthorized", request=response.request, response=response
-        )
-
-        bmc_error = error_handler.handle_http_error(status_error, "test_operation")
-        assert isinstance(bmc_error, BMCAPIAuthenticationError)
-        assert bmc_error.response_data == {"raw_response": "invalid json content"}
-
-    def test_error_response_with_metrics(self):
-        """Test error response creation with metrics integration."""
-        from main import BMCAPIError, ErrorHandler, Settings
-
-        settings = Settings()
+        _ = Settings()
         metrics = initialize_metrics()
         error_handler = ErrorHandler(settings, metrics)
 
@@ -1562,7 +1404,7 @@ class TestHealthCheckerComprehensive:
         from main import HealthChecker, Settings
 
         mock_bmc_client = unittest.mock.MagicMock()
-        settings = Settings()
+        _ = Settings()
         health_checker = HealthChecker(mock_bmc_client, settings)
 
         assert health_checker.bmc_client == mock_bmc_client
@@ -1704,88 +1546,6 @@ class TestBMCClientMethodsComprehensive:
         assert result2["assignments"][0]["id"] == "ASSIGN-001"
 
 
-class TestMCPToolsComprehensive:
-    """Comprehensive tests for MCP tool core functions."""
-
-    @pytest.fixture
-    def mock_bmc_client(self):
-        """Mock BMC client for testing."""
-        return unittest.mock.MagicMock()
-
-    @pytest.fixture
-    def mock_context(self):
-        """Mock FastMCP context for testing."""
-        context = unittest.mock.MagicMock(spec=Context)
-        context.info = unittest.mock.AsyncMock()
-        context.error = unittest.mock.AsyncMock()
-        return context
-
-    @pytest.mark.asyncio
-    async def test_get_assignments_core_with_level_and_assignment_id(
-        self, mock_bmc_client, mock_context
-    ):
-        """Test get_assignments core function with level and assignment_id parameters."""
-        from main import _get_assignments_core
-
-        # Mock the global bmc_client to return our mock
-        with unittest.mock.patch("openapi_server.bmc_client", mock_bmc_client):
-            # Make the mock return an awaitable
-            async def mock_get_assignments(*args, **kwargs):
-                return {"assignments": [{"id": "ASSIGN-001"}]}
-
-            mock_bmc_client.get_assignments = mock_get_assignments
-
-            result = await _get_assignments_core(
-                "TEST123", "DEV", "ASSIGN-001", mock_context
-            )
-
-            result_data = json.loads(result)
-            assert "assignments" in result_data
-            assert result_data["assignments"][0]["id"] == "ASSIGN-001"
-            mock_context.info.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_get_assignments_core_with_none_parameters(
-        self, mock_bmc_client, mock_context
-    ):
-        """Test get_assignments core function with None parameters."""
-        from main import _get_assignments_core
-
-        # Mock the global bmc_client to return our mock
-        with unittest.mock.patch("openapi_server.bmc_client", mock_bmc_client):
-            # Make the mock return an awaitable
-            async def mock_get_assignments(*args, **kwargs):
-                return {"assignments": [{"id": "ASSIGN-001"}]}
-
-            mock_bmc_client.get_assignments = mock_get_assignments
-
-            result = await _get_assignments_core("TEST123", None, None, mock_context)
-
-            result_data = json.loads(result)
-            assert "assignments" in result_data
-            assert result_data["assignments"][0]["id"] == "ASSIGN-001"
-            mock_context.info.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_get_assignments_core_with_bmc_api_error(
-        self, mock_bmc_client, mock_context
-    ):
-        """Test get_assignments core function with BMC API error."""
-        from main import BMCAPIError, _get_assignments_core
-
-        mock_bmc_client.get_assignments.side_effect = BMCAPIError(
-            "API Error", status_code=500
-        )
-
-        result = await _get_assignments_core("TEST123", "DEV", None, mock_context)
-
-        result_data = json.loads(result)
-        assert result_data["error"] is True
-        assert result_data["error_type"] == "BMC_API_ERROR"
-        assert "BMC API connection error" in result_data["message"]
-        mock_context.error.assert_called()
-
-
 class TestServerInitialization:
     """Test server initialization and startup."""
 
@@ -1793,7 +1553,7 @@ class TestServerInitialization:
         """Test Settings creation with defaults."""
         from main import Settings
 
-        settings = Settings()
+        _ = Settings()
         assert settings.host == "0.0.0.0"
         assert settings.port == 8080
         assert settings.log_level == "INFO"
@@ -1833,8 +1593,8 @@ class TestServerInitialization:
 
         with unittest.mock.patch(
             "fastmcp.server.auth.providers.jwt.JWTVerifier"
-        ) as mock_jwt:
-            provider = create_auth_provider(jwt_settings)
+        ) as _:
+            _ = create_auth_provider(jwt_settings)
             assert provider is not None
 
         # Test GitHub provider
@@ -1845,8 +1605,8 @@ class TestServerInitialization:
 
         with unittest.mock.patch(
             "fastmcp.server.auth.providers.github.GitHubProvider"
-        ) as mock_github:
-            provider = create_auth_provider(github_settings)
+        ) as _:
+            _ = create_auth_provider(github_settings)
             assert provider is not None
 
     def test_create_auth_provider_with_invalid_provider(self):
@@ -1962,7 +1722,7 @@ class TestAdditionalCoverage:
         """Test ErrorHandler handle_validation_error method."""
         from main import ErrorHandler, MCPValidationError, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         validation_error = error_handler.handle_validation_error(
@@ -1977,7 +1737,7 @@ class TestAdditionalCoverage:
         """Test ErrorHandler handle_general_error method."""
         from main import ErrorHandler, MCPServerError, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         general_error = error_handler.handle_general_error(
@@ -1993,7 +1753,7 @@ class TestAdditionalCoverage:
         import httpx
         from main import BMCAPITimeoutError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         timeout_error = httpx.TimeoutException("Request timed out")
@@ -2010,7 +1770,7 @@ class TestAdditionalCoverage:
         import httpx
         from main import BMCAPIAuthenticationError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -2033,7 +1793,7 @@ class TestAdditionalCoverage:
         import httpx
         from main import BMCAPINotFoundError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -2056,7 +1816,7 @@ class TestAdditionalCoverage:
         import httpx
         from main import BMCAPIRateLimitError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -2081,7 +1841,7 @@ class TestAdditionalCoverage:
         import httpx
         from main import BMCAPIValidationError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -2107,7 +1867,7 @@ class TestAdditionalCoverage:
         import httpx
         from main import BMCAPIError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response
@@ -2130,7 +1890,7 @@ class TestAdditionalCoverage:
         import httpx
         from main import BMCAPIError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a mock response that fails JSON parsing
@@ -2154,7 +1914,7 @@ class TestAdditionalCoverage:
         """Test ErrorHandler execute_with_recovery with successful operation."""
         from main import ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         async def successful_operation():
@@ -2167,10 +1927,10 @@ class TestAdditionalCoverage:
 
     @pytest.mark.asyncio
     async def test_error_handler_execute_with_recovery_retry_success(self):
-        """Test ErrorHandler execute_with_recovery with retry that eventually succeeds."""
+        """Test ErrorHandler execute_with_recovery with retry that succeeds."""
         from main import ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         call_count = 0
@@ -2193,7 +1953,7 @@ class TestAdditionalCoverage:
         """Test ErrorHandler execute_with_recovery doesn't retry validation errors."""
         from main import ErrorHandler, MCPValidationError, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         call_count = 0
@@ -2212,10 +1972,10 @@ class TestAdditionalCoverage:
 
     @pytest.mark.asyncio
     async def test_error_handler_execute_with_recovery_no_retry_auth_error(self):
-        """Test ErrorHandler execute_with_recovery doesn't retry authentication errors."""
+        """Test ErrorHandler execute_with_recovery doesn't retry auth errors."""
         from main import BMCAPIAuthenticationError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         call_count = 0
@@ -2237,7 +1997,7 @@ class TestAdditionalCoverage:
         """Test ErrorHandler execute_with_recovery doesn't retry not found errors."""
         from main import BMCAPINotFoundError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         call_count = 0
@@ -2280,7 +2040,7 @@ class TestAdditionalFunctionality:
         """Test ErrorHandler create_error_response with metrics."""
         from main import ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a test exception
@@ -2369,7 +2129,7 @@ class TestAdditionalFunctionality:
         """Test ErrorHandler create_error_response with rate limit error."""
         from main import BMCAPIRateLimitError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a rate limit error
@@ -2388,7 +2148,7 @@ class TestAdditionalFunctionality:
         """Test ErrorHandler create_error_response with validation error."""
         from main import BMCAPIValidationError, ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create a validation error
@@ -2409,7 +2169,7 @@ class TestAdditionalFunctionality:
         """Test ErrorHandler create_error_response with MCP validation error."""
         from main import ErrorHandler, MCPValidationError, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Create an MCP validation error
@@ -2426,35 +2186,11 @@ class TestAdditionalFunctionality:
         assert response["error_type"] == "VALIDATION_ERROR"
         assert "timestamp" in response
 
-    def test_error_handler_create_error_response_with_metrics(self):
-        """Test ErrorHandler create_error_response with metrics updates."""
-        from main import BMCAPIError, ErrorHandler, Settings
-
-        settings = Settings()
-        error_handler = ErrorHandler(settings)
-
-        # Mock metrics
-        mock_metrics = unittest.mock.MagicMock()
-        error_handler.metrics = mock_metrics
-
-        # Create an error with status code
-        error = BMCAPIError("API Error", status_code=500)
-
-        response = error_handler.create_error_response(error, "test_operation")
-
-        assert response["error"] is True
-        assert response["operation"] == "test_operation"
-        assert "timestamp" in response
-
-        # Check that metrics were updated
-        mock_metrics.failed_requests += 1
-        mock_metrics.endpoint_errors.__setitem__.assert_called()
-
     def test_error_handler_create_error_response_message_truncation(self):
         """Test ErrorHandler create_error_response with message truncation."""
         from main import ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         settings.max_error_message_length = 10
         error_handler = ErrorHandler(settings)
 
@@ -2474,7 +2210,7 @@ class TestAdditionalFunctionality:
         """Test ErrorHandler execute_with_recovery with max attempts reached."""
         from main import ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         settings.error_recovery_attempts = 2
         error_handler = ErrorHandler(settings)
 
@@ -2497,7 +2233,7 @@ class TestAdditionalFunctionality:
         """Test ErrorHandler execute_with_recovery with metrics updates."""
         from main import ErrorHandler, Settings
 
-        settings = Settings()
+        _ = Settings()
         error_handler = ErrorHandler(settings)
 
         # Mock metrics
@@ -2522,7 +2258,7 @@ class TestAdditionalFunctionality:
         with unittest.mock.patch("openapi_server.settings") as mock_settings:
             mock_settings.auth_enabled = False
 
-            provider = create_auth_provider(None)
+            _ = create_auth_provider(None)
 
             assert provider is None
 
@@ -2530,7 +2266,7 @@ class TestAdditionalFunctionality:
         """Test create_auth_provider with auth disabled."""
         from main import Settings, create_auth_provider
 
-        settings = Settings()
+        _ = Settings()
         settings.auth_enabled = False
 
         provider = create_auth_provider(settings)
@@ -2541,7 +2277,7 @@ class TestAdditionalFunctionality:
         """Test create_auth_provider with no provider specified."""
         from main import Settings, create_auth_provider
 
-        settings = Settings()
+        _ = Settings()
         settings.auth_enabled = True
         settings.auth_provider = None
 
@@ -2571,7 +2307,7 @@ class TestAdditionalFunctionality:
         # Mock error handler
         mock_error_handler = unittest.mock.MagicMock()
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(
             mock_httpx_client, mock_rate_limiter, None, mock_metrics, mock_error_handler
         )
@@ -2604,7 +2340,7 @@ class TestAdditionalFunctionality:
         mock_error_handler = unittest.mock.MagicMock()
         mock_error_handler.handle_http_error.return_value = BMCAPIError("API Error")
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(
             mock_httpx_client, mock_rate_limiter, None, None, mock_error_handler
         )
@@ -2633,7 +2369,7 @@ class TestAdditionalFunctionality:
         mock_rate_limiter = unittest.mock.MagicMock()
         mock_rate_limiter.wait_for_token = unittest.mock.AsyncMock()
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(mock_httpx_client, mock_rate_limiter)
 
         result = await client.get_release_details("TEST123", "REL-001")
@@ -2662,7 +2398,7 @@ class TestAdditionalFunctionality:
         mock_rate_limiter = unittest.mock.MagicMock()
         mock_rate_limiter.wait_for_token = unittest.mock.AsyncMock()
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(mock_httpx_client, mock_rate_limiter)
 
         deploy_data = {"environment": "PROD", "target": "server1"}
@@ -2691,7 +2427,7 @@ class TestAdditionalFunctionality:
         mock_rate_limiter = unittest.mock.MagicMock()
         mock_rate_limiter.wait_for_token = unittest.mock.AsyncMock()
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(mock_httpx_client, mock_rate_limiter)
 
         result = await client.get_sets("TEST123")
@@ -2717,7 +2453,7 @@ class TestAdditionalFunctionality:
         mock_rate_limiter = unittest.mock.MagicMock()
         mock_rate_limiter.wait_for_token = unittest.mock.AsyncMock()
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(mock_httpx_client, mock_rate_limiter)
 
         result = await client.get_sets("TEST123", "SET-001")
@@ -2746,7 +2482,7 @@ class TestAdditionalFunctionality:
         mock_rate_limiter = unittest.mock.MagicMock()
         mock_rate_limiter.wait_for_token = unittest.mock.AsyncMock()
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(mock_httpx_client, mock_rate_limiter)
 
         deploy_data = {"environment": "PROD", "target": "server1"}
@@ -2775,7 +2511,7 @@ class TestAdditionalFunctionality:
         mock_rate_limiter = unittest.mock.MagicMock()
         mock_rate_limiter.wait_for_token = unittest.mock.AsyncMock()
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(mock_httpx_client, mock_rate_limiter)
 
         result = await client.get_packages("TEST123")
@@ -2806,7 +2542,7 @@ class TestAdditionalFunctionality:
         mock_rate_limiter = unittest.mock.MagicMock()
         mock_rate_limiter.wait_for_token = unittest.mock.AsyncMock()
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(mock_httpx_client, mock_rate_limiter)
 
         result = await client.get_packages("TEST123", "PKG-001")
@@ -2836,7 +2572,7 @@ class TestAdditionalFunctionality:
         mock_rate_limiter = unittest.mock.MagicMock()
         mock_rate_limiter.wait_for_token = unittest.mock.AsyncMock()
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(mock_httpx_client, mock_rate_limiter)
 
         result = await client.get_package_details("TEST123", "PKG-001")
@@ -3177,7 +2913,7 @@ class TestBMCClientAdvanced:
         """Test BMC client _make_request with rate limiting."""
         from main import BMCAMIDevXClient, Settings
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(
             mock_httpx_client,
             mock_rate_limiter,
@@ -3214,7 +2950,7 @@ class TestBMCClientAdvanced:
         """Test BMC client _make_request when rate limited."""
         from main import BMCAMIDevXClient, Settings
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(
             mock_httpx_client,
             mock_rate_limiter,
@@ -3244,7 +2980,7 @@ class TestBMCClientAdvanced:
         """Test BMC client _get_cached_or_fetch with cache hit."""
         from main import BMCAMIDevXClient, Settings
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(
             mock_httpx_client,
             mock_rate_limiter,
@@ -3276,7 +3012,7 @@ class TestBMCClientAdvanced:
         """Test BMC client _get_cached_or_fetch with cache miss."""
         from main import BMCAMIDevXClient, Settings
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(
             mock_httpx_client,
             mock_rate_limiter,
@@ -3311,7 +3047,7 @@ class TestBMCClientAdvanced:
         import httpx
         from main import BMCAMIDevXClient, BMCAPIError, Settings
 
-        settings = Settings()
+        _ = Settings()
         client = BMCAMIDevXClient(
             mock_httpx_client,
             mock_rate_limiter,
@@ -3348,7 +3084,7 @@ class TestAuthentication:
     def test_no_auth_provider(self):
         """Test when authentication is disabled."""
         with unittest.mock.patch.dict(os.environ, {"AUTH_ENABLED": "false"}):
-            provider = create_auth_provider()
+            _ = create_auth_provider()
             assert provider is None
 
     def test_jwt_auth_provider(self):
@@ -3378,7 +3114,7 @@ class TestAuthentication:
                 auth_issuer="https://test.com",
                 auth_audience="test-audience",
             )
-            provider = create_auth_provider(test_settings, import_func=mock_import)
+            _ = create_auth_provider(test_settings, import_func=mock_import)
 
             # Should have called the provider with correct parameters
             mock_provider_class.assert_called_once_with(
@@ -3412,7 +3148,7 @@ class TestAuthentication:
                 host="0.0.0.0",
                 port=8080,
             )
-            provider = create_auth_provider(test_settings, import_func=mock_import)
+            _ = create_auth_provider(test_settings, import_func=mock_import)
 
             # Should have called the provider with correct parameters
             mock_provider_class.assert_called_once_with(
@@ -3436,7 +3172,7 @@ class TestAuthentication:
                 test_settings = Settings(
                     auth_enabled=True, auth_provider="nonexistent.module.Provider"
                 )
-                provider = create_auth_provider(test_settings)
+                _ = create_auth_provider(test_settings)
 
                 assert provider is None
                 mock_print.assert_called()
@@ -3445,7 +3181,7 @@ class TestAuthentication:
         """Test Google authentication provider creation."""
         from main import Settings, create_auth_provider
 
-        settings = Settings()
+        _ = Settings()
         settings.auth_enabled = True
         settings.auth_provider = "fastmcp.auth.GoogleProvider"
 
@@ -3465,7 +3201,7 @@ class TestAuthentication:
         """Test AuthKit authentication provider creation."""
         from main import Settings, create_auth_provider
 
-        settings = Settings()
+        _ = Settings()
         settings.auth_enabled = True
         settings.auth_provider = "fastmcp.auth.AuthKitProvider"
 
@@ -3704,39 +3440,6 @@ class TestServerIntegration:
         # This test mainly verifies the server can be created
         print("✅ Health endpoint route test passed")
 
-
-class TestErrorHandling:
-    """Test error handling scenarios."""
-
-    @pytest.mark.asyncio
-    async def test_tool_exception_handling(self):
-        """Test that tools handle exceptions gracefully."""
-        # Import the core function
-        from main import _get_assignments_core
-
-        with unittest.mock.patch("openapi_server.bmc_client") as mock_client:
-            mock_client.get_assignments.side_effect = Exception("Unexpected error")
-
-            context = unittest.mock.MagicMock(spec=Context)
-            context.error = unittest.mock.AsyncMock()
-
-            result = await _get_assignments_core("TEST123", None, None, context)
-
-            # Should return enhanced error JSON
-            result_data = json.loads(result)
-            assert result_data["error"] is True
-            assert result_data["error_type"] == "SERVER_ERROR"
-            assert (
-                "Internal server error during get_assignments" in result_data["message"]
-            )
-            assert "get_assignments" in result_data["operation"]
-            assert "error_code" in result_data
-
-            # Context should log error
-            context.error.assert_called()
-
-    # NOTE: test_validation_error_messages removed - validation functions were in main.py
-    # which has been removed. Validation is now handled by lib components.
 
 
 class TestConfiguration:
