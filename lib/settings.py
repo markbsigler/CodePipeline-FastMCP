@@ -86,6 +86,20 @@ class Settings(BaseSettings):
     tracing_enabled: bool = Field(
         default=True, description="Enable distributed tracing"
     )
+    
+    # Security configuration
+    security_enabled: bool = Field(default=True, description="Enable security features")
+    security_rate_limit_enabled: bool = Field(default=True, description="Enable rate limiting")
+    security_rate_limit_per_user_rpm: int = Field(default=30, description="Per-user requests per minute")
+    security_rate_limit_per_api_key_rpm: int = Field(default=100, description="Per-API key requests per minute")
+    security_input_validation_enabled: bool = Field(default=True, description="Enable input validation")
+    security_max_request_size: int = Field(default=1048576, description="Maximum request size in bytes")
+    security_max_string_length: int = Field(default=1000, description="Maximum string field length")
+    security_headers_enabled: bool = Field(default=True, description="Enable security headers")
+    security_cors_enabled: bool = Field(default=True, description="Enable CORS")
+    security_cors_allowed_origins: str = Field(default="*", description="CORS allowed origins (comma-separated)")
+    security_audit_logging_enabled: bool = Field(default=True, description="Enable audit logging")
+    security_audit_log_sensitive_data: bool = Field(default=False, description="Log sensitive data in audit logs")
 
     @classmethod
     def from_env(cls) -> "Settings":
