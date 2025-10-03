@@ -36,10 +36,10 @@ echo ""
 echo "🔬 Running coverage analysis..."
 echo "=============================="
 
-# Test 1: Main application coverage
-echo "📋 Testing main application coverage..."
-$PYTHON_CMD -m pytest tests/test_main.py --cov=main --cov-report=term-missing --cov-append -v
-MAIN_COVERAGE_RESULT=$?
+# Test 1: Library components coverage
+echo "📋 Testing library components coverage..."
+$PYTHON_CMD -m pytest tests/test_lib_*.py --cov=lib --cov-report=term-missing --cov-append -v
+LIB_COVERAGE_RESULT=$?
 
 # Test 2: OpenAPI server coverage
 echo "📋 Testing OpenAPI server coverage..."
@@ -48,7 +48,7 @@ OPENAPI_COVERAGE_RESULT=$?
 
 # Test 3: FastMCP server integration coverage
 echo "📋 Testing FastMCP server integration coverage..."
-$PYTHON_CMD -m pytest tests/test_fastmcp_server.py --cov=main --cov=openapi_server --cov-report=term-missing --cov-append -v
+$PYTHON_CMD -m pytest tests/test_fastmcp_server.py --cov=openapi_server --cov=lib --cov-report=term-missing --cov-append -v
 FASTMCP_COVERAGE_RESULT=$?
 
 # Test 4: Configuration coverage
@@ -59,9 +59,9 @@ CONFIG_COVERAGE_RESULT=$?
 echo "=============================="
 echo ""
 
-# Generate comprehensive coverage report (excluding deprecated main.py)
+# Generate comprehensive coverage report
 echo "📈 Generating comprehensive coverage report..."
-$PYTHON_CMD -m pytest tests/ --cov=openapi_server --cov=fastmcp_config --cov=entrypoint --cov=debug --cov=lib --cov=observability --cov-report=html --cov-report=xml --cov-report=term-missing -v
+$PYTHON_CMD -m pytest tests/ --cov=openapi_server --cov=fastmcp_config --cov=entrypoint --cov=lib --cov=observability --cov-report=html --cov-report=xml --cov-report=term-missing -v
 
 # Check coverage threshold
 echo "🎯 Checking coverage threshold..."
@@ -98,7 +98,7 @@ echo ""
 # Show coverage summary
 echo "📊 Coverage Summary:"
 echo "-------------------"
-echo "  Main Application: $([ $MAIN_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Library Components: $([ $LIB_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  OpenAPI Server: $([ $OPENAPI_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  FastMCP Integration: $([ $FASTMCP_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  Configuration: $([ $CONFIG_COVERAGE_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"

@@ -144,11 +144,26 @@ class TestErrorHandler:
         assert self.error_handler.should_retry(error) is False
 
     def test_get_retry_delay(self):
-        """Test get_retry_delay exponential backoff calculation."""
-        assert self.error_handler.get_retry_delay(0, 1.0) == 1.0
-        assert self.error_handler.get_retry_delay(1, 1.0) == 2.0
-        assert self.error_handler.get_retry_delay(2, 1.0) == 4.0
-        assert self.error_handler.get_retry_delay(3, 2.0) == 16.0
+        """Test get_retry_delay exponential backoff calculation with jitter."""
+        # Test that delays are in the expected range (base ± 25% jitter)
+        delay_0 = self.error_handler.get_retry_delay(0, 1.0)
+        assert 0.75 <= delay_0 <= 1.25  # 1.0 ± 25%
+
+        delay_1 = self.error_handler.get_retry_delay(1, 1.0)
+        assert 1.5 <= delay_1 <= 2.5  # 2.0 ± 25%
+
+        delay_2 = self.error_handler.get_retry_delay(2, 1.0)
+        assert 3.0 <= delay_2 <= 5.0  # 4.0 ± 25%
+
+        delay_3 = self.error_handler.get_retry_delay(3, 2.0)
+        assert 12.0 <= delay_3 <= 20.0  # 16.0 ± 25%
+
+        # Test minimum delay constraint
+        assert delay_0 >= 0.1
+
+        # Test maximum delay cap (60 seconds)
+        large_delay = self.error_handler.get_retry_delay(10, 10.0)
+        assert large_delay <= 60.0
 
     def test_categorize_error_http_status_401(self):
         """Test categorize_error with 401 HTTP status."""

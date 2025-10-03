@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8080, description="Server port")
     log_level: str = Field(default="INFO", description="Logging level")
+    log_requests: bool = Field(default=True, description="Enable request logging")
+    log_responses: bool = Field(default=False, description="Enable response logging")
 
     # BMC API configuration
     api_base_url: str = Field(
@@ -39,6 +41,9 @@ class Settings(BaseSettings):
     # Connection pool settings
     connection_pool_size: int = Field(
         default=20, description="HTTP connection pool size"
+    )
+    connection_pool_max_keepalive: int = Field(
+        default=30, description="HTTP connection pool max keepalive connections"
     )
 
     # Rate limiting configuration
@@ -54,13 +59,21 @@ class Settings(BaseSettings):
     cache_cleanup_interval: int = Field(
         default=60, description="Cache cleanup interval in seconds"
     )
-    
+
     # Advanced caching configuration
-    cache_backend: str = Field(default="memory", description="Cache backend type (memory, redis, multi_tier)")
-    redis_url: str = Field(default="redis://localhost:6379", description="Redis connection URL")
+    cache_backend: str = Field(
+        default="memory", description="Cache backend type (memory, redis, multi_tier)"
+    )
+    redis_url: str = Field(
+        default="redis://localhost:6379", description="Redis connection URL"
+    )
     redis_key_prefix: str = Field(default="fastmcp:", description="Redis key prefix")
-    redis_serializer: str = Field(default="json", description="Redis serializer (json, pickle)")
-    multi_tier_l1_ttl_ratio: float = Field(default=0.5, description="L1 cache TTL ratio for multi-tier")
+    redis_serializer: str = Field(
+        default="json", description="Redis serializer (json, pickle)"
+    )
+    multi_tier_l1_ttl_ratio: float = Field(
+        default=0.5, description="L1 cache TTL ratio for multi-tier"
+    )
 
     # Authentication configuration
     auth_enabled: bool = Field(default=False, description="Enable authentication")
@@ -71,7 +84,7 @@ class Settings(BaseSettings):
     retry_base_delay: float = Field(
         default=1.0, description="Base retry delay in seconds"
     )
-    
+
     # Circuit breaker configuration
     circuit_breaker_failure_threshold: int = Field(
         default=5, description="Circuit breaker failure threshold"
@@ -83,23 +96,50 @@ class Settings(BaseSettings):
     # Observability configuration
     otel_enabled: bool = Field(default=True, description="Enable OpenTelemetry")
     metrics_enabled: bool = Field(default=True, description="Enable metrics collection")
+    enable_metrics: bool = Field(
+        default=True, description="Enable metrics collection (alias)"
+    )
+    metrics_port: int = Field(default=9090, description="Metrics server port")
+    health_check_interval: int = Field(
+        default=30, description="Health check interval in seconds"
+    )
     tracing_enabled: bool = Field(
         default=True, description="Enable distributed tracing"
     )
-    
+
     # Security configuration
     security_enabled: bool = Field(default=True, description="Enable security features")
-    security_rate_limit_enabled: bool = Field(default=True, description="Enable rate limiting")
-    security_rate_limit_per_user_rpm: int = Field(default=30, description="Per-user requests per minute")
-    security_rate_limit_per_api_key_rpm: int = Field(default=100, description="Per-API key requests per minute")
-    security_input_validation_enabled: bool = Field(default=True, description="Enable input validation")
-    security_max_request_size: int = Field(default=1048576, description="Maximum request size in bytes")
-    security_max_string_length: int = Field(default=1000, description="Maximum string field length")
-    security_headers_enabled: bool = Field(default=True, description="Enable security headers")
+    security_rate_limit_enabled: bool = Field(
+        default=True, description="Enable rate limiting"
+    )
+    security_rate_limit_per_user_rpm: int = Field(
+        default=30, description="Per-user requests per minute"
+    )
+    security_rate_limit_per_api_key_rpm: int = Field(
+        default=100, description="Per-API key requests per minute"
+    )
+    security_input_validation_enabled: bool = Field(
+        default=True, description="Enable input validation"
+    )
+    security_max_request_size: int = Field(
+        default=1048576, description="Maximum request size in bytes"
+    )
+    security_max_string_length: int = Field(
+        default=1000, description="Maximum string field length"
+    )
+    security_headers_enabled: bool = Field(
+        default=True, description="Enable security headers"
+    )
     security_cors_enabled: bool = Field(default=True, description="Enable CORS")
-    security_cors_allowed_origins: str = Field(default="*", description="CORS allowed origins (comma-separated)")
-    security_audit_logging_enabled: bool = Field(default=True, description="Enable audit logging")
-    security_audit_log_sensitive_data: bool = Field(default=False, description="Log sensitive data in audit logs")
+    security_cors_allowed_origins: str = Field(
+        default="*", description="CORS allowed origins (comma-separated)"
+    )
+    security_audit_logging_enabled: bool = Field(
+        default=True, description="Enable audit logging"
+    )
+    security_audit_log_sensitive_data: bool = Field(
+        default=False, description="Log sensitive data in audit logs"
+    )
 
     @classmethod
     def from_env(cls) -> "Settings":

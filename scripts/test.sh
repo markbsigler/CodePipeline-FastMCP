@@ -78,10 +78,10 @@ fi
 echo "🔬 Running comprehensive test suite..."
 echo "=================================="
 
-# Test 1: Main application tests (deprecated - main.py is deprecated)
-echo "📋 Running main application tests (deprecated)..."
-$PYTHON_CMD -m pytest tests/test_main.py --cov-report=term-missing --cov-append -v
-MAIN_TEST_RESULT=$?
+# Test 1: Library component tests (core functionality)
+echo "📋 Running library component tests..."
+$PYTHON_CMD -m pytest tests/test_lib_*.py --cov=lib --cov-report=term-missing --cov-append -v
+LIB_TEST_RESULT=$?
 
 # Test 2: OpenAPI server tests
 echo "📋 Running OpenAPI server tests..."
@@ -103,12 +103,22 @@ echo "📋 Running entrypoint tests..."
 $PYTHON_CMD -m pytest tests/test_entrypoint.py --cov=entrypoint --cov-report=term-missing --cov-append -v
 ENTRYPOINT_TEST_RESULT=$?
 
-# Test 6: Debug utility tests
-echo "📋 Running debug utility tests..."
-$PYTHON_CMD -m pytest tests/test_debug.py --cov=debug --cov-report=term-missing --cov-append -v
-DEBUG_TEST_RESULT=$?
+# Test 6: Security feature tests
+echo "📋 Running security feature tests..."
+$PYTHON_CMD -m pytest tests/test_security.py --cov=lib.security --cov-report=term-missing --cov-append -v
+SECURITY_TEST_RESULT=$?
 
-# Test 7: OTEL integration tests (if available)
+# Test 7: Cache backend tests
+echo "📋 Running cache backend tests..."
+$PYTHON_CMD -m pytest tests/test_cache_backends.py --cov=lib.cache_backends --cov-report=term-missing --cov-append -v
+CACHE_TEST_RESULT=$?
+
+# Test 8: Circuit breaker tests
+echo "📋 Running circuit breaker tests..."
+$PYTHON_CMD -m pytest tests/test_circuit_breaker.py --cov=lib.errors --cov-report=term-missing --cov-append -v
+CIRCUIT_TEST_RESULT=$?
+
+# Test 9: OTEL integration tests (if available)
 echo "📋 Running OTEL integration tests..."
 if [ -f "observability/tests/test_integration.py" ]; then
     $PYTHON_CMD observability/tests/test_integration.py
@@ -120,12 +130,14 @@ fi
 
 echo "=================================="
 echo "📊 Test Results Summary:"
-echo "  Main Application: $([ $MAIN_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Library Components: $([ $LIB_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  OpenAPI Server: $([ $OPENAPI_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  FastMCP Integration: $([ $FASTMCP_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  Configuration: $([ $CONFIG_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  Entrypoint: $([ $ENTRYPOINT_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
-echo "  Debug Utilities: $([ $DEBUG_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Security Features: $([ $SECURITY_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Cache Backends: $([ $CACHE_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
+echo "  Circuit Breaker: $([ $CIRCUIT_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 echo "  OTEL Integration: $([ $OTEL_TEST_RESULT -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")"
 
 # Generate final coverage report
@@ -145,7 +157,7 @@ if [ -f ".coverage" ]; then
 fi
 
 # Determine overall result
-if [ $MAIN_TEST_RESULT -eq 0 ] && [ $OPENAPI_TEST_RESULT -eq 0 ] && [ $FASTMCP_TEST_RESULT -eq 0 ] && [ $CONFIG_TEST_RESULT -eq 0 ] && [ $ENTRYPOINT_TEST_RESULT -eq 0 ] && [ $DEBUG_TEST_RESULT -eq 0 ] && [ $OTEL_TEST_RESULT -eq 0 ]; then
+if [ $LIB_TEST_RESULT -eq 0 ] && [ $OPENAPI_TEST_RESULT -eq 0 ] && [ $FASTMCP_TEST_RESULT -eq 0 ] && [ $CONFIG_TEST_RESULT -eq 0 ] && [ $ENTRYPOINT_TEST_RESULT -eq 0 ] && [ $SECURITY_TEST_RESULT -eq 0 ] && [ $CACHE_TEST_RESULT -eq 0 ] && [ $CIRCUIT_TEST_RESULT -eq 0 ] && [ $OTEL_TEST_RESULT -eq 0 ]; then
     echo "🎉 ALL TESTS PASSED!"
     TEST_RESULT=0
 else

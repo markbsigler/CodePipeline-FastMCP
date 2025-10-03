@@ -20,6 +20,8 @@ from .errors import (
     BMCAPITimeoutError,
     BMCAPIValidationError,
     ErrorHandler,
+    MCPServerError,
+    MCPValidationError,
 )
 from .health import HealthChecker
 from .settings import Settings
@@ -41,6 +43,8 @@ __all__ = [
     "BMCAPIValidationError",
     "BMCAPIRateLimitError",
     "ErrorHandler",
+    "MCPServerError",
+    "MCPValidationError",
     # Authentication
     "create_auth_provider",
     # Metrics (re-exported from observability)
