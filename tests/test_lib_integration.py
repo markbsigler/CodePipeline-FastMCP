@@ -556,7 +556,9 @@ class TestEndToEndWorkflows:
             Mock(status_code=200, json=lambda: {"recovered": True}),
             # Third call fails with different error
             httpx.HTTPStatusError(
-                "Rate limited", request=Mock(), response=Mock(status_code=429)
+                "Rate limited",
+                request=Mock(),
+                response=Mock(status_code=429, headers={}),
             ),
             # Fourth call succeeds
             Mock(status_code=200, json=lambda: {"final": "success"}),

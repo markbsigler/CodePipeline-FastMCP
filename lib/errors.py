@@ -216,12 +216,7 @@ class ErrorHandler:
         if isinstance(error, self.retryable_exceptions):
             return True
 
-        # Retry generic exceptions (for temporary failures)
-        if isinstance(error, Exception) and not isinstance(
-            error, (MCPValidationError, MCPServerError)
-        ):
-            return True
-
+        # Don't retry other exceptions by default
         return False
 
     def get_retry_delay(self, attempt: int, base_delay: float) -> float:
@@ -336,6 +331,8 @@ class ErrorHandler:
             retry_after = None
             if (
                 hasattr(error.response, "headers")
+                and error.response.headers is not None
+                and hasattr(error.response.headers, "__contains__")
                 and "Retry-After" in error.response.headers
             ):
                 try:

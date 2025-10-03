@@ -306,6 +306,7 @@ class TestErrorHandler:
         mock_response = Mock()
         mock_response.status_code = 429
         mock_response.json.return_value = {"error": "Rate limited"}
+        mock_response.headers = {}  # Provide a proper dict for headers
         error = httpx.HTTPStatusError(
             "Rate limited", request=Mock(), response=mock_response
         )
