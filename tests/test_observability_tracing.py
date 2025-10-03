@@ -98,10 +98,10 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -131,10 +131,10 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -153,25 +153,11 @@ class TestFastMCPTracer:
                 "auth": "auth_header",
             }
 
-            async with tracer.trace_mcp_request(
-                "test", "test_tool", sensitive_args
-            ) as span:
+            async with tracer.trace_mcp_request("test", "test_tool", sensitive_args):
                 pass
 
             # Verify sensitive arguments were not logged
             call_args = [call[0] for call in mock_span.set_attribute.call_args_list]
-            sensitive_calls = [
-                arg
-                for arg in call_args
-                if any(
-                    sensitive in arg[0].lower()
-                    for arg in [arg]
-                    if isinstance(arg, tuple)
-                    and len(arg) > 0
-                    and isinstance(arg[0], str)
-                    for sensitive in ["password", "token", "secret", "key", "auth"]
-                )
-            ]
 
             # Only username should be logged, not the sensitive fields
             username_logged = any("mcp.arg.username" in str(call) for call in call_args)
@@ -187,11 +173,10 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
         mock_span.record_exception = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -218,10 +203,9 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with (
             patch(
@@ -251,18 +235,20 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
         mock_span.record_exception = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with (
             patch(
                 "observability.tracing.fastmcp_tracer.is_tracing_enabled",
                 return_value=True,
             ),
-            patch("time.time", side_effect=[1000.0, 1000.3]),
+            patch(
+                "observability.tracing.fastmcp_tracer.time.time",
+                side_effect=[1000.0, 1000.3],
+            ),
         ):
 
             from observability.tracing.fastmcp_tracer import FastMCPTracer
@@ -282,8 +268,17 @@ class TestFastMCPTracer:
             # Verify exception handling
             mock_span.record_exception.assert_called_once_with(test_exception)
             mock_span.set_attribute.assert_any_call("error", True)
-            mock_span.set_attribute.assert_any_call("http.duration", 0.3)
             mock_span.set_attribute.assert_any_call("http.status_code", 500)
+
+            # Check duration was set (allow for floating point precision)
+            duration_calls = [
+                call
+                for call in mock_span.set_attribute.call_args_list
+                if call[0][0] == "http.duration"
+            ]
+            assert len(duration_calls) == 1
+            duration_value = duration_calls[0][0][1]
+            assert abs(duration_value - 0.3) < 0.01  # Allow small floating point error
 
     @pytest.mark.asyncio
     async def test_trace_cache_operation_success(self):
@@ -292,10 +287,9 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -321,10 +315,9 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -348,10 +341,9 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -375,11 +367,10 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
         mock_span.record_exception = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -403,10 +394,9 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -433,10 +423,9 @@ class TestFastMCPTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -499,10 +488,9 @@ class TestElicitationTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -529,10 +517,9 @@ class TestElicitationTracer:
         mock_span = Mock()
         mock_span.set_attribute = Mock()
         mock_span.set_status = Mock()
+        mock_span.end = Mock()
 
-        mock_tracer.start_as_current_span.return_value = create_mock_context_manager(
-            mock_span
-        )
+        mock_tracer.start_span.return_value = mock_span
 
         with patch(
             "observability.tracing.fastmcp_tracer.is_tracing_enabled", return_value=True
@@ -916,14 +903,25 @@ class TestTracingIntegration:
         """Test nested tracing contexts."""
         mock_tracer = Mock()
         mock_mcp_span = Mock()
-        mock_bmc_span = Mock()
-        mock_cache_span = Mock()
+        mock_mcp_span.set_attribute = Mock()
+        mock_mcp_span.set_status = Mock()
+        mock_mcp_span.end = Mock()
 
-        # Setup context managers for each span type
-        mock_tracer.start_as_current_span.side_effect = [
-            create_mock_context_manager(mock_mcp_span),
-            create_mock_context_manager(mock_bmc_span),
-            create_mock_context_manager(mock_cache_span),
+        mock_bmc_span = Mock()
+        mock_bmc_span.set_attribute = Mock()
+        mock_bmc_span.set_status = Mock()
+        mock_bmc_span.end = Mock()
+
+        mock_cache_span = Mock()
+        mock_cache_span.set_attribute = Mock()
+        mock_cache_span.set_status = Mock()
+        mock_cache_span.end = Mock()
+
+        # Setup spans for each call
+        mock_tracer.start_span.side_effect = [
+            mock_mcp_span,
+            mock_bmc_span,
+            mock_cache_span,
         ]
 
         with patch(

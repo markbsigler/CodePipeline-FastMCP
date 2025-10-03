@@ -45,12 +45,16 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application files
-COPY main.py ./
+COPY openapi_server.py ./
+COPY entrypoint.py ./
+COPY fastmcp_config.py ./
+COPY lib/ ./lib/
+COPY observability/ ./observability/
 COPY config/ ./config/
 
 # Set ownership and permissions
 RUN chown -R appuser:appuser /app && \
-    chmod +x main.py
+    chmod +x openapi_server.py entrypoint.py
 
 # Switch to non-root user
 USER appuser
