@@ -175,7 +175,7 @@ FASTMCP_AUTH_AUDIENCE=bmc-ami-devx-code-pipeline
 FASTMCP_SERVER_AUTH_GITHUB_CLIENT_ID=your_github_client_id
 FASTMCP_SERVER_AUTH_GITHUB_CLIENT_SECRET=your_github_client_secret
 
-# Google OAuth (FastMCP Provider Pattern)  
+# Google OAuth (FastMCP Provider Pattern)
 FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID=your_google_client_id
 FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET=your_google_client_secret
 
@@ -617,7 +617,7 @@ npm run test:coverage
 - **Production Ready**: Docker deployment with health checks and monitoring
 - **Code Quality**: Pre-commit hooks, formatting, linting automation
 
-### 📊 **Current Project Metrics** 
+### 📊 **Current Project Metrics**
 - **Test Success Rate**: **100% (373 passing, 0 skipped)** ✅
 - **Test Coverage**: **85% overall coverage** (production-ready level) ✅
 - **Test Suites**: **6 consolidated test files** covering all functionality ✅
@@ -669,22 +669,22 @@ async def get_server_health(ctx: Context = None) -> str:
     """Get comprehensive server health status."""
     if ctx:
         ctx.info("Checking server health status")
-    
+
     # Tool implementation
     return json.dumps(health_data, indent=2)
 ```
 
-#### FastMCP Elicitation Pattern  
+#### FastMCP Elicitation Pattern
 ```python
 # User elicitation with proper response handling
 @mcp.tool(tags={"elicitation", "workflow"})
 async def create_assignment_interactive(ctx: Context) -> str:
     """Interactive assignment creation with user elicitation."""
     title_result = await ctx.elicit("What is the assignment title?", response_type=str)
-    
+
     if isinstance(title_result, DeclinedElicitation):
         return "Assignment creation cancelled by user"
-    
+
     title = title_result.data
     # Continue with workflow...
 ```
@@ -723,7 +723,7 @@ Based on [FastMCP server patterns](https://gofastmcp.com/servers/server), [decor
 - **Tag-Based Filtering**: Good implementation of `include_tags`/`exclude_tags` patterns
 - **Server Composition**: Proper use of `server.mount()` for modular architecture
 
-#### ⚠️ **Areas Needing Alignment** 
+#### ⚠️ **Areas Needing Alignment**
 - **Server Construction**: Current class wrapper approach vs FastMCP direct instantiation
 - **Authentication Pattern**: Complex custom provider creation vs built-in provider patterns
 - **Server Running**: Custom async patterns vs standard `mcp.run()` method
@@ -738,7 +738,7 @@ Based on [FastMCP server patterns](https://gofastmcp.com/servers/server), [decor
 #### 📄 **Simplified Implementation Available**
 A simplified version following FastMCP best practices has been created in `openapi_server_simplified.py` demonstrating:
 - **Direct FastMCP instantiation** with constructor parameters (no class wrapper)
-- **Simplified authentication provider** creation using built-in patterns  
+- **Simplified authentication provider** creation using built-in patterns
 - **Standard server running** pattern with `mcp.run(transport="http")`
 - **Built-in global settings** via `FASTMCP_*` environment variables
 - **50% fewer lines** of code while maintaining full functionality
@@ -756,7 +756,7 @@ A simplified version following FastMCP best practices has been created in `opena
 
 ### 🔧 **Technical Fixes Applied**
 - **Authentication Providers**: Fixed string matching logic and constructor parameters
-- **Docker Configuration**: Resolved `FASTMCP_SERVER_AUTH=NONE` validation error  
+- **Docker Configuration**: Resolved `FASTMCP_SERVER_AUTH=NONE` validation error
 - **Test Fixtures**: Enhanced MagicMock configuration to prevent httpcore errors
 - **Error Handling**: Improved structured error responses and validation
 - **Elicitation Tools**: Fixed constructor calls for AcceptedElicitation/DeclinedElicitation

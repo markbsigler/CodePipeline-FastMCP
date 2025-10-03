@@ -6,12 +6,6 @@ Provides exporters for metrics and traces to various backends
 including Prometheus, Jaeger, and OTLP endpoints.
 """
 
-from .prometheus_exporter import (
-    PrometheusConfig,
-    CustomPrometheusMetrics
-)
+from .prometheus_exporter import CustomPrometheusMetrics, PrometheusConfig
 
-__all__ = [
-    "PrometheusConfig",
-    "CustomPrometheusMetrics"
-]
+__all__ = ["PrometheusConfig", "CustomPrometheusMetrics"]

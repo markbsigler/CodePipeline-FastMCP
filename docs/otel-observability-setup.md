@@ -271,7 +271,7 @@ The alerting rules are defined in `observability/alerting/fastmcp-alerts.yml`:
    # prometheus.yml
    rule_files:
      - "fastmcp-alerts.yml"
-   
+
    alerting:
      alertmanagers:
        - static_configs:
@@ -288,7 +288,7 @@ The alerting rules are defined in `observability/alerting/fastmcp-alerts.yml`:
      group_interval: 10s
      repeat_interval: 1h
      receiver: 'web.hook'
-   
+
    receivers:
    - name: 'web.hook'
      webhook_configs:
@@ -468,6 +468,6 @@ export OTEL_METRICS_ENABLED=true
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: January 2025  
+**Document Version**: 1.0
+**Last Updated**: January 2025
 **Status**: ✅ Implementation Complete

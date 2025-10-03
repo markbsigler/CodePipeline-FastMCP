@@ -19,7 +19,7 @@ from fastmcp.server.auth.providers.github import GitHubProvider
 from fastmcp.server.auth.providers.google import GoogleProvider
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.auth.providers.workos import WorkOSProvider
-from fastmcp.server.elicitation import AcceptedElicitation, DeclinedElicitation
+from fastmcp.server.elicitation import DeclinedElicitation
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 

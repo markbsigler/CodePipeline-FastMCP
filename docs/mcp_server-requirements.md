@@ -3,12 +3,12 @@
 
 ## 📋 **Document Overview**
 
-**Project**: BMC AMI DevX Code Pipeline FastMCP Server  
-**Version**: 2.3.1  
-**Framework**: FastMCP 2.12.2+  
-**Requirements Syntax**: EARS (Easy Approach to Requirements Syntax)  
-**Last Updated**: January 2025  
-**Status**: Production-Ready Implementation with EARS Enhancement  
+**Project**: BMC AMI DevX Code Pipeline FastMCP Server
+**Version**: 2.3.1
+**Framework**: FastMCP 2.12.2+
+**Requirements Syntax**: EARS (Easy Approach to Requirements Syntax)
+**Last Updated**: January 2025
+**Status**: Production-Ready Implementation with EARS Enhancement
 
 ### **EARS Syntax Reference**
 
@@ -39,8 +39,8 @@ This document defines comprehensive requirements for a production-ready Model Co
 
 ### **Story 1.1: FastMCP 2.12.2+ Server Foundation**
 
-**As a** system architect  
-**I want** a production-ready FastMCP server implementation  
+**As a** system architect
+**I want** a production-ready FastMCP server implementation
 **So that** we can provide reliable MCP protocol compliance
 
 #### **EARS Requirements**
@@ -88,7 +88,7 @@ def test_mcp_protocol_compliance():
     """Server implements MCP protocol correctly."""
     response = requests.post("http://localhost:8080/mcp/capabilities")
     assert response.status_code == 200
-    
+
     capabilities = response.json()
     assert "tools" in capabilities
     assert "prompts" in capabilities
@@ -97,7 +97,7 @@ def test_server_health_endpoints():
     """Health check endpoints work correctly."""
     health_response = requests.get("http://localhost:8080/health")
     assert health_response.status_code == 200
-    
+
     ready_response = requests.get("http://localhost:8080/ready")
     assert ready_response.status_code == 200
 
@@ -105,7 +105,7 @@ async def test_context_logging():
     """Context logging works for tool execution."""
     from fastmcp import Context
     from openapi_server import get_server_health
-    
+
     context = Context()
     result = await get_server_health.fn(context)
     assert result is not None
@@ -122,8 +122,8 @@ async def test_context_logging():
 
 ### **Story 1.2: OpenAPI Integration**
 
-**As a** developer  
-**I want** automatic tool generation from OpenAPI specifications  
+**As a** developer
+**I want** automatic tool generation from OpenAPI specifications
 **So that** BMC ISPW API operations are always in sync
 
 #### **EARS Requirements**
@@ -163,13 +163,13 @@ def test_openapi_spec_loading():
     """OpenAPI specification loads correctly."""
     import json
     from pathlib import Path
-    
+
     spec_path = Path("config/ispw_openapi_spec.json")
     assert spec_path.exists()
-    
+
     with open(spec_path) as f:
         spec = json.load(f)
-    
+
     assert spec["openapi"].startswith("3.")
     assert "paths" in spec
     assert len(spec["paths"]) > 0
@@ -177,12 +177,12 @@ def test_openapi_spec_loading():
 def test_tools_generated_from_openapi():
     """Tools are generated from OpenAPI operations."""
     from openapi_server import server
-    
+
     tools = server.list_tools()
     openapi_tools = [t for t in tools if t["name"].startswith("ispw_")]
-    
+
     assert len(openapi_tools) >= 15
-    
+
     # Verify specific BMC ISPW operations
     tool_names = [t["name"] for t in openapi_tools]
     assert "ispw_Get_assignments" in tool_names
@@ -192,14 +192,14 @@ def test_tools_generated_from_openapi():
 def test_openapi_parameter_validation():
     """OpenAPI parameters are validated correctly."""
     from openapi_server import server
-    
+
     # Test valid parameters
     result = server.call_tool("ispw_Get_assignments", {
         "srid": "TEST123",
         "level": "DEV"
     })
     assert result is not None
-    
+
     # Test invalid parameters
     with pytest.raises(ValidationError):
         server.call_tool("ispw_Get_assignments", {
@@ -220,8 +220,8 @@ def test_openapi_parameter_validation():
 
 ### **Story 2.1: Multi-Provider Authentication**
 
-**As a** security administrator  
-**I want** multiple authentication options  
+**As a** security administrator
+**I want** multiple authentication options
 **So that** users can authenticate using their preferred method
 
 #### **EARS Requirements**
@@ -264,7 +264,7 @@ def test_openapi_parameter_validation():
 def test_jwt_authentication():
     """JWT authentication works correctly."""
     from main import create_auth_provider, Settings
-    
+
     settings = Settings(
         auth_enabled=True,
         auth_provider="jwt",
@@ -272,7 +272,7 @@ def test_jwt_authentication():
         auth_issuer="https://example.com",
         auth_audience="test-audience"
     )
-    
+
     provider = create_auth_provider(settings)
     assert provider is not None
     assert hasattr(provider, 'verify_token')
@@ -280,21 +280,21 @@ def test_jwt_authentication():
 def test_github_oauth():
     """GitHub OAuth provider works correctly."""
     from main import create_auth_provider, Settings
-    
+
     settings = Settings(
         auth_enabled=True,
         auth_provider="github",
         github_client_id="test_client_id",
         github_client_secret="test_client_secret"
     )
-    
+
     provider = create_auth_provider(settings)
     assert provider is not None
 
 def test_authentication_disabled():
     """Authentication can be disabled for development."""
     from main import create_auth_provider, Settings
-    
+
     settings = Settings(auth_enabled=False)
     provider = create_auth_provider(settings)
     assert provider is None
@@ -303,7 +303,7 @@ def test_authentication_disabled():
 async def test_authenticated_request():
     """Authenticated requests work end-to-end."""
     headers = {"Authorization": "Bearer valid-test-token"}
-    
+
     response = requests.post(
         "http://localhost:8080/mcp/tools/call",
         json={
@@ -312,7 +312,7 @@ async def test_authenticated_request():
         },
         headers=headers
     )
-    
+
     assert response.status_code == 200
 
 async def test_unauthenticated_request_rejected():
@@ -320,11 +320,11 @@ async def test_unauthenticated_request_rejected():
     response = requests.post(
         "http://localhost:8080/mcp/tools/call",
         json={
-            "name": "ispw_Get_assignments", 
+            "name": "ispw_Get_assignments",
             "arguments": {"srid": "TEST123"}
         }
     )
-    
+
     assert response.status_code == 401
     assert "authentication" in response.json()["error"].lower()
 ```
@@ -341,8 +341,8 @@ async def test_unauthenticated_request_rejected():
 
 ### **Story 3.1: Assignment Management**
 
-**As a** mainframe developer  
-**I want** to manage assignments through MCP  
+**As a** mainframe developer
+**I want** to manage assignments through MCP
 **So that** I can integrate DevOps workflows with AI assistants
 
 #### **EARS Requirements**
@@ -385,45 +385,45 @@ async def test_unauthenticated_request_rejected():
 async def test_create_assignment():
     """Assignment creation works correctly."""
     from main import create_assignment
-    
+
     result = await create_assignment.fn(
         srid="TEST123",
         assignment_id="ASSIGN-001",
         description="Test assignment",
         level="DEV"
     )
-    
+
     assert "assignment_id" in result
     assert result["status"] == "created"
 
 async def test_list_assignments():
     """Assignment listing with filters works."""
     from main import get_assignments
-    
+
     result = await get_assignments.fn(
         srid="TEST123",
         level="DEV"
     )
-    
+
     assert "assignments" in result
     assert len(result["assignments"]) >= 0
 
 async def test_assignment_validation():
     """Assignment parameter validation works."""
     from main import validate_srid, validate_assignment_id, validate_level
-    
+
     # Valid parameters
     assert validate_srid("TEST123") == "TEST123"
     assert validate_assignment_id("ASSIGN-001") == "ASSIGN-001"
     assert validate_level("DEV") == "DEV"
-    
+
     # Invalid parameters
     with pytest.raises(ValueError):
         validate_srid("INVALID@SRID")
-    
+
     with pytest.raises(ValueError):
         validate_assignment_id("A" * 25)  # Too long
-    
+
     with pytest.raises(ValueError):
         validate_level("INVALID_LEVEL")
 
@@ -437,24 +437,24 @@ async def test_assignment_lifecycle():
         description="Lifecycle test",
         level="DEV"
     )
-    
+
     assignment_id = create_result["assignment_id"]
-    
+
     # Get assignment details
     details = await get_assignment_details.fn(
         srid="TEST123",
         assignment_id=assignment_id
     )
-    
+
     assert details["assignment_id"] == assignment_id
     assert details["level"] == "DEV"
-    
+
     # Get assignment tasks
     tasks = await get_assignment_tasks.fn(
         srid="TEST123",
         assignment_id=assignment_id
     )
-    
+
     assert "tasks" in tasks
 ```
 
@@ -468,8 +468,8 @@ async def test_assignment_lifecycle():
 
 ### **Story 3.2: Release Management**
 
-**As a** release manager  
-**I want** to manage releases through MCP  
+**As a** release manager
+**I want** to manage releases through MCP
 **So that** I can coordinate mainframe deployments with AI assistance
 
 #### **Requirements**
@@ -496,43 +496,43 @@ async def test_assignment_lifecycle():
 async def test_create_release():
     """Release creation works correctly."""
     from main import create_release
-    
+
     result = await create_release.fn(
         srid="TEST123",
         release_id="REL-001",
         description="Test release",
         level="DEV"
     )
-    
+
     assert "release_id" in result
     assert result["status"] == "created"
 
 async def test_release_promotion():
     """Release promotion works correctly."""
     from main import promote_release
-    
+
     result = await promote_release.fn(
         srid="TEST123",
         release_id="REL-001",
         from_level="DEV",
         to_level="TEST"
     )
-    
+
     assert result["status"] == "promoted"
     assert result["current_level"] == "TEST"
 
 async def test_release_validation():
     """Release parameter validation works."""
     from main import validate_release_id
-    
+
     # Valid release IDs
     assert validate_release_id("REL-001") == "REL-001"
     assert validate_release_id("RELEASE_123") == "RELEASE_123"
-    
+
     # Invalid release IDs
     with pytest.raises(ValueError):
         validate_release_id("")  # Empty
-    
+
     with pytest.raises(ValueError):
         validate_release_id("R" * 25)  # Too long
 
@@ -546,9 +546,9 @@ async def test_release_lifecycle():
         description="Lifecycle test release",
         level="DEV"
     )
-    
+
     release_id = create_result["release_id"]
-    
+
     # Promote through stages
     dev_to_test = await promote_release.fn(
         srid="TEST123",
@@ -556,15 +556,15 @@ async def test_release_lifecycle():
         from_level="DEV",
         to_level="TEST"
     )
-    
+
     assert dev_to_test["current_level"] == "TEST"
-    
+
     # Get release details
     details = await get_release_details.fn(
         srid="TEST123",
         release_id=release_id
     )
-    
+
     assert details["release_id"] == release_id
     assert details["current_level"] == "TEST"
 ```
@@ -581,8 +581,8 @@ async def test_release_lifecycle():
 
 ### **Story 4.1: User Elicitation System**
 
-**As a** user  
-**I want** interactive workflows with prompts  
+**As a** user
+**I want** interactive workflows with prompts
 **So that** I can provide input for complex operations
 
 #### **EARS Requirements**
@@ -623,21 +623,21 @@ async def test_interactive_assignment_creation():
     from openapi_server import create_assignment_interactive
     from fastmcp import Context
     from fastmcp.server.elicitation import AcceptedElicitation
-    
+
     context = Context()
-    
+
     # Mock user responses
     context.elicit = AsyncMock(side_effect=[
         AcceptedElicitation(data="Test Assignment"),
         AcceptedElicitation(data="Assignment for testing"),
         AcceptedElicitation(data="DEV")
     ])
-    
+
     result = await create_assignment_interactive.fn(
         ctx=context,
         srid="TEST123"
     )
-    
+
     assert "assignment created successfully" in result.lower()
 
 async def test_user_declined_elicitation():
@@ -645,15 +645,15 @@ async def test_user_declined_elicitation():
     from openapi_server import create_assignment_interactive
     from fastmcp import Context
     from fastmcp.server.elicitation import DeclinedElicitation
-    
+
     context = Context()
     context.elicit = AsyncMock(return_value=DeclinedElicitation())
-    
+
     result = await create_assignment_interactive.fn(
         ctx=context,
         srid="TEST123"
     )
-    
+
     assert "cancelled" in result.lower()
 
 async def test_deployment_confirmation():
@@ -661,19 +661,19 @@ async def test_deployment_confirmation():
     from openapi_server import deploy_release_interactive
     from fastmcp import Context
     from fastmcp.server.elicitation import AcceptedElicitation
-    
+
     context = Context()
     context.elicit = AsyncMock(side_effect=[
         AcceptedElicitation(data="REL-001"),
         AcceptedElicitation(data="PROD"),
         AcceptedElicitation(data="yes")  # Confirmation
     ])
-    
+
     result = await deploy_release_interactive.fn(
         ctx=context,
         srid="TEST123"
     )
-    
+
     assert "deployment initiated" in result.lower()
 ```
 
@@ -687,8 +687,8 @@ async def test_deployment_confirmation():
 
 ### **Story 4.2: Custom Routes & Monitoring**
 
-**As a** system administrator  
-**I want** monitoring and health check endpoints  
+**As a** system administrator
+**I want** monitoring and health check endpoints
 **So that** I can monitor server health and performance
 
 #### **EARS Requirements**
@@ -725,9 +725,9 @@ async def test_deployment_confirmation():
 def test_health_endpoint():
     """Health endpoint works correctly."""
     response = requests.get("http://localhost:8080/health")
-    
+
     assert response.status_code == 200
-    
+
     health_data = response.json()
     assert "status" in health_data
     assert health_data["status"] in ["healthy", "degraded", "unhealthy"]
@@ -737,9 +737,9 @@ def test_health_endpoint():
 def test_metrics_endpoint():
     """Metrics endpoint provides performance data."""
     response = requests.get("http://localhost:8080/metrics")
-    
+
     assert response.status_code == 200
-    
+
     metrics = response.json()
     assert "response_times" in metrics
     assert "success_rate" in metrics
@@ -749,7 +749,7 @@ def test_metrics_endpoint():
 def test_cors_headers():
     """CORS headers are included in responses."""
     response = requests.options("http://localhost:8080/health")
-    
+
     assert "Access-Control-Allow-Origin" in response.headers
     assert "Access-Control-Allow-Methods" in response.headers
     assert "Access-Control-Allow-Headers" in response.headers
@@ -758,12 +758,12 @@ def test_cors_headers():
 def test_endpoint_response_times():
     """All endpoints respond quickly."""
     endpoints = ["/health", "/ready", "/metrics", "/status"]
-    
+
     for endpoint in endpoints:
         start_time = time.time()
         response = requests.get(f"http://localhost:8080{endpoint}")
         response_time = time.time() - start_time
-        
+
         assert response.status_code == 200
         assert response_time < 0.1  # 100ms
 ```
@@ -780,8 +780,8 @@ def test_endpoint_response_times():
 
 ### **Story 5.1: Caching System**
 
-**As a** performance engineer  
-**I want** intelligent caching  
+**As a** performance engineer
+**I want** intelligent caching
 **So that** frequently accessed data is served quickly
 
 #### **EARS Requirements**
@@ -818,12 +818,12 @@ def test_endpoint_response_times():
 def test_cache_functionality():
     """Cache stores and retrieves data correctly."""
     from main import IntelligentCache
-    
+
     cache = IntelligentCache(max_size=100, default_ttl=300)
-    
+
     # Store data
     cache.set("test_key", {"data": "test_value"})
-    
+
     # Retrieve data
     result = cache.get("test_key")
     assert result is not None
@@ -833,36 +833,36 @@ def test_cache_ttl_expiration():
     """Cache respects TTL expiration."""
     from main import IntelligentCache
     import time
-    
+
     cache = IntelligentCache(max_size=100, default_ttl=1)  # 1 second TTL
-    
+
     cache.set("expire_key", {"data": "expires"})
-    
+
     # Should exist immediately
     assert cache.get("expire_key") is not None
-    
+
     # Wait for expiration
     time.sleep(1.1)
-    
+
     # Should be expired
     assert cache.get("expire_key") is None
 
 def test_cache_lru_eviction():
     """Cache evicts least recently used items."""
     from main import IntelligentCache
-    
+
     cache = IntelligentCache(max_size=2, default_ttl=300)
-    
+
     # Fill cache
     cache.set("key1", "value1")
     cache.set("key2", "value2")
-    
+
     # Access key1 to make it more recently used
     cache.get("key1")
-    
+
     # Add third item, should evict key2
     cache.set("key3", "value3")
-    
+
     assert cache.get("key1") is not None  # Recently used
     assert cache.get("key2") is None      # Evicted
     assert cache.get("key3") is not None  # New item
@@ -870,10 +870,10 @@ def test_cache_lru_eviction():
 async def test_cache_metrics():
     """Cache metrics are tracked correctly."""
     from main import get_cache_stats
-    
+
     result = await get_cache_stats.fn()
     stats = json.loads(result)
-    
+
     assert "hit_rate" in stats
     assert "total_requests" in stats
     assert "cache_size" in stats
@@ -884,17 +884,17 @@ def test_cache_performance():
     """Cache improves response times."""
     from main import get_assignments
     import time
-    
+
     # First request (cache miss)
     start_time = time.time()
     result1 = await get_assignments.fn(srid="TEST123")
     first_response_time = time.time() - start_time
-    
+
     # Second request (cache hit)
     start_time = time.time()
     result2 = await get_assignments.fn(srid="TEST123")
     second_response_time = time.time() - start_time
-    
+
     # Cache hit should be significantly faster
     assert second_response_time < first_response_time * 0.5
     assert result1 == result2  # Same data
@@ -910,8 +910,8 @@ def test_cache_performance():
 
 ### **Story 5.2: Rate Limiting**
 
-**As a** system administrator  
-**I want** rate limiting protection  
+**As a** system administrator
+**I want** rate limiting protection
 **So that** the server is protected from abuse
 
 #### **EARS Requirements**
@@ -946,18 +946,18 @@ def test_cache_performance():
 def test_rate_limiting_enforcement():
     """Rate limiting enforces request limits."""
     import time
-    
+
     # Configure low rate limit for testing
     with patch.dict(os.environ, {"RATE_LIMIT_PER_MINUTE": "5"}):
         # Make requests up to limit
         for i in range(5):
             response = requests.get("http://localhost:8080/health")
             assert response.status_code == 200
-        
+
         # Next request should be rate limited
         response = requests.get("http://localhost:8080/health")
         assert response.status_code == 429
-        
+
         # Check rate limit headers
         assert "X-RateLimit-Limit" in response.headers
         assert "X-RateLimit-Remaining" in response.headers
@@ -966,14 +966,14 @@ def test_rate_limiting_enforcement():
 def test_rate_limit_burst_capacity():
     """Rate limiting allows burst capacity."""
     from main import RateLimiter
-    
+
     limiter = RateLimiter(requests_per_minute=60, burst_size=10)
-    
+
     # Should allow burst of requests
     for i in range(10):
         result = await limiter.acquire()
         assert result is True
-    
+
     # Should reject after burst exhausted
     result = await limiter.acquire()
     assert result is False
@@ -982,19 +982,19 @@ def test_rate_limit_recovery():
     """Rate limiting recovers after time window."""
     from main import RateLimiter
     import asyncio
-    
+
     limiter = RateLimiter(requests_per_minute=60, burst_size=1)
-    
+
     # Exhaust rate limit
     result = await limiter.acquire()
     assert result is True
-    
+
     result = await limiter.acquire()
     assert result is False
-    
+
     # Wait for token refill
     await asyncio.sleep(1.1)
-    
+
     # Should be able to make request again
     result = await limiter.acquire()
     assert result is True
@@ -1002,10 +1002,10 @@ def test_rate_limit_recovery():
 async def test_rate_limit_monitoring():
     """Rate limit status is available via monitoring."""
     from main import get_rate_limiter_status
-    
+
     result = await get_rate_limiter_status.fn()
     status = json.loads(result)
-    
+
     assert "requests_per_minute" in status
     assert "burst_size" in status
     assert "current_tokens" in status
@@ -1024,8 +1024,8 @@ async def test_rate_limit_monitoring():
 
 ### **Story 6.1: Comprehensive Test Suite**
 
-**As a** quality engineer  
-**I want** comprehensive test coverage  
+**As a** quality engineer
+**I want** comprehensive test coverage
 **So that** the system is reliable and maintainable
 
 #### **EARS Requirements**
@@ -1064,7 +1064,7 @@ async def test_rate_limit_monitoring():
 ```
 tests/
 ├── test_main.py                    # Main functionality tests (81 tests)
-├── test_openapi_server.py         # OpenAPI server tests (74 tests)  
+├── test_openapi_server.py         # OpenAPI server tests (74 tests)
 ├── test_fastmcp_server.py         # Integration tests (178 tests)
 ├── test_debug.py                   # Debug script tests
 ├── test_entrypoint.py              # Entrypoint tests
@@ -1078,10 +1078,10 @@ tests/
 def test_coverage_threshold():
     """Test coverage meets minimum threshold."""
     import coverage
-    
+
     cov = coverage.Coverage()
     cov.load()
-    
+
     total_coverage = cov.report()
     assert total_coverage >= 85.0, f"Coverage {total_coverage}% below threshold"
 
@@ -1089,17 +1089,17 @@ def test_all_validation_functions_tested():
     """All validation functions have tests."""
     import inspect
     import main
-    
+
     validation_functions = [
         name for name, obj in inspect.getmembers(main)
         if name.startswith('validate_') and callable(obj)
     ]
-    
+
     # Check each validation function has tests
     test_file_path = "tests/test_main.py"
     with open(test_file_path) as f:
         test_content = f.read()
-    
+
     for func_name in validation_functions:
         test_name = f"test_{func_name}"
         assert test_name in test_content, f"Missing test for {func_name}"
@@ -1112,18 +1112,18 @@ def test_no_skipped_tests():
             capture_output=True,
             text=True
         )
-        
+
         assert "SKIPPED" not in result.stdout, "Skipped tests found in CI"
 
 def test_performance_benchmarks():
     """Performance benchmarks are within acceptable limits."""
     import time
-    
+
     # Test critical path performance
     start_time = time.time()
     response = requests.get("http://localhost:8080/health")
     response_time = time.time() - start_time
-    
+
     assert response.status_code == 200
     assert response_time < 0.5, f"Health check too slow: {response_time}s"
 ```
@@ -1138,8 +1138,8 @@ def test_performance_benchmarks():
 
 ### **Story 6.2: Continuous Integration**
 
-**As a** development team  
-**I want** automated CI/CD pipelines  
+**As a** development team
+**I want** automated CI/CD pipelines
 **So that** code quality is maintained automatically
 
 #### **EARS Requirements**
@@ -1188,36 +1188,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
+
       - name: Run tests with coverage
         run: |
           pytest tests/ --cov=. --cov-report=xml --cov-report=term
-      
+
       - name: Check coverage threshold
         run: |
           coverage report --fail-under=85
-      
+
       - name: Run code quality checks
         run: |
           black --check .
           flake8 .
           isort --check-only .
-  
+
   security:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Run security scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -1225,17 +1225,17 @@ jobs:
           scan-ref: '.'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
-  
+
   build:
     needs: [test, security]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build Docker image
         run: |
           docker build -t fastmcp-server:${{ github.sha }} .
-      
+
       - name: Scan Docker image
         uses: aquasecurity/trivy-action@master
         with:
@@ -1256,8 +1256,8 @@ jobs:
 
 ### **Story 7.1: Comprehensive Documentation**
 
-**As a** developer  
-**I want** complete documentation  
+**As a** developer
+**I want** complete documentation
 **So that** I can understand and use the system effectively
 
 #### **EARS Requirements**
@@ -1312,12 +1312,12 @@ docs/
 def test_all_tools_documented():
     """All MCP tools are documented."""
     from openapi_server import server
-    
+
     tools = server.list_tools()
-    
+
     with open("docs/api-reference.md") as f:
         doc_content = f.read()
-    
+
     for tool in tools:
         tool_name = tool["name"]
         assert tool_name in doc_content, f"Tool not documented: {tool_name}"
@@ -1326,16 +1326,16 @@ def test_documentation_links():
     """Documentation links are not broken."""
     import re
     import glob
-    
+
     docs_files = glob.glob("docs/**/*.md", recursive=True)
-    
+
     for doc_file in docs_files:
         with open(doc_file) as f:
             content = f.read()
-        
+
         # Find relative file links
         links = re.findall(r'\[.*?\]\(([^http][^)]*)\)', content)
-        
+
         for link in links:
             if not link.startswith('#'):  # Skip anchor links
                 link_path = os.path.join(os.path.dirname(doc_file), link)
@@ -1344,13 +1344,13 @@ def test_documentation_links():
 def test_code_examples_valid():
     """Code examples in documentation are valid."""
     import re
-    
+
     with open("docs/api-documentation.md") as f:
         content = f.read()
-    
+
     # Extract Python code blocks
     code_blocks = re.findall(r'```python\n(.*?)\n```', content, re.DOTALL)
-    
+
     for i, code in enumerate(code_blocks):
         try:
             compile(code, f"example_{i}", 'exec')
@@ -1361,7 +1361,7 @@ def test_openapi_spec_published():
     """OpenAPI specification is available."""
     response = requests.get("http://localhost:8080/openapi.json")
     assert response.status_code == 200
-    
+
     spec = response.json()
     assert "openapi" in spec
     assert spec["openapi"].startswith("3.")
@@ -1510,8 +1510,8 @@ This FastMCP server implementation successfully meets all requirements for a pro
 
 ---
 
-**Document Version**: 2.4.0 (EARS Enhanced)  
-**Last Updated**: January 2025  
-**EARS Enhancement**: Complete with 170 structured requirements  
-**Next Review**: February 2025  
+**Document Version**: 2.4.0 (EARS Enhanced)
+**Last Updated**: January 2025
+**EARS Enhancement**: Complete with 170 structured requirements
+**Next Review**: February 2025
 **Status**: ✅ Production Ready with EARS Compliance

@@ -22,10 +22,7 @@ from main import (
     Settings,
     create_auth_provider,
     retry_on_failure,
-    validate_assignment_id,
-    validate_environment,
     validate_level,
-    validate_release_id,
     validate_srid,
 )
 
@@ -773,7 +770,7 @@ class TestErrorHandling:
 
     def test_error_handler_initialization(self):
         """Test error handler initialization."""
-        from main import ErrorHandler, Metrics, Settings
+        from main import ErrorHandler, Settings
 
         settings = Settings()
         metrics = initialize_metrics()
@@ -1045,7 +1042,7 @@ class TestErrorHandling:
 
     def test_error_response_with_metrics(self):
         """Test error response creation with metrics integration."""
-        from main import BMCAPIError, ErrorHandler, Metrics, Settings
+        from main import BMCAPIError, ErrorHandler, Settings
 
         settings = Settings()
         metrics = initialize_metrics()
@@ -1208,7 +1205,7 @@ class TestErrorHandling:
 
     def test_error_response_with_metrics(self):
         """Test error response creation with metrics integration."""
-        from main import BMCAPIError, ErrorHandler, Metrics, Settings
+        from main import BMCAPIError, ErrorHandler, Settings
 
         settings = Settings()
         metrics = initialize_metrics()
@@ -1334,7 +1331,6 @@ class TestMCPToolsComprehensive:
         context.info = unittest.mock.AsyncMock()
         context.error = unittest.mock.AsyncMock()
         return context
-
 
 
 class TestSettingsComprehensive:
@@ -1873,7 +1869,6 @@ class TestServerInitialization:
 
         provider = create_auth_provider(invalid_settings)
         assert provider is None
-
 
 
 class TestAdditionalCoverage:
@@ -2535,7 +2530,6 @@ class TestAdditionalFunctionality:
 
         assert result == "success"
         mock_metrics.successful_requests += 1
-
 
     def test_create_auth_provider_with_none_settings(self):
         """Test create_auth_provider with None settings."""

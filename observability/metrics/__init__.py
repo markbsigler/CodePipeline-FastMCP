@@ -10,12 +10,7 @@ from .hybrid_metrics import (
     HybridMetrics,
     LegacyMetrics,
     get_metrics,
-    initialize_metrics
+    initialize_metrics,
 )
 
-__all__ = [
-    "HybridMetrics",
-    "LegacyMetrics", 
-    "get_metrics",
-    "initialize_metrics"
-]
+__all__ = ["HybridMetrics", "LegacyMetrics", "get_metrics", "initialize_metrics"]
